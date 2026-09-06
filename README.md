@@ -1,3 +1,64 @@
+# ★★ Lesson 12 — Advanced Playwright CI Lab
+
+[![Advanced Playwright CI](https://github.com/TokhirjonYuldoshev/pomidorqa-course-tests/actions/workflows/playwright.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-course-tests/actions/workflows/playwright.yml)
+[![Stability Check](https://github.com/TokhirjonYuldoshev/pomidorqa-course-tests/actions/workflows/stability.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-course-tests/actions/workflows/stability.yml)
+
+Личный CI-стенд для дополнительного задания ★★ Урока 12. Общий учебный репозиторий остаётся источником тестов, а здесь отдельно отрабатывается архитектура CI/CD для Playwright + TypeScript.
+
+## Pipeline architecture
+
+```mermaid
+flowchart LR
+    A[PR / push / manual] --> Q[Quality\nESLint + TypeScript]
+    A --> U[Unit]
+    A --> P[API]
+    Q --> E[E2E / Chromium]
+    U --> E
+    P --> E
+    E --> S[CI Summary + Artifacts]
+```
+
+Три дешёвых независимых gate — **Quality**, **Unit** и **API** — стартуют параллельно. Дорогой E2E-job запускается только после успешного завершения всех трёх.
+
+## Что здесь сделано
+
+- **Quality gates:** ESLint и строгий TypeScript `tsc --noEmit`.
+- **Fast feedback:** Quality, Unit и API выполняются параллельно.
+- **Browser isolation:** Unit/API не устанавливают Chromium и не тратят runner-time на браузерную инфраструктуру.
+- **E2E gate:** браузерные тесты стартуют только после успешных быстрых проверок.
+- **Shared-stand policy:** основной CI запускает E2E с одним worker, чтобы не создавать искусственную конкуренцию за пользователей, слоты и бронирования на общем живом стенде.
+- **Retry policy:** Unit/API не ретраятся; retries разрешены только E2E в CI. Отдельный stability workflow всегда работает с `retries=0`.
+- **Safety:** `permissions: contents: read`, `forbidOnly` и автоматическая отмена устаревших run одного PR.
+- **Deterministic install:** зависимости ставятся через `npm ci`.
+- **Two-level cache:** npm cache через `setup-node`; Chromium cache привязан к OS, архитектуре runner и точной версии Playwright.
+- **Correct browser cache semantics:** Linux system dependencies устанавливаются всегда, сам Chromium скачивается только при cache miss.
+- **Diagnostics:** GitHub test annotations, HTML report, trace / screenshot / video на падениях и отдельный `test-results` artifact.
+- **CI summary:** итог всех gates публикуется прямо в GitHub Actions Job Summary.
+
+## Stability workflow
+
+Отдельный ручной `Playwright Stability Check` предназначен не для «сделать красный тест зелёным», а для поиска flaky-поведения:
+
+- сценарий: `booking-flow` или весь E2E-suite;
+- `repeat-each`: 5 или 10;
+- workers: 1 или 2;
+- `retries=0` — ни одно падение не маскируется повторным запуском;
+- HTML report и failure diagnostics сохраняются независимо от результата.
+
+Stability check не запускается по cron: E2E работает с общим живым стендом PomidorQA, поэтому фоновые stress-run создавали бы лишнюю нагрузку и тестовые данные.
+
+## Основные команды
+
+```bash
+npm run lint
+npm run typecheck
+npm run test:unit
+npm run test:api
+npm run test:e2e
+```
+
+---
+
 # PomidorQA — тесты марафона «Автоматизация на Playwright + TypeScript»
 
 Официальный репозиторий марафона. Здесь живут эталонные автотесты на продукт

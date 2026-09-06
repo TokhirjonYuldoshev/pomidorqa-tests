@@ -9,6 +9,7 @@
     "test:api": "playwright test --project=api",
     "test:e2e": "playwright test --project=e2e",
     "lint": "eslint tests",
+    "typecheck": "tsc --noEmit",
     "report": "playwright show-report"
   },
   "devDependencies": {

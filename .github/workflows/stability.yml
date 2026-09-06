@@ -1,0 +1,148 @@
+name: Playwright Stability Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: E2E scenario to stress-test
+        required: true
+        default: booking-flow
+        type: choice
+        options:
+          - booking-flow
+          - all-e2e
+      repeat_each:
+        description: Number of repetitions
+        required: true
+        default: "5"
+        type: choice
+        options:
+          - "5"
+          - "10"
+      workers:
+        description: Number of workers
+        required: true
+        default: "1"
+        type: choice
+        options:
+          - "1"
+          - "2"
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  stability:
+    name: E2E stability / ${{ inputs.scenario }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve Playwright version
+        id: playwright_version
+        run: |
+          PLAYWRIGHT_VERSION=$(node -p "require('@playwright/test/package.json').version")
+          echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browser
+        id: browser_cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ steps.playwright_version.outputs.version }}
+
+      - name: Install Chromium system dependencies
+        run: npx playwright install-deps chromium
+
+      - name: Install Chromium browser on cache miss
+        if: steps.browser_cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+
+      - name: Resolve test target
+        id: target
+        env:
+          SCENARIO: ${{ inputs.scenario }}
+        run: |
+          case "$SCENARIO" in
+            booking-flow)
+              echo "path=tests/e2e/booking-flow.spec.ts" >> "$GITHUB_OUTPUT"
+              ;;
+            all-e2e)
+              echo "path=tests/e2e" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unsupported scenario: $SCENARIO" >&2
+              exit 2
+              ;;
+          esac
+
+      - name: Run stability test without retries
+        id: stability_run
+        continue-on-error: true
+        env:
+          CI: true
+        run: >-
+          npx playwright test --project=e2e "${{ steps.target.outputs.path }}"
+          --repeat-each=${{ inputs.repeat_each }}
+          --workers=${{ inputs.workers }}
+          --retries=0
+
+      - name: Upload stability HTML report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: stability-report-${{ github.run_id }}
+          path: playwright-report/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload stability diagnostics
+        if: ${{ steps.stability_run.outcome == 'failure' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: stability-results-${{ github.run_id }}
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Publish stability summary
+        if: ${{ always() }}
+        env:
+          OUTCOME: ${{ steps.stability_run.outcome }}
+          CACHE_HIT: ${{ steps.browser_cache.outputs.cache-hit }}
+        run: |
+          if [ "$OUTCOME" = "success" ]; then
+            RESULT="✅ stable in this run"
+          else
+            RESULT="❌ flake/failure detected"
+          fi
+
+          {
+            echo "## 🔁 Playwright stability check"
+            echo
+            echo "- Scenario: \`${{ inputs.scenario }}\`"
+            echo "- Repeat each: \`${{ inputs.repeat_each }}\`"
+            echo "- Workers: \`${{ inputs.workers }}\`"
+            echo "- Retries: \`0\` (failures are not masked)"
+            echo "- Browser cache hit: \`${CACHE_HIT:-n/a}\`"
+            echo "- Result: ${RESULT}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail workflow when stability check failed
+        if: ${{ steps.stability_run.outcome == 'failure' }}
+        run: exit 1
