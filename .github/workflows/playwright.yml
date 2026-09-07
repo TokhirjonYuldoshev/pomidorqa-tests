@@ -1,5 +1,5 @@
-name: Advanced Playwright CI
-run-name: "🧪 PomidorQA CI • ${{ github.head_ref || github.ref_name }} • ${{ github.actor }}"
+name: "🍅 PomidorQA CI"
+run-name: "🍅 PomidorQA CI • ${{ github.head_ref || github.ref_name }} • ${{ github.actor }}"
 
 on:
   pull_request:
@@ -176,7 +176,7 @@ jobs:
           }
 
           {
-            echo "## 🧪 PomidorQA CI summary"
+            echo "## 🍅 PomidorQA CI summary"
             echo
             echo "| Gate | Result |"
             echo "| --- | --- |"
@@ -267,7 +267,7 @@ jobs:
           EVENT_HTML="$(escape_html "$(event_label "$GITHUB_EVENT_NAME")")"
 
           MESSAGE=$(cat <<EOF
-          🧪 <b>PomidorQA CI</b>
+          🍅 <b>PomidorQA CI</b>
           <i>Автоматические проверки проекта</i>
 
           ━━━━━━━━━━━━━━
