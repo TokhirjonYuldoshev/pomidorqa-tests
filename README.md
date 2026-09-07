@@ -16,6 +16,10 @@ flowchart LR
     U --> E
     P --> E
     E --> S[CI Summary + Artifacts]
+    Q -. result .-> T[Telegram notification]
+    U -. result .-> T
+    P -. result .-> T
+    E -. result .-> T
 ```
 
 Три дешёвых независимых gate — **Quality**, **Unit** и **API** — стартуют параллельно. Дорогой E2E-job запускается только после успешного завершения всех трёх.
@@ -34,6 +38,7 @@ flowchart LR
 - **Correct browser cache semantics:** Linux system dependencies устанавливаются всегда, сам Chromium скачивается только при cache miss.
 - **Diagnostics:** GitHub test annotations, HTML report, trace / screenshot / video на падениях и отдельный `test-results` artifact.
 - **CI summary:** итог всех gates публикуется прямо в GitHub Actions Job Summary.
+- **Telegram notifications:** финальный статус Quality / Unit / API / E2E отправляется в Telegram и содержит ссылку на конкретный Actions run.
 
 ## Stability workflow
 
@@ -46,6 +51,17 @@ flowchart LR
 - HTML report и failure diagnostics сохраняются независимо от результата.
 
 Stability check не запускается по cron: E2E работает с общим живым стендом PomidorQA, поэтому фоновые stress-run создавали бы лишнюю нагрузку и тестовые данные.
+
+## Telegram notifications
+
+Job `Telegram Notification` запускается через `if: always()` и сообщает итог CI даже при падении одного из gates. Он использует напрямую официальный Telegram Bot API через `curl`, без неприкреплённого third-party GitHub Action. Ошибка Telegram API или отсутствие секретов не меняют результат тестового pipeline.
+
+В `Settings → Secrets and variables → Actions` нужны два repository secret:
+
+- `TELEGRAM_BOT_TOKEN` — токен бота от BotFather;
+- `TELEGRAM_CHAT_ID` — ID личного чата или группы, куда бот отправляет сообщения.
+
+Если секреты ещё не настроены, notification job завершится успешно с notice и ничего не отправит. Значения токена и chat ID не хранятся в репозитории и не должны попадать в workflow-файл.
 
 ## Основные команды
 

@@ -191,3 +191,121 @@ jobs:
             echo "- Playwright browser cache hit: \`${CACHE_HIT:-n/a}\`"
             echo "- Run: [#${GITHUB_RUN_NUMBER}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  notify:
+    name: Telegram Notification
+    if: ${{ always() }}
+    needs: [quality, unit, api, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Send CI result to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          QUALITY: ${{ needs.quality.result }}
+          UNIT: ${{ needs.unit.result }}
+          API: ${{ needs.api.result }}
+          E2E: ${{ needs.e2e.result }}
+        run: |
+          if [[ -z "$TELEGRAM_BOT_TOKEN" || -z "$TELEGRAM_CHAT_ID" ]]; then
+            echo "::notice::Telegram secrets are not configured; notification skipped."
+            exit 0
+          fi
+
+          result_label() {
+            case "$1" in
+              success) echo "✅ Успешно" ;;
+              failure) echo "❌ Ошибка" ;;
+              cancelled) echo "⏹️ Отменено" ;;
+              skipped) echo "⏭️ Пропущено" ;;
+              *) echo "❔ $1" ;;
+            esac
+          }
+
+          event_label() {
+            case "$1" in
+              pull_request) echo "Pull Request" ;;
+              push) echo "Push в репозиторий" ;;
+              workflow_dispatch) echo "Ручной запуск" ;;
+              *) echo "$1" ;;
+            esac
+          }
+
+          escape_html() {
+            local text="$1"
+            text="${text//&/&amp;}"
+            text="${text//</&lt;}"
+            text="${text//>/&gt;}"
+            printf '%s' "$text"
+          }
+
+          if [[ "$QUALITY" == "failure" || "$UNIT" == "failure" || "$API" == "failure" || "$E2E" == "failure" ]]; then
+            OVERALL_ICON="❌"
+            OVERALL_TITLE="СБОРКА ЗАВЕРШИЛАСЬ С ОШИБКОЙ"
+            OVERALL_SUBTITLE="Одна или несколько проверок не пройдены"
+          elif [[ "$QUALITY" == "cancelled" || "$UNIT" == "cancelled" || "$API" == "cancelled" || "$E2E" == "cancelled" ]]; then
+            OVERALL_ICON="⏹️"
+            OVERALL_TITLE="СБОРКА ОТМЕНЕНА"
+            OVERALL_SUBTITLE="Выполнение пайплайна было остановлено"
+          elif [[ "$QUALITY" == "success" && "$UNIT" == "success" && "$API" == "success" && "$E2E" == "success" ]]; then
+            OVERALL_ICON="✅"
+            OVERALL_TITLE="ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ"
+            OVERALL_SUBTITLE="Сборка завершена успешно"
+          else
+            OVERALL_ICON="⚠️"
+            OVERALL_TITLE="СБОРКА ЗАВЕРШЕНА НЕ ПОЛНОСТЬЮ"
+            OVERALL_SUBTITLE="Часть проверок была пропущена"
+          fi
+
+          BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          REPOSITORY_HTML="$(escape_html "$GITHUB_REPOSITORY")"
+          BRANCH_HTML="$(escape_html "$BRANCH")"
+          ACTOR_HTML="$(escape_html "$GITHUB_ACTOR")"
+          EVENT_HTML="$(escape_html "$(event_label "$GITHUB_EVENT_NAME")")"
+
+          MESSAGE=$(cat <<EOF
+          🧪 <b>PomidorQA CI</b>
+          <i>Автоматические проверки проекта</i>
+
+          ━━━━━━━━━━━━━━
+          ${OVERALL_ICON} <b>${OVERALL_TITLE}</b>
+          <i>${OVERALL_SUBTITLE}</i>
+          ━━━━━━━━━━━━━━
+
+          📦 <b>Репозиторий</b>
+          <code>${REPOSITORY_HTML}</code>
+
+          🌿 <b>Ветка</b>
+          <code>${BRANCH_HTML}</code>
+
+          ⚡ <b>Событие:</b> ${EVENT_HTML}
+          👤 <b>Автор:</b> ${ACTOR_HTML}
+
+          📋 <b>Результаты проверок</b>
+          <blockquote>$(result_label "$QUALITY")  Линт и типизация
+          $(result_label "$UNIT")  Unit tests
+          $(result_label "$API")  API tests
+          $(result_label "$E2E")  E2E / Chromium</blockquote>
+
+          🔗 <a href="${RUN_URL}"><b>Открыть запуск в GitHub Actions</b></a>
+          <i>Запуск #${GITHUB_RUN_NUMBER}</i>
+          EOF
+          )
+
+          if ! curl --silent --show-error --fail-with-body \
+            --retry 2 \
+            --retry-all-errors \
+            --connect-timeout 10 \
+            --max-time 20 \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MESSAGE}" \
+            --data-urlencode "parse_mode=HTML" \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            > /tmp/telegram-response.json; then
+            echo "::warning::Telegram notification could not be sent. CI result is not affected."
+            exit 0
+          fi
+
+          echo "Telegram notification sent."
