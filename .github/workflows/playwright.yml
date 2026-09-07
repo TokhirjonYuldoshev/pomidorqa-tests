@@ -165,32 +165,83 @@ jobs:
           E2E: ${{ needs.e2e.result }}
           CACHE_HIT: ${{ needs.e2e.outputs.browser_cache_hit }}
         run: |
-          status_icon() {
+          status_ru() {
             case "$1" in
-              success) echo "✅ success" ;;
-              failure) echo "❌ failure" ;;
-              cancelled) echo "⏹️ cancelled" ;;
-              skipped) echo "⏭️ skipped" ;;
+              success) echo "✅ Успешно" ;;
+              failure) echo "❌ Ошибка" ;;
+              cancelled) echo "⏹️ Отменено" ;;
+              skipped) echo "⏭️ Пропущено" ;;
               *) echo "❔ $1" ;;
             esac
           }
 
+          if [[ "$QUALITY" == "success" && "$UNIT" == "success" && "$API" == "success" && "$E2E" == "success" ]]; then
+            OVERALL="✅ ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ"
+            OVERALL_NOTE="Сборка завершена успешно и готова к слиянию."
+          elif [[ "$QUALITY" == "failure" || "$UNIT" == "failure" || "$API" == "failure" || "$E2E" == "failure" ]]; then
+            OVERALL="❌ ЕСТЬ ОШИБКИ"
+            OVERALL_NOTE="Одна или несколько проверок завершились с ошибкой."
+          elif [[ "$QUALITY" == "cancelled" || "$UNIT" == "cancelled" || "$API" == "cancelled" || "$E2E" == "cancelled" ]]; then
+            OVERALL="⏹️ ЗАПУСК ОТМЕНЁН"
+            OVERALL_NOTE="Выполнение pipeline было остановлено."
+          else
+            OVERALL="⚠️ ПРОВЕРКИ ЗАВЕРШЕНЫ НЕ ПОЛНОСТЬЮ"
+            OVERALL_NOTE="Часть проверок была пропущена."
+          fi
+
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+
           {
-            echo "## 🍅 PomidorQA CI summary"
+            echo "# 🍅 PomidorQA CI"
+            echo "_Автоматические проверки проекта_"
             echo
-            echo "| Gate | Result |"
-            echo "| --- | --- |"
-            echo "| ESLint + TypeScript | $(status_icon "$QUALITY") |"
-            echo "| Unit | $(status_icon "$UNIT") |"
-            echo "| API | $(status_icon "$API") |"
-            echo "| E2E / Chromium | $(status_icon "$E2E") |"
+            echo "> **${OVERALL}**  "
+            echo "> ${OVERALL_NOTE}"
             echo
-            echo "**Environment**"
-            echo "- Node.js: 24"
-            echo "- E2E workers: 1 (shared live stand)"
-            echo "- E2E retries: 2"
-            echo "- Playwright browser cache hit: \`${CACHE_HIT:-n/a}\`"
-            echo "- Run: [#${GITHUB_RUN_NUMBER}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})"
+            echo "<table>"
+            echo "<tr>"
+            echo "<td valign=\"top\" width=\"58%\">"
+            echo "<h3>📋 Результаты проверок</h3>"
+            echo "<table>"
+            echo "<tr><th>Проверка</th><th>Результат</th></tr>"
+            echo "<tr><td>ESLint + TypeScript</td><td>$(status_ru "$QUALITY")</td></tr>"
+            echo "<tr><td>Unit</td><td>$(status_ru "$UNIT")</td></tr>"
+            echo "<tr><td>API</td><td>$(status_ru "$API")</td></tr>"
+            echo "<tr><td>E2E / Chromium</td><td>$(status_ru "$E2E")</td></tr>"
+            echo "</table>"
+            echo "<h3>⚙️ Окружение</h3>"
+            echo "<ul>"
+            echo "<li>Node.js: <strong>24</strong></li>"
+            echo "<li>E2E workers: <strong>1</strong> (shared live stand)</li>"
+            echo "<li>E2E retries: <strong>2</strong></li>"
+            echo "<li>Кэш браузера Playwright: <code>${CACHE_HIT:-n/a}</code></li>"
+            echo "</ul>"
+            echo "</td>"
+            echo "<td valign=\"top\" width=\"42%\">"
+            echo "<h3>✈️ Telegram-уведомления</h3>"
+            echo "<p><strong>✅ Уведомления включены</strong></p>"
+            echo "<p>После завершения CI бот отправляет в Telegram:</p>"
+            echo "<ul>"
+            echo "<li>общий статус сборки;</li>"
+            echo "<li>результаты Quality / Unit / API / E2E;</li>"
+            echo "<li>ветку, автора и событие запуска;</li>"
+            echo "<li>прямую ссылку на GitHub Actions run.</li>"
+            echo "</ul>"
+            echo "<p>🤖 <a href=\"https://t.me/Tokhirjon_QA_Bot\"><strong>@Tokhirjon_QA_Bot</strong></a></p>"
+            echo "<p>🍅 <em>CI всегда с тобой.</em></p>"
+            echo "</td>"
+            echo "</tr>"
+            echo "</table>"
+            echo
+            echo "### 🚀 Запуск"
+            echo "- Репозиторий: \`${GITHUB_REPOSITORY}\`"
+            echo "- Ветка: \`${BRANCH}\`"
+            echo "- Автор: \`${GITHUB_ACTOR}\`"
+            echo "- Run: [#${GITHUB_RUN_NUMBER}](${RUN_URL})"
+            echo
+            echo "---"
+            echo "_PomidorQA • Качественный код сегодня — уверенный релиз завтра 🍅_"
           } >> "$GITHUB_STEP_SUMMARY"
 
   notify:
