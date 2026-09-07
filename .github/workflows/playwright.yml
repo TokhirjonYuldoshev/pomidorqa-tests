@@ -171,8 +171,32 @@ jobs:
               failure) echo "❌ Ошибка" ;;
               cancelled) echo "⏹️ Отменено" ;;
               skipped) echo "⏭️ Пропущено" ;;
-              *) echo "❔ $1" ;;
+              *) echo "❔ ${1:-unknown}" ;;
             esac
+          }
+
+          event_ru() {
+            case "$1" in
+              pull_request) echo "Pull Request" ;;
+              push) echo "Push в репозиторий" ;;
+              workflow_dispatch) echo "Ручной запуск" ;;
+              *) echo "$1" ;;
+            esac
+          }
+
+          cache_ru() {
+            case "$1" in
+              true) echo "✅ Hit" ;;
+              false) echo "⬇️ Miss" ;;
+              *) echo "➖ n/a" ;;
+            esac
+          }
+
+          md_escape() {
+            local text="$1"
+            text="${text//$'\n'/ }"
+            text="${text//|/\\|}"
+            printf '%s' "$text"
           }
 
           if [[ "$QUALITY" == "success" && "$UNIT" == "success" && "$API" == "success" && "$E2E" == "success" ]]; then
@@ -190,58 +214,57 @@ jobs:
           fi
 
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          ARTIFACTS_URL="${RUN_URL}#artifacts"
           BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          EVENT="$(event_ru "$GITHUB_EVENT_NAME")"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+          BRANCH_MD="$(md_escape "$BRANCH")"
+          EVENT_MD="$(md_escape "$EVENT")"
+          ACTOR_MD="$(md_escape "$GITHUB_ACTOR")"
 
           {
-            echo "# 🍅 PomidorQA CI"
-            echo "_Автоматические проверки проекта_"
+            echo "# 🍅 PomidorQA CI Summary"
+            echo "_Автоматические проверки проекта • один нативный GitHub Actions Summary_"
             echo
-            echo "> **${OVERALL}**  "
+            echo "## ${OVERALL}"
             echo "> ${OVERALL_NOTE}"
             echo
-            echo "<table>"
-            echo "<tr>"
-            echo "<td valign=\"top\" width=\"58%\">"
-            echo "<h3>📋 Результаты проверок</h3>"
-            echo "<table>"
-            echo "<tr><th>Проверка</th><th>Результат</th></tr>"
-            echo "<tr><td>ESLint + TypeScript</td><td>$(status_ru "$QUALITY")</td></tr>"
-            echo "<tr><td>Unit</td><td>$(status_ru "$UNIT")</td></tr>"
-            echo "<tr><td>API</td><td>$(status_ru "$API")</td></tr>"
-            echo "<tr><td>E2E / Chromium</td><td>$(status_ru "$E2E")</td></tr>"
-            echo "</table>"
-            echo "<h3>⚙️ Окружение</h3>"
-            echo "<ul>"
-            echo "<li>Node.js: <strong>24</strong></li>"
-            echo "<li>E2E workers: <strong>1</strong> (shared live stand)</li>"
-            echo "<li>E2E retries: <strong>2</strong></li>"
-            echo "<li>Кэш браузера Playwright: <code>${CACHE_HIT:-n/a}</code></li>"
-            echo "</ul>"
-            echo "</td>"
-            echo "<td valign=\"top\" width=\"42%\">"
-            echo "<h3>✈️ Telegram-уведомления</h3>"
-            echo "<p><strong>✅ Уведомления включены</strong></p>"
-            echo "<p>После завершения CI бот отправляет в Telegram:</p>"
-            echo "<ul>"
-            echo "<li>общий статус сборки;</li>"
-            echo "<li>результаты Quality / Unit / API / E2E;</li>"
-            echo "<li>ветку, автора и событие запуска;</li>"
-            echo "<li>прямую ссылку на GitHub Actions run.</li>"
-            echo "</ul>"
-            echo "<p>🤖 <a href=\"https://t.me/Tokhirjon_QA_Bot\"><strong>@Tokhirjon_QA_Bot</strong></a></p>"
-            echo "<p>🍅 <em>CI всегда с тобой.</em></p>"
-            echo "</td>"
-            echo "</tr>"
-            echo "</table>"
+            echo "| 📋 Проверки | Статус | ✈️ Telegram | Детали |"
+            echo "|---|---|---|---|"
+            echo "| ESLint + TypeScript | $(status_ru "$QUALITY") | 🤖 Бот | [@Tokhirjon_QA_Bot](https://t.me/Tokhirjon_QA_Bot) |"
+            echo "| Unit tests | $(status_ru "$UNIT") | 🔔 Уведомления | После завершения CI |"
+            echo "| API tests | $(status_ru "$API") | 📨 Содержимое | Общий статус + все gates |"
+            echo "| E2E / Chromium | $(status_ru "$E2E") | 🔗 Переход | [Открыть этот run](${RUN_URL}) |"
             echo
-            echo "### 🚀 Запуск"
-            echo "- Репозиторий: \`${GITHUB_REPOSITORY}\`"
-            echo "- Ветка: \`${BRANCH}\`"
-            echo "- Автор: \`${GITHUB_ACTOR}\`"
-            echo "- Run: [#${GITHUB_RUN_NUMBER}](${RUN_URL})"
+            echo "### ⚙️ Окружение и запуск"
+            echo
+            echo "| Параметр | Значение | Параметр | Значение |"
+            echo "|---|---|---|---|"
+            echo "| Node.js | **24** | Репозиторий | \`${GITHUB_REPOSITORY}\` |"
+            echo "| E2E workers | **1** · shared live stand | Ветка | \`${BRANCH_MD}\` |"
+            echo "| E2E retries | **2** | Событие | ${EVENT_MD} |"
+            echo "| Playwright cache | $(cache_ru "${CACHE_HIT:-}") | Автор | \`${ACTOR_MD}\` |"
+            echo "| Chromium | Playwright | Commit | \`${SHORT_SHA}\` |"
+            echo "| HTML report | [Artifacts](${ARTIFACTS_URL}) | Run | [#${GITHUB_RUN_NUMBER}](${RUN_URL}) |"
+            echo
+            echo "### ✈️ Telegram integration"
+            echo
+            echo "> 🤖 **@Tokhirjon_QA_Bot** получает итог pipeline: общий статус, Quality / Unit / API / E2E, ветку, автора и прямую ссылку на GitHub Actions."
+            echo
+            echo "[🔗 Открыть GitHub Actions run](${RUN_URL}) · [📦 Playwright artifacts](${ARTIFACTS_URL}) · [✈️ Открыть Telegram-бота](https://t.me/Tokhirjon_QA_Bot)"
+            echo
+            echo "<details>"
+            echo "<summary><strong>🔎 Технические статусы</strong></summary>"
+            echo
+            echo "- Quality: \`${QUALITY}\`"
+            echo "- Unit: \`${UNIT}\`"
+            echo "- API: \`${API}\`"
+            echo "- E2E: \`${E2E}\`"
+            echo "- Browser cache hit: \`${CACHE_HIT:-n/a}\`"
+            echo "</details>"
             echo
             echo "---"
-            echo "_PomidorQA • Качественный код сегодня — уверенный релиз завтра 🍅_"
+            echo "_🍅 PomidorQA • Качественный код сегодня — уверенный релиз завтра._"
           } >> "$GITHUB_STEP_SUMMARY"
 
   notify:
