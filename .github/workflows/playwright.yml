@@ -151,7 +151,7 @@ jobs:
           retention-days: 7
 
   summary:
-    name: CI Summary
+    name: 🍅 PomidorQA CI
     if: ${{ always() }}
     needs: [quality, unit, api, e2e]
     runs-on: ubuntu-latest
@@ -224,34 +224,57 @@ jobs:
 
           {
             echo "# 🍅 PomidorQA CI Summary"
-            echo "_Автоматические проверки проекта • один нативный GitHub Actions Summary_"
+            echo "_Автоматические проверки проекта • нативный GitHub Actions Summary_"
             echo
             echo "## ${OVERALL}"
             echo "> ${OVERALL_NOTE}"
             echo
-            echo "| 📋 Проверки | Статус | ✈️ Telegram | Детали |"
-            echo "|---|---|---|---|"
-            echo "| ESLint + TypeScript | $(status_ru "$QUALITY") | 🤖 Бот | [@Tokhirjon_QA_Bot](https://t.me/Tokhirjon_QA_Bot) |"
-            echo "| Unit tests | $(status_ru "$UNIT") | 🔔 Уведомления | После завершения CI |"
-            echo "| API tests | $(status_ru "$API") | 📨 Содержимое | Общий статус + все gates |"
-            echo "| E2E / Chromium | $(status_ru "$E2E") | 🔗 Переход | [Открыть этот run](${RUN_URL}) |"
+            echo "[▶️ Открыть run](${RUN_URL}) · [📦 Playwright artifacts](${ARTIFACTS_URL}) · [✈️ Telegram-бот](https://t.me/Tokhirjon_QA_Bot)"
             echo
-            echo "### ⚙️ Окружение и запуск"
+            echo "---"
             echo
-            echo "| Параметр | Значение | Параметр | Значение |"
-            echo "|---|---|---|---|"
-            echo "| Node.js | **24** | Репозиторий | \`${GITHUB_REPOSITORY}\` |"
-            echo "| E2E workers | **1** · shared live stand | Ветка | \`${BRANCH_MD}\` |"
-            echo "| E2E retries | **2** | Событие | ${EVENT_MD} |"
-            echo "| Playwright cache | $(cache_ru "${CACHE_HIT:-}") | Автор | \`${ACTOR_MD}\` |"
-            echo "| Chromium | Playwright | Commit | \`${SHORT_SHA}\` |"
-            echo "| HTML report | [Artifacts](${ARTIFACTS_URL}) | Run | [#${GITHUB_RUN_NUMBER}](${RUN_URL}) |"
+            echo "### 📋 1. Quality Gates"
             echo
-            echo "### ✈️ Telegram integration"
+            echo "| Проверка | Статус |"
+            echo "|---|---|"
+            echo "| ESLint + TypeScript | $(status_ru "$QUALITY") |"
+            echo "| Unit tests | $(status_ru "$UNIT") |"
+            echo "| API tests | $(status_ru "$API") |"
+            echo "| E2E / Chromium | $(status_ru "$E2E") |"
             echo
-            echo "> 🤖 **@Tokhirjon_QA_Bot** получает итог pipeline: общий статус, Quality / Unit / API / E2E, ветку, автора и прямую ссылку на GitHub Actions."
+            echo "### ✈️ 2. Telegram"
             echo
-            echo "[🔗 Открыть GitHub Actions run](${RUN_URL}) · [📦 Playwright artifacts](${ARTIFACTS_URL}) · [✈️ Открыть Telegram-бота](https://t.me/Tokhirjon_QA_Bot)"
+            echo "| Возможность | Детали |"
+            echo "|---|---|"
+            echo "| 🤖 Бот | [@Tokhirjon_QA_Bot](https://t.me/Tokhirjon_QA_Bot) |"
+            echo "| 🔔 Уведомления | Автоматически после завершения CI |"
+            echo "| 📨 Содержимое | Общий статус + Quality / Unit / API / E2E |"
+            echo "| 🌿 Контекст | Ветка, автор и событие запуска |"
+            echo "| 🔗 Переход | [Открыть этот GitHub Actions run](${RUN_URL}) |"
+            echo
+            echo "### ⚙️ 3. Окружение"
+            echo
+            echo "| Параметр | Значение |"
+            echo "|---|---|"
+            echo "| Node.js | **24** |"
+            echo "| E2E workers | **1** · shared live stand |"
+            echo "| E2E retries | **2** |"
+            echo "| Playwright cache | $(cache_ru "${CACHE_HIT:-}") |"
+            echo "| Browser | Chromium · Playwright |"
+            echo "| HTML report | [Открыть artifacts](${ARTIFACTS_URL}) |"
+            echo
+            echo "### 🚀 4. Запуск"
+            echo
+            echo "| Поле | Значение |"
+            echo "|---|---|"
+            echo "| Репозиторий | \`${GITHUB_REPOSITORY}\` |"
+            echo "| Ветка | \`${BRANCH_MD}\` |"
+            echo "| Событие | ${EVENT_MD} |"
+            echo "| Автор | \`${ACTOR_MD}\` |"
+            echo "| Commit | \`${SHORT_SHA}\` |"
+            echo "| Run | [#${GITHUB_RUN_NUMBER}](${RUN_URL}) |"
+            echo
+            echo "> ✈️ **Telegram подключён:** бот получает итог pipeline и прямую ссылку на этот запуск."
             echo
             echo "<details>"
             echo "<summary><strong>🔎 Технические статусы</strong></summary>"
