@@ -1,4 +1,5 @@
 name: Advanced Playwright CI
+run-name: "🧪 PomidorQA CI • ${{ github.head_ref || github.ref_name }} • ${{ github.actor }}"
 
 on:
   pull_request:
