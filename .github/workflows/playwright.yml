@@ -151,7 +151,7 @@ jobs:
           retention-days: 7
 
   summary:
-    name: 🍅 PomidorQA CI
+    name: CI Summary
     if: ${{ always() }}
     needs: [quality, unit, api, e2e]
     runs-on: ubuntu-latest
@@ -192,10 +192,11 @@ jobs:
             esac
           }
 
-          md_escape() {
+          html_escape() {
             local text="$1"
-            text="${text//$'\n'/ }"
-            text="${text//|/\\|}"
+            text="${text//&/&amp;}"
+            text="${text//</&lt;}"
+            text="${text//>/&gt;}"
             printf '%s' "$text"
           }
 
@@ -218,77 +219,96 @@ jobs:
           BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
           EVENT="$(event_ru "$GITHUB_EVENT_NAME")"
           SHORT_SHA="${GITHUB_SHA:0:7}"
-          BRANCH_MD="$(md_escape "$BRANCH")"
-          EVENT_MD="$(md_escape "$EVENT")"
-          ACTOR_MD="$(md_escape "$GITHUB_ACTOR")"
+          BRANCH_HTML="$(html_escape "$BRANCH")"
+          EVENT_HTML="$(html_escape "$EVENT")"
+          ACTOR_HTML="$(html_escape "$GITHUB_ACTOR")"
 
-          {
-            echo "# 🍅 PomidorQA CI Summary"
-            echo "_Автоматические проверки проекта • нативный GitHub Actions Summary_"
-            echo
-            echo "## ${OVERALL}"
-            echo "> ${OVERALL_NOTE}"
-            echo
-            echo "[▶️ Открыть run](${RUN_URL}) · [📦 Playwright artifacts](${ARTIFACTS_URL}) · [✈️ Telegram-бот](https://t.me/Tokhirjon_QA_Bot)"
-            echo
-            echo "---"
-            echo
-            echo "### 📋 1. Quality Gates"
-            echo
-            echo "| Проверка | Статус |"
-            echo "|---|---|"
-            echo "| ESLint + TypeScript | $(status_ru "$QUALITY") |"
-            echo "| Unit tests | $(status_ru "$UNIT") |"
-            echo "| API tests | $(status_ru "$API") |"
-            echo "| E2E / Chromium | $(status_ru "$E2E") |"
-            echo
-            echo "### ✈️ 2. Telegram"
-            echo
-            echo "| Возможность | Детали |"
-            echo "|---|---|"
-            echo "| 🤖 Бот | [@Tokhirjon_QA_Bot](https://t.me/Tokhirjon_QA_Bot) |"
-            echo "| 🔔 Уведомления | Автоматически после завершения CI |"
-            echo "| 📨 Содержимое | Общий статус + Quality / Unit / API / E2E |"
-            echo "| 🌿 Контекст | Ветка, автор и событие запуска |"
-            echo "| 🔗 Переход | [Открыть этот GitHub Actions run](${RUN_URL}) |"
-            echo
-            echo "### ⚙️ 3. Окружение"
-            echo
-            echo "| Параметр | Значение |"
-            echo "|---|---|"
-            echo "| Node.js | **24** |"
-            echo "| E2E workers | **1** · shared live stand |"
-            echo "| E2E retries | **2** |"
-            echo "| Playwright cache | $(cache_ru "${CACHE_HIT:-}") |"
-            echo "| Browser | Chromium · Playwright |"
-            echo "| HTML report | [Открыть artifacts](${ARTIFACTS_URL}) |"
-            echo
-            echo "### 🚀 4. Запуск"
-            echo
-            echo "| Поле | Значение |"
-            echo "|---|---|"
-            echo "| Репозиторий | \`${GITHUB_REPOSITORY}\` |"
-            echo "| Ветка | \`${BRANCH_MD}\` |"
-            echo "| Событие | ${EVENT_MD} |"
-            echo "| Автор | \`${ACTOR_MD}\` |"
-            echo "| Commit | \`${SHORT_SHA}\` |"
-            echo "| Run | [#${GITHUB_RUN_NUMBER}](${RUN_URL}) |"
-            echo
-            echo "> ✈️ **Telegram подключён:** бот получает итог pipeline и прямую ссылку на этот запуск."
-            echo
-            echo "<details>"
-            echo "<summary><strong>🔎 Технические статусы</strong></summary>"
-            echo
-            echo "- Quality: \`${QUALITY}\`"
-            echo "- Unit: \`${UNIT}\`"
-            echo "- API: \`${API}\`"
-            echo "- E2E: \`${E2E}\`"
-            echo "- Browser cache hit: \`${CACHE_HIT:-n/a}\`"
-            echo "</details>"
-            echo
-            echo "---"
-            echo "_🍅 PomidorQA • Качественный код сегодня — уверенный релиз завтра._"
-          } >> "$GITHUB_STEP_SUMMARY"
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          # 🍅 PomidorQA CI Summary
+          _Автоматические проверки проекта • нативный GitHub Actions Summary_
+
+          ## ${OVERALL}
+          > ${OVERALL_NOTE}
+
+          [▶️ Открыть run](${RUN_URL}) · [📦 Playwright artifacts](${ARTIFACTS_URL}) · [✈️ Telegram-бот](https://t.me/Tokhirjon_QA_Bot)
+
+          ---
+
+          <table>
+            <tr>
+              <td valign="top" width="50%">
+                <h3>📋 1. Проверки качества</h3>
+                <table>
+                  <thead><tr><th>Проверка</th><th>Статус</th></tr></thead>
+                  <tbody>
+                    <tr><td>ESLint + TypeScript</td><td>$(status_ru "$QUALITY")</td></tr>
+                    <tr><td>Unit tests</td><td>$(status_ru "$UNIT")</td></tr>
+                    <tr><td>API tests</td><td>$(status_ru "$API")</td></tr>
+                    <tr><td>E2E / Chromium</td><td>$(status_ru "$E2E")</td></tr>
+                  </tbody>
+                </table>
+              </td>
+              <td valign="top" width="50%">
+                <h3>✈️ 2. Telegram</h3>
+                <table>
+                  <thead><tr><th>Возможность</th><th>Детали</th></tr></thead>
+                  <tbody>
+                    <tr><td>🤖 Бот</td><td><a href="https://t.me/Tokhirjon_QA_Bot">@Tokhirjon_QA_Bot</a></td></tr>
+                    <tr><td>🔔 Уведомления</td><td>Автоматически после завершения CI</td></tr>
+                    <tr><td>📨 Содержимое</td><td>Общий статус + Quality / Unit / API / E2E</td></tr>
+                    <tr><td>🌿 Контекст</td><td>Ветка, автор и событие запуска</td></tr>
+                    <tr><td>🔗 Переход</td><td><a href="${RUN_URL}">Открыть этот GitHub Actions run</a></td></tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td valign="top" width="50%">
+                <h3>⚙️ 3. Окружение</h3>
+                <table>
+                  <thead><tr><th>Параметр</th><th>Значение</th></tr></thead>
+                  <tbody>
+                    <tr><td>Node.js</td><td><strong>24</strong></td></tr>
+                    <tr><td>E2E workers</td><td><strong>1</strong> · shared live stand</td></tr>
+                    <tr><td>E2E retries</td><td><strong>2</strong></td></tr>
+                    <tr><td>Playwright cache</td><td>$(cache_ru "${CACHE_HIT:-}")</td></tr>
+                    <tr><td>Browser</td><td>Chromium · Playwright</td></tr>
+                    <tr><td>HTML report</td><td><a href="${ARTIFACTS_URL}">Открыть artifacts</a></td></tr>
+                  </tbody>
+                </table>
+              </td>
+              <td valign="top" width="50%">
+                <h3>🚀 4. Запуск</h3>
+                <table>
+                  <thead><tr><th>Поле</th><th>Значение</th></tr></thead>
+                  <tbody>
+                    <tr><td>Репозиторий</td><td><code>${GITHUB_REPOSITORY}</code></td></tr>
+                    <tr><td>Ветка</td><td><code>${BRANCH_HTML}</code></td></tr>
+                    <tr><td>Событие</td><td>${EVENT_HTML}</td></tr>
+                    <tr><td>Автор</td><td><code>${ACTOR_HTML}</code></td></tr>
+                    <tr><td>Commit</td><td><code>${SHORT_SHA}</code></td></tr>
+                    <tr><td>Run</td><td><a href="${RUN_URL}">#${GITHUB_RUN_NUMBER}</a></td></tr>
+                  </tbody>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          > ✈️ **Telegram подключён:** бот получает итог pipeline и прямую ссылку на этот запуск.
+
+          <details>
+          <summary><strong>🔎 Технические статусы</strong></summary>
+
+          - Quality: <code>${QUALITY}</code>
+          - Unit: <code>${UNIT}</code>
+          - API: <code>${API}</code>
+          - E2E: <code>${E2E}</code>
+          - Browser cache hit: <code>${CACHE_HIT:-n/a}</code>
+          </details>
+
+          ---
+          _🍅 PomidorQA • Качественный код сегодня — уверенный релиз завтра._
+          EOF
 
   notify:
     name: Telegram Notification
