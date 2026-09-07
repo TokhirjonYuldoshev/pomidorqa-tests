@@ -1,9 +1,9 @@
-# PomidorQA Playwright CI Lab
+# 🍅 PomidorQA Playwright CI Lab
 
-[![Advanced Playwright CI](https://github.com/TokhirjonYuldoshev/pomidorqa-course-tests/actions/workflows/playwright.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-course-tests/actions/workflows/playwright.yml)
+[![PomidorQA CI](https://github.com/TokhirjonYuldoshev/pomidorqa-course-tests/actions/workflows/playwright.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-course-tests/actions/workflows/playwright.yml)
 [![Stability Check](https://github.com/TokhirjonYuldoshev/pomidorqa-course-tests/actions/workflows/stability.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-course-tests/actions/workflows/stability.yml)
 
-Личный учебный CI/CD-стенд на **Playwright + TypeScript**. Здесь я отрабатываю не только написание автотестов, но и инженерную часть вокруг них: quality gates, изоляцию уровней тестирования, стабильность E2E, диагностику падений, защиту `main` и уведомления о результате pipeline в Telegram.
+Личный учебный CI/CD-стенд на **Playwright + TypeScript**. Здесь я отрабатываю не только написание автотестов, но и инженерную часть вокруг них: quality gates, изоляцию уровней тестирования, стабильность E2E, диагностику падений, защиту `main`, нативный GitHub Actions Summary и уведомления о результате pipeline в Telegram.
 
 Проект основан на учебном репозитории марафона [lebed52/pomidorqa-course-tests](https://github.com/lebed52/pomidorqa-course-tests). В этом репозитории находятся мои отдельные CI-эксперименты и улучшения, которые не смешиваются с общим учебным `main`.
 
@@ -17,6 +17,7 @@
 | E2E | Chromium, запуск только после успешных Quality / Unit / API |
 | CI cache | npm cache + cache Chromium по OS, arch и версии Playwright |
 | Diagnostics | HTML report, trace, screenshot, video и failure artifacts |
+| CI Summary | нативный GitHub Actions Summary с 4 блоками, статусами, окружением и ссылками |
 | Stability | ручной stress-run с `repeat-each`, workers и `retries=0` |
 | Notifications | Telegram Bot API с итогом каждого CI run |
 | Main protection | PR-only, required checks, squash-only, linear history, без force-push/delete |
@@ -33,7 +34,8 @@ flowchart LR
     U --> E
     P --> E
 
-    E --> S[CI Summary + Artifacts]
+    E --> S[Native CI Summary\n4 блока + ссылки]
+    E --> R[Playwright report\n+ artifacts]
 
     Q -. result .-> T[Telegram notification]
     U -. result .-> T
@@ -65,7 +67,26 @@ flowchart LR
 - HTML-отчёт сохраняется после E2E;
 - trace / screenshot / video сохраняются на падениях;
 - устаревшие runs одного PR автоматически отменяются через `concurrency`;
-- итог публикуется в GitHub Actions Job Summary.
+- итог публикуется в нативном GitHub Actions Job Summary.
+
+## GitHub Actions Summary
+
+После завершения pipeline job `CI Summary` собирает результаты Quality / Unit / API / E2E и публикует их прямо на странице запуска — без отдельного dashboard workflow и без дополнительных SVG/HTML artifacts.
+
+Summary организован как компактная сетка **2×2**:
+
+| Слева | Справа |
+| --- | --- |
+| **📋 1. Проверки качества** — ESLint + TypeScript, Unit, API, E2E | **✈️ 2. Telegram** — бот, уведомления, содержимое и ссылка на run |
+| **⚙️ 3. Окружение** — Node.js, workers, retries, cache, browser, report | **🚀 4. Запуск** — репозиторий, ветка, событие, автор, commit и run |
+
+В верхней части Summary остаются быстрые переходы на:
+
+- текущий GitHub Actions run;
+- Playwright artifacts;
+- [@Tokhirjon_QA_Bot](https://t.me/Tokhirjon_QA_Bot).
+
+Дополнительно есть сворачиваемый технический блок с raw-статусами jobs и состоянием browser cache.
 
 ## Stability Check
 
@@ -101,7 +122,7 @@ flowchart LR
 Пример сообщения:
 
 ```text
-🧪 PomidorQA CI
+🍅 PomidorQA CI
 ✅ ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ
 
 📦 Репозиторий: TokhirjonYuldoshev/pomidorqa-course-tests
@@ -179,7 +200,7 @@ POMIDORQA_BASE_URL=http://localhost:3000 npm run test:e2e
 
 ```text
 .github/workflows/
-├── playwright.yml        # основной CI pipeline
+├── playwright.yml        # основной CI pipeline + native Summary + Telegram
 └── stability.yml         # ручной stability / flake check
 
 src/pyramid/              # вспомогательный код unit/API уровня
@@ -194,6 +215,6 @@ eslint.config.mjs          # quality rules for Playwright tests
 
 Для меня этот проект — не просто набор автотестов. Он показывает полный QA automation workflow:
 
-**изменение → Pull Request → quality gates → E2E → artifacts → stability analysis → защищённый merge → уведомление в Telegram**.
+**изменение → Pull Request → quality gates → E2E → native CI Summary + artifacts → stability analysis → защищённый merge → уведомление в Telegram**.
 
 Цель стенда — практиковать подход, близкий к рабочему процессу AQA/QA Automation Engineer, и фиксировать инженерные решения так, чтобы их можно было объяснить на code review или собеседовании.
