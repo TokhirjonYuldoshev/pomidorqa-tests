@@ -1,5 +1,5 @@
 import { type Locator, type Page } from "@playwright/test";
-import { ROUTES } from "../helpers/user";
+import { ROUTES } from "../helpers/routes";
 
 export type SkillType = "can_help" | "want_to_learn";
 

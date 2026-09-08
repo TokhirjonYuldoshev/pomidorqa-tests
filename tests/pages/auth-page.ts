@@ -1,6 +1,5 @@
 import { type Locator, type Page } from "@playwright/test";
-
-const LOGIN_ROUTE = "/pomidorqa/auth/login";
+import { ROUTES } from "../helpers/routes";
 
 export class AuthPage {
   readonly loginError: Locator;
@@ -17,7 +16,7 @@ export class AuthPage {
   }
 
   async gotoLogin(): Promise<void> {
-    await this.page.goto(LOGIN_ROUTE);
+    await this.page.goto(ROUTES.login);
   }
 
   async login(email: string, password: string): Promise<void> {

@@ -1,5 +1,9 @@
-import { type Locator, type Page } from "@playwright/test";
-import { ROUTES } from "../helpers/user";
+import {
+  errors,
+  type Locator,
+  type Page,
+} from "@playwright/test";
+import { ROUTES } from "../helpers/routes";
 
 export type BookingResult =
   | { status: "success" }
@@ -8,7 +12,7 @@ export type BookingResult =
 export class BookingPage {
   private readonly catalogFilterInput: Locator;
   private readonly catalogFilterButton: Locator;
-  private readonly dayChip: Locator;
+  private readonly availableDayButtons: Locator;
   private readonly bookingsSection: Locator;
   private readonly upcomingBookings: Locator;
   private readonly pastMeetingsSection: Locator;
@@ -27,10 +31,9 @@ export class BookingPage {
     this.personCards = page.getByTestId("person-card");
     this.personName = page.getByRole("heading", { level: 1 });
 
-    this.dayChip = page
+    this.availableDayButtons = page
       .getByRole("group", { name: "Дни со слотами" })
-      .getByRole("button")
-      .first();
+      .getByRole("button");
 
     this.confirmDialog = page.getByRole("dialog");
     this.confirmButton = this.confirmDialog.getByRole("button", {
@@ -65,7 +68,7 @@ export class BookingPage {
 
     await Promise.all([
       this.page.waitForURL(
-        (url) => url.pathname.startsWith("/pomidorqa/people/"),
+        (url) => url.pathname.startsWith(ROUTES.people),
         { waitUntil: "load" },
       ),
       personCard.click(),
@@ -74,29 +77,49 @@ export class BookingPage {
     await this.personName.waitFor({ state: "visible" });
   }
 
-  async pickSlot(time?: string, retryTimeoutMs = 10_000): Promise<void> {
+  async pickSlot(
+    time: string,
+    retryTimeoutMs = 10_000,
+  ): Promise<void> {
     if (await this.confirmDialog.isVisible().catch(() => false)) {
       return;
     }
 
-    await this.waitForFirstAvailableDay(retryTimeoutMs);
-    await this.dayChip.click();
+    await this.selectOnlyAvailableDay(retryTimeoutMs);
 
-    const timeChip = time
-      ? this.page
-          .getByRole("group", { name: "Время слотов" })
-          .getByRole("button", { name: time, exact: true })
-      : this.page
-          .getByRole("group", { name: "Время слотов" })
-          .getByRole("button")
-          .first();
+    const timeButton = this.page
+      .getByRole("group", { name: "Время слотов" })
+      .getByRole("button", { name: time, exact: true });
 
-    await timeChip.waitFor({ state: "visible", timeout: 5_000 });
-    await timeChip.click();
+    await timeButton.waitFor({ state: "visible", timeout: 5_000 });
+    await timeButton.click();
   }
 
-  async pickFirstSlot(retryTimeoutMs = 10_000): Promise<void> {
-    await this.pickSlot(undefined, retryTimeoutMs);
+  async pickOnlyAvailableSlot(
+    retryTimeoutMs = 10_000,
+  ): Promise<void> {
+    if (await this.confirmDialog.isVisible().catch(() => false)) {
+      return;
+    }
+
+    await this.selectOnlyAvailableDay(retryTimeoutMs);
+
+    const timeButtons = this.page
+      .getByRole("group", { name: "Время слотов" })
+      .getByRole("button");
+
+    await timeButtons.waitFor({ state: "visible", timeout: 5_000 });
+
+    const timeButtonCount = await timeButtons.count();
+
+    if (timeButtonCount !== 1) {
+      throw new Error(
+        `Ожидался ровно один доступный слот времени, найдено: ${timeButtonCount}. ` +
+          `URL: ${this.page.url()}`,
+      );
+    }
+
+    await timeButtons.click();
   }
 
   async confirmBooking(): Promise<void> {
@@ -157,7 +180,9 @@ export class BookingPage {
     await booking.waitFor({ state: "hidden", timeout: 10_000 });
   }
 
-  private async waitForFirstAvailableDay(timeoutMs = 10_000): Promise<void> {
+  private async selectOnlyAvailableDay(
+    timeoutMs = 10_000,
+  ): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     let reloadCount = 0;
 
@@ -165,12 +190,27 @@ export class BookingPage {
       const remainingMs = deadline - Date.now();
 
       try {
-        await this.dayChip.waitFor({
+        await this.availableDayButtons.waitFor({
           state: "visible",
           timeout: Math.max(1, Math.min(2_000, remainingMs)),
         });
+
+        const dayButtonCount = await this.availableDayButtons.count();
+
+        if (dayButtonCount !== 1) {
+          throw new Error(
+            `Ожидался ровно один доступный день со слотами, найдено: ${dayButtonCount}. ` +
+              `URL: ${this.page.url()}`,
+          );
+        }
+
+        await this.availableDayButtons.click();
         return;
-      } catch {
+      } catch (error) {
+        if (!(error instanceof errors.TimeoutError)) {
+          throw error;
+        }
+
         if (Date.now() >= deadline) {
           break;
         }
@@ -181,7 +221,8 @@ export class BookingPage {
     }
 
     throw new Error(
-      `Слот не появился за ${timeoutMs} мс после ${reloadCount} reload. URL: ${this.page.url()}`,
+      `Единственный доступный день со слотами не появился за ${timeoutMs} мс ` +
+        `после ${reloadCount} reload. URL: ${this.page.url()}`,
     );
   }
 }

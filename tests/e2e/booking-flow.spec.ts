@@ -54,9 +54,9 @@ test.describe("Бронирование встречи", () => {
       );
 
       await test.step(
-        "Гость: выбирает созданный свободный слот",
+        "Гость: выбирает единственный созданный свободный слот",
         async () => {
-          await guestApp.bookingPage.pickFirstSlot();
+          await guestApp.bookingPage.pickOnlyAvailableSlot();
         },
       );
 
@@ -66,7 +66,7 @@ test.describe("Бронирование встречи", () => {
           await registerUser(guest2App.page, guest2);
           await guest2App.bookingPage.searchCatalog(skillTag);
           await guest2App.bookingPage.openPerson(host.name);
-          await guest2App.bookingPage.pickFirstSlot();
+          await guest2App.bookingPage.pickOnlyAvailableSlot();
         },
       );
 

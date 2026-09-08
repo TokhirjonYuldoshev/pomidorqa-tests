@@ -71,9 +71,9 @@ test(
     );
 
     await test.step(
-      "Гость: выбирает слот",
+      "Гость: выбирает единственный созданный слот",
       async () => {
-        await guestApp.bookingPage.pickFirstSlot();
+        await guestApp.bookingPage.pickOnlyAvailableSlot();
       },
     );
 
