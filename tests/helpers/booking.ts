@@ -15,17 +15,6 @@ export type AppContext = {
   slotsPage: SlotsPage;
 };
 
-export type HostAndGuestContexts = {
-  hostApp: AppContext;
-  guestApp: AppContext;
-};
-
-export type HostAndGuestsContexts = {
-  hostApp: AppContext;
-  guestApp: AppContext;
-  guest2App: AppContext;
-};
-
 export async function createApp(
   browser: Browser,
 ): Promise<AppContext> {
@@ -38,36 +27,6 @@ export async function createApp(
     bookingPage: new BookingPage(page),
     profilePage: new ProfilePage(page),
     slotsPage: new SlotsPage(page),
-  };
-}
-
-export async function createHostAndGuestContexts(
-  browser: Browser,
-): Promise<HostAndGuestContexts> {
-  const [hostApp, guestApp] = await Promise.all([
-    createApp(browser),
-    createApp(browser),
-  ]);
-
-  return {
-    hostApp,
-    guestApp,
-  };
-}
-
-export async function createHostAndGuestsContexts(
-  browser: Browser,
-): Promise<HostAndGuestsContexts> {
-  const [hostApp, guestApp, guest2App] = await Promise.all([
-    createApp(browser),
-    createApp(browser),
-    createApp(browser),
-  ]);
-
-  return {
-    hostApp,
-    guestApp,
-    guest2App,
   };
 }
 
