@@ -1,13 +1,6 @@
-import { test, expect, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import { ROUTES } from "./routes";
 import { makeUniqueToken } from "./test-data";
-
-export const ROUTES = {
-  catalog: "/pomidorqa",
-  register: "/pomidorqa/auth/register",
-  profile: "/pomidorqa/profile",
-  slots: "/pomidorqa/profile/slots",
-  bookings: "/pomidorqa/bookings",
-};
 
 export type TestUser = {
   name: string;
