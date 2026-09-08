@@ -19,32 +19,49 @@ export async function createApp(
   browser: Browser,
 ): Promise<AppContext> {
   const context = await browser.newContext();
-  const page = await context.newPage();
 
-  return {
-    context,
-    page,
-    bookingPage: new BookingPage(page),
-    profilePage: new ProfilePage(page),
-    slotsPage: new SlotsPage(page),
-  };
+  try {
+    const page = await context.newPage();
+
+    return {
+      context,
+      page,
+      bookingPage: new BookingPage(page),
+      profilePage: new ProfilePage(page),
+      slotsPage: new SlotsPage(page),
+    };
+  } catch (setupError) {
+    try {
+      await context.close();
+    } catch (cleanupError) {
+      throw new AggregateError(
+        [setupError, cleanupError],
+        "Не удалось создать AppContext и закрыть browser context после ошибки setup",
+      );
+    }
+
+    throw setupError;
+  }
 }
 
 export async function closeApps(
   apps: readonly AppContext[],
 ): Promise<void> {
-  await Promise.all(
-    apps.map(async (app) => {
-      try {
-        await app.context.close();
-      } catch (error) {
-        const reason =
-          error instanceof Error ? error.message : String(error);
-
-        console.warn(
-          `Не удалось закрыть browser context: ${reason}`,
-        );
-      }
-    }),
+  const results = await Promise.allSettled(
+    apps.map((app) => app.context.close()),
   );
+
+  const failures = results
+    .filter(
+      (result): result is PromiseRejectedResult =>
+        result.status === "rejected",
+    )
+    .map((result) => result.reason);
+
+  if (failures.length > 0) {
+    throw new AggregateError(
+      failures,
+      `Не удалось закрыть browser contexts: ${failures.length} из ${apps.length}`,
+    );
+  }
 }
