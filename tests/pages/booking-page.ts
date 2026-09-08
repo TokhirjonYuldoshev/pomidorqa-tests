@@ -77,24 +77,6 @@ export class BookingPage {
     await this.personName.waitFor({ state: "visible" });
   }
 
-  async pickSlot(
-    time: string,
-    retryTimeoutMs = 10_000,
-  ): Promise<void> {
-    if (await this.confirmDialog.isVisible().catch(() => false)) {
-      return;
-    }
-
-    await this.selectOnlyAvailableDay(retryTimeoutMs);
-
-    const timeButton = this.page
-      .getByRole("group", { name: "Время слотов" })
-      .getByRole("button", { name: time, exact: true });
-
-    await timeButton.waitFor({ state: "visible", timeout: 5_000 });
-    await timeButton.click();
-  }
-
   async pickOnlyAvailableSlot(
     retryTimeoutMs = 10_000,
   ): Promise<void> {
