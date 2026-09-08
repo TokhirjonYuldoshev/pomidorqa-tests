@@ -153,14 +153,22 @@ test.describe("Поиск участников PomidorQA", () => {
       await prepareCatalogParticipant(matchingHostApp, matchingHost, matchingSkill, "12:00");
       await prepareCatalogParticipant(otherHostApp, otherHost, otherSkill, "13:00");
 
-      await test.step("Гость: отдельно проверяет доступность обоих участников", async () => {
+      await test.step("Гость: ищет подходящего участника", async () => {
         await guestApp.bookingPage.goToCatalog();
         await guestApp.bookingPage.searchCatalog(matchingSkill);
+      });
+
+      await test.step("Контроль: подходящий участник доступен", async () => {
         await expect(guestApp.bookingPage.personCard(matchingHost.name)).toBeVisible({
           timeout: CATALOG_RESULT_TIMEOUT,
         });
+      });
 
+      await test.step("Гость: ищет второго участника по его навыку", async () => {
         await guestApp.bookingPage.searchCatalog(otherSkill);
+      });
+
+      await test.step("Контроль: второй участник также доступен", async () => {
         await expect(guestApp.bookingPage.personCard(otherHost.name)).toBeVisible({
           timeout: CATALOG_RESULT_TIMEOUT,
         });
