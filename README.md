@@ -1,164 +1,128 @@
-# 🍅 PomidorQA Playwright CI Lab
+# 🍅 PomidorQA QA Automation
 
 [![PomidorQA CI](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/playwright.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/playwright.yml)
 [![Stability Check](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/stability.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/stability.yml)
 
-Личный учебный CI/CD-стенд на **Playwright + TypeScript**. Здесь я отрабатываю не только написание автотестов, но и инженерную часть вокруг них: quality gates, изоляцию уровней тестирования, стабильность E2E, диагностику падений, настройку `main`, нативный GitHub Actions Summary и уведомления о результате pipeline в Telegram.
+Личный standalone-проект по QA Automation на **Playwright + TypeScript**. Он вырос из учебного репозитория PomidorQA и используется как отдельный стенд для практики E2E, API, unit-тестирования, Page Object Model, CI/CD, диагностики падений и анализа flaky-поведения.
 
-Проект основан на учебном репозитории марафона [lebed52/pomidorqa-course-tests](https://github.com/lebed52/pomidorqa-course-tests). В этом репозитории находятся мои отдельные CI-эксперименты и улучшения, которые не смешиваются с общим учебным `main`.
+Исходный учебный проект: [lebed52/pomidorqa-course-tests](https://github.com/lebed52/pomidorqa-course-tests).
 
-## Что реализовано
+## Что демонстрирует проект
 
 | Область | Реализация |
 | --- | --- |
+| E2E | реальные пользовательские сценарии PomidorQA в Chromium |
+| POM | локаторы и действия экранов вынесены в `tests/pages` |
+| Helpers | регистрация, browser contexts и подготовка каталоговых данных |
+| API | изолированный HTTP mock для правил бронирования и регистрации |
+| Unit | чистые проверки временных диапазонов, timezone и password validation |
 | Quality gate | ESLint + TypeScript `tsc --noEmit` |
-| Unit | отдельный job без установки Chromium |
-| API | отдельный job без установки Chromium |
-| E2E | Chromium, запуск только после успешных Quality / Unit / API |
-| CI cache | npm cache + cache Chromium по OS, arch и версии Playwright |
-| Diagnostics | HTML report, trace, screenshot, video и failure artifacts |
-| CI Summary | нативный GitHub Actions Summary с 4 блоками, статусами, окружением и ссылками |
-| Stability | ручной stress-run с `repeat-each`, workers и `retries=0` |
-| Notifications | Telegram Bot API с итогом каждого CI run |
-| Main protection | требует повторной настройки после переноса в standalone-репозиторий |
+| CI | отдельные Quality / Unit / API / E2E jobs |
+| Diagnostics | HTML report, trace, screenshot, video, failure artifacts |
+| Stability | ручной stress-run с `repeat-each` и `retries=0` |
+| Notifications | Telegram Bot API с итогом pipeline |
 
-## Архитектура pipeline
+## Архитектура тестов
+
+```text
+src/pyramid/
+├── auth.ts                    # чистая логика валидации пароля
+├── slots.ts                   # пересечение слотов и timezone formatting
+└── mock-booking-api.ts        # локальный HTTP API для API-уровня
+
+tests/
+├── unit/
+│   ├── auth.spec.ts
+│   └── slots.spec.ts
+├── api/
+│   ├── booking-api.spec.ts
+│   └── participants-api.spec.ts
+├── helpers/
+│   ├── user.ts                # TestUser, makeUser, registerUser, routes
+│   ├── booking.ts             # browser contexts и cleanup
+│   └── catalog.ts             # подготовка участников каталога
+├── pages/
+│   ├── auth-page.ts
+│   ├── profile-page.ts
+│   ├── slots-page.ts
+│   └── booking-page.ts
+└── e2e/
+    ├── login-error.spec.ts
+    ├── profile-flow.spec.ts
+    ├── booking-flow.spec.ts
+    ├── booking-cancel.spec.ts
+    └── catalog-search.spec.ts
+```
+
+Главный принцип: **spec описывает сценарий и assertions, Page Object выполняет действия экрана, helper отвечает за повторяемую подготовку данных и контекста**.
+
+## E2E-сценарии
+
+Проект проверяет, в частности:
+
+- сохранение данных профиля и навыков;
+- одинаковую безопасную ошибку логина для неверного пароля и неизвестного email;
+- основной booking flow;
+- гонку двух пользователей за один слот;
+- отмену встречи и консистентность состояния у гостя и хоста;
+- поиск по уникальному навыку;
+- пустую выдачу;
+- исключение собственной карточки для авторизованного пользователя;
+- двух участников с одинаковым навыком;
+- фильтрацию подходящего/неподходящего участника;
+- правило обязательного будущего свободного слота;
+- повторный поиск без перезагрузки;
+- поиск другим авторизованным пользователем.
+
+Созданные browser contexts закрываются в `finally`. Тестовые пользователи и навыки получают уникальные данные на каждый запуск.
+
+## Синхронизация и стабильность
+
+В проекте не используются `waitForTimeout`, `force: true`, `.only`, `skip` или `page.pause()` для маскировки проблем.
+
+Для state-changing действий используются наблюдаемые сигналы:
+
+- HTTP response нужного POST-запроса;
+- появление или исчезновение конкретного UI-состояния;
+- URL/navigation events;
+- polling/reload только там, где приложение реально имеет eventual consistency.
+
+При выборе конкретной бизнес-сущности используются уникальные данные и точные локаторы. `.first()` допустим только там, где сценарий действительно выбирает первый доступный слот, а не произвольного участника.
+
+## CI pipeline
 
 ```mermaid
 flowchart LR
-    A[PR / push / manual] --> Q[Quality\nESLint + TypeScript]
+    A[PR / push main / manual] --> Q[Quality\nESLint + TypeScript]
     A --> U[Unit]
     A --> P[API]
-
-    Q --> E[E2E / Chromium]
+    Q --> E[E2E / Chromium\n1 worker]
     U --> E
     P --> E
-
-    E --> S[Native CI Summary\n4 блока + ссылки]
-    E --> R[Playwright report\n+ artifacts]
-
-    Q -. result .-> T[Telegram notification]
+    E --> S[GitHub Actions Summary]
+    E --> R[Report + diagnostics]
+    Q -. result .-> T[Telegram]
     U -. result .-> T
     P -. result .-> T
     E -. result .-> T
 ```
 
-`Quality`, `Unit` и `API` стартуют параллельно. Более дорогой E2E-job запускается только после прохождения всех трёх быстрых gates. Это сокращает лишнее использование runner-time, если проблема уже найдена на раннем этапе.
-
-## Advanced Playwright CI
+`Quality`, `Unit` и `API` могут выполняться параллельно. Ограничение в один worker применяется только к E2E на общем live-стенде. Для E2E в обычном CI разрешены retries на уровне Playwright-конфига; отдельный stability workflow всегда запускается с `retries=0`.
 
 Основной workflow: `.github/workflows/playwright.yml`.
 
-Он запускается на:
-
-- Pull Request в `main`;
-- push в `main`;
-- ручной `workflow_dispatch`.
-
-Ключевые решения:
-
-- Node.js 24;
-- зависимости устанавливаются через `npm ci`;
-- Unit/API не устанавливают браузер;
-- E2E использует один worker на общем live-стенде;
-- E2E может использовать до двух retries в обычном CI;
-- `forbidOnly` включён в CI;
-- Chromium скачивается только при cache miss, системные зависимости устанавливаются всегда;
-- HTML-отчёт сохраняется после E2E;
-- trace / screenshot / video сохраняются на падениях;
-- устаревшие runs одного PR автоматически отменяются через `concurrency`;
-- итог публикуется в нативном GitHub Actions Job Summary.
-
-## GitHub Actions Summary
-
-После завершения pipeline job `CI Summary` собирает результаты Quality / Unit / API / E2E и публикует их прямо на странице запуска — без отдельного dashboard workflow и без дополнительных SVG/HTML artifacts.
-
-Summary организован как компактная сетка **2×2**:
-
-| Слева | Справа |
-| --- | --- |
-| **📋 1. Проверки качества** — ESLint + TypeScript, Unit, API, E2E | **✈️ 2. Telegram** — бот, уведомления, содержимое и ссылка на run |
-| **⚙️ 3. Окружение** — Node.js, workers, retries, cache, browser, report | **🚀 4. Запуск** — репозиторий, ветка, событие, автор, commit и run |
-
-В верхней части Summary остаются быстрые переходы на:
-
-- текущий GitHub Actions run;
-- Playwright artifacts;
-- [@Tokhirjon_QA_Bot](https://t.me/Tokhirjon_QA_Bot).
-
-Дополнительно есть сворачиваемый технический блок с raw-статусами jobs и состоянием browser cache.
-
 ## Stability Check
 
-Отдельный workflow `.github/workflows/stability.yml` используется для поиска flaky-поведения, а не для маскировки падений retries.
+`.github/workflows/stability.yml` запускается вручную и предназначен не для получения «зелёного» результата любой ценой, а для поиска flaky-поведения.
 
-Параметры ручного запуска:
+Параметры:
 
-- сценарий: `booking-flow` или весь E2E-suite;
+- `booking-flow` или весь E2E-suite;
 - `repeat-each`: 5 или 10;
 - workers: 1 или 2;
-- `retries=0` всегда.
+- `retries=0`.
 
-### Реальный stability-эксперимент
-
-На `booking-flow.spec.ts` была воспроизводимая нестабильность в переходе `slot click → booking dialog`.
-
-| Этап | Passed | Failed |
-| --- | ---: | ---: |
-| Baseline до исправления | 2 / 20 | 18 / 20 |
-| После исправления в PR-ветке | 10 / 10 | 0 / 10 |
-| После squash-merge в `main` | 10 / 10 | 0 / 10 |
-
-Исправление было сделано через детерминированную UI-синхронизацию: `waitForURL`, ожидание готовности конкретного UI, выбор точного слота, поиск встречи по участнику и гарантированный cleanup browser contexts.
-
-Вариант с `networkidle` был отклонён quality gate правилом `playwright/no-networkidle`; lint не отключался. В тест также не добавлялись `waitForTimeout`, `force` или дополнительные retries.
-
-> Результат 10/10 не доказывает абсолютное отсутствие flake во всех условиях, но ранее стабильно воспроизводимая проблема не повторилась после исправления ни в PR-ветке, ни после merge в `main`.
-
-## Telegram-уведомления
-
-После завершения pipeline отдельный job отправляет результат через официальный **Telegram Bot API** напрямую с помощью `curl`.
-
-Пример сообщения:
-
-```text
-🍅 PomidorQA CI
-✅ ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ
-
-📦 Репозиторий: TokhirjonYuldoshev/pomidorqa-tests
-🌿 Ветка: main
-⚡ Событие: Push в репозиторий
-
-📋 Результаты проверок
-✅ Успешно — Линт и типизация
-✅ Успешно — Unit tests
-✅ Успешно — API tests
-✅ Успешно — E2E / Chromium
-
-🔗 Открыть запуск в GitHub Actions
-```
-
-Для отправки используются repository secrets:
-
-- `TELEGRAM_BOT_TOKEN`;
-- `TELEGRAM_CHAT_ID`.
-
-Секреты не хранятся в репозитории. Если они не настроены, notification job безопасно завершится без отправки. Ошибка Telegram API также не делает основной тестовый pipeline красным.
-
-## Защита `main`
-
-После переноса проекта в отдельный standalone-репозиторий настройки защиты ветки не перенеслись автоматически. Сейчас `main` в `TokhirjonYuldoshev/pomidorqa-tests` не защищён ruleset-ом, поэтому защиту нужно настроить повторно в настройках репозитория.
-
-Рекомендуемая конфигурация для этого проекта:
-
-- изменения `main` через Pull Request;
-- required checks: `Quality / lint + typecheck`, `Unit tests`, `API tests`, `E2E / Chromium`;
-- branch must be up to date before merge;
-- conversation resolution before merge;
-- squash merge only;
-- linear history;
-- запрет force push;
-- запрет удаления `main`.
+Если хотя бы один повтор падает, workflow завершается ошибкой и сохраняет diagnostics.
 
 ## Быстрый старт
 
@@ -175,43 +139,62 @@ npm ci
 npx playwright install chromium
 ```
 
-## Основные команды
+## Команды
 
 | Команда | Назначение |
 | --- | --- |
-| `npm run lint` | ESLint для тестового кода |
+| `npm run lint` | ESLint для `src`, `tests` и Playwright config |
 | `npm run typecheck` | TypeScript `tsc --noEmit` |
-| `npm run test:unit` | Unit-тесты |
+| `npm run test:unit` | unit-тесты |
 | `npm run test:api` | API-тесты |
-| `npm run test:e2e` | E2E-тесты в Chromium |
+| `npm run test:e2e` | E2E в Chromium |
 | `npm test` | все Playwright projects |
 | `npm run report` | открыть последний HTML report |
 
-По умолчанию E2E работают с `https://aiqa.su`. Для другого стенда можно переопределить base URL:
+По умолчанию E2E используют `https://aiqa.su`. Base URL можно переопределить:
 
 ```bash
 POMIDORQA_BASE_URL=http://localhost:3000 npm run test:e2e
 ```
 
-## Структура проекта
+На Windows PowerShell:
 
-```text
-.github/workflows/
-├── playwright.yml        # основной CI pipeline + native Summary + Telegram
-└── stability.yml         # ручной stability / flake check
-
-src/pyramid/              # вспомогательный код unit/API уровня
-tests/unit/               # unit tests
-tests/api/                # API tests
-tests/e2e/                # browser E2E tests
-playwright.config.ts       # projects, retries, reporters, diagnostics
-eslint.config.mjs          # quality rules for Playwright tests
+```powershell
+$env:POMIDORQA_BASE_URL="http://localhost:3000"
+npm run test:e2e
 ```
 
-## Что этот репозиторий демонстрирует
+## Workflow разработки
 
-Для меня этот проект — не просто набор автотестов. Он показывает полный QA automation workflow:
+Для обычной работы используются отдельные ветки:
 
-**изменение → Pull Request → quality gates → E2E → native CI Summary + artifacts → stability analysis → merge в `main` → уведомление в Telegram**.
+```text
+feature/...
+fix/...
+refactor/...
+test/...
+docs/...
+chore/...
+```
 
-Цель стенда — практиковать подход, близкий к рабочему процессу AQA/QA Automation Engineer, и фиксировать инженерные решения так, чтобы их можно было объяснить на code review или собеседовании.
+Учебные ветки `hw<N>-<username>` сохраняются только когда этого требует курс.
+
+Перед PR:
+
+```bash
+npm run lint
+npm run typecheck
+npm run test:unit
+npm run test:api
+npm run test:e2e
+```
+
+Подробности: [CONTRIBUTING.md](CONTRIBUTING.md), правила автотестов: [CODEX.md](CODEX.md), review checklist: [REVIEW.md](REVIEW.md).
+
+## Зачем этот репозиторий
+
+Цель проекта — не просто накопить автотесты, а показать воспроизводимый QA Automation workflow:
+
+**изменение → code review → quality gates → unit/API → E2E → diagnostics → stability analysis → CI summary → notification**.
+
+Репозиторий развивается отдельно от общего учебного `main`, поэтому архитектурные и инфраструктурные улучшения здесь можно доводить до portfolio-level состояния без расширения scope учебных PR.
