@@ -1,9 +1,9 @@
 import { expect, test } from "../fixtures/app-fixtures";
 import {
-  makeRunId,
   prepareCatalogParticipant,
   registerWithSkill,
 } from "../helpers/catalog";
+import { makeRunId } from "../helpers/test-data";
 import { makeUser, registerUser } from "../helpers/user";
 
 const TEST_TIMEOUT = 120_000;
@@ -17,7 +17,7 @@ test.describe("Поиск участников PomidorQA", () => {
     async ({ appFactory }) => {
       const runId = makeRunId("guest-search");
       const skill = `SearchQA-${runId}`;
-      const host = makeUser(`host-${runId}`);
+      const host = makeUser("host", runId);
 
       const hostApp = await appFactory();
       const guestApp = await appFactory();
@@ -58,7 +58,7 @@ test.describe("Поиск участников PomidorQA", () => {
       const runId = makeRunId("empty-search");
       const existingSkill = `Existing-${runId}`;
       const missingSkill = `Missing-${runId}`;
-      const host = makeUser(`host-${runId}`);
+      const host = makeUser("host", runId);
 
       const hostApp = await appFactory();
       const guestApp = await appFactory();
@@ -119,7 +119,7 @@ test.describe("Поиск участников PomidorQA", () => {
     async ({ appFactory }) => {
       const runId = makeRunId("self-hidden");
       const skill = `SelfHidden-${runId}`;
-      const host = makeUser(`host-${runId}`);
+      const host = makeUser("host", runId);
 
       const hostApp = await appFactory();
       const guestApp = await appFactory();
@@ -177,8 +177,8 @@ test.describe("Поиск участников PomidorQA", () => {
     async ({ appFactory }) => {
       const runId = makeRunId("shared-skill");
       const sharedSkill = `SharedSkill-${runId}`;
-      const hostOne = makeUser(`host-one-${runId}`);
-      const hostTwo = makeUser(`host-two-${runId}`);
+      const hostOne = makeUser("host-one", runId);
+      const hostTwo = makeUser("host-two", runId);
 
       const hostOneApp = await appFactory();
       const hostTwoApp = await appFactory();
@@ -240,11 +240,13 @@ test.describe("Поиск участников PomidorQA", () => {
       const otherSkill = `Other-${runId}`;
 
       const matchingHost = makeUser(
-        `matching-host-${runId}`,
+        "matching-host",
+        runId,
       );
 
       const otherHost = makeUser(
-        `other-host-${runId}`,
+        "other-host",
+        runId,
       );
 
       const matchingHostApp = await appFactory();
@@ -347,11 +349,13 @@ test.describe("Поиск участников PomidorQA", () => {
       const sharedSkill = `SlotRule-${runId}`;
 
       const eligibleHost = makeUser(
-        `with-slot-${runId}`,
+        "with-slot",
+        runId,
       );
 
       const noSlotHost = makeUser(
-        `without-slot-${runId}`,
+        "without-slot",
+        runId,
       );
 
       const eligibleHostApp = await appFactory();
@@ -418,8 +422,8 @@ test.describe("Поиск участников PomidorQA", () => {
       const runId = makeRunId("repeat-search");
       const skillA = `RepeatA-${runId}`;
       const skillB = `RepeatB-${runId}`;
-      const hostA = makeUser(`host-a-${runId}`);
-      const hostB = makeUser(`host-b-${runId}`);
+      const hostA = makeUser("host-a", runId);
+      const hostB = makeUser("host-b", runId);
 
       const hostAApp = await appFactory();
       const hostBApp = await appFactory();
@@ -495,10 +499,11 @@ test.describe("Поиск участников PomidorQA", () => {
     async ({ appFactory }) => {
       const runId = makeRunId("authorized-search");
       const skill = `Authorized-${runId}`;
-      const host = makeUser(`host-${runId}`);
+      const host = makeUser("host", runId);
 
       const searcher = makeUser(
-        `searcher-${runId}`,
+        "searcher",
+        runId,
       );
 
       const hostApp = await appFactory();

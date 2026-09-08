@@ -1,4 +1,5 @@
 import { expect, test } from "../fixtures/app-fixtures";
+import { makeRunId } from "../helpers/test-data";
 import { makeUser, registerUser } from "../helpers/user";
 
 test.describe("Бронирование встречи", () => {
@@ -7,13 +8,12 @@ test.describe("Бронирование встречи", () => {
     async ({ hostApp, guestApp, guest2App }) => {
       test.setTimeout(120_000);
 
-      const runId =
-        `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const runId = makeRunId("booking-flow");
       const skillTag = `Playwright-demo-${runId}`;
       const slotTime = "12:00";
-      const host = makeUser(`host-${runId}`);
-      const guest = makeUser(`guest-${runId}`);
-      const guest2 = makeUser(`guest2-${runId}`);
+      const host = makeUser("host", runId);
+      const guest = makeUser("guest", runId);
+      const guest2 = makeUser("guest2", runId);
 
       await test.step(
         "Хост: регистрируется и публикует навык",

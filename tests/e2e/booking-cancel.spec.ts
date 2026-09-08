@@ -1,4 +1,5 @@
 import { expect, test } from "../fixtures/app-fixtures";
+import { makeRunId } from "../helpers/test-data";
 import { makeUser, registerUser } from "../helpers/user";
 import type { BookingPage } from "../pages/booking-page";
 
@@ -28,12 +29,10 @@ test(
   async ({ hostApp, guestApp }) => {
     test.setTimeout(120_000);
 
-    const runId =
-      `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
+    const runId = makeRunId("booking-cancel");
     const skillTag = `Cancel-${runId}`;
-    const hostUser = makeUser(`host-${runId}`);
-    const guestUser = makeUser(`guest-${runId}`);
+    const hostUser = makeUser("host", runId);
+    const guestUser = makeUser("guest", runId);
 
     await test.step(
       "Хост: регистрируется и добавляет уникальный навык",
