@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { makeUniqueToken } from "./test-data";
 
 export const ROUTES = {
   catalog: "/pomidorqa",
@@ -14,12 +15,13 @@ export type TestUser = {
   password: string;
 };
 
-export function makeUser(role: string): TestUser {
-  const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
+export function makeUser(
+  role: string,
+  runId = makeUniqueToken(),
+): TestUser {
   return {
-    name: `${role} Автотест ${unique}`,
-    email: `${role}-${unique}@example.com`,
+    name: `${role} Автотест ${runId}`,
+    email: `${role}-${runId}@example.com`,
     password: "testpass123",
   };
 }
