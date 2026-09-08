@@ -3,7 +3,7 @@
 [![PomidorQA CI](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/playwright.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/playwright.yml)
 [![Stability Check](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/stability.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/stability.yml)
 
-Личный standalone-проект по QA Automation на **Playwright + TypeScript**. Он вырос из учебного репозитория PomidorQA и используется как отдельный стенд для практики E2E, API, unit-тестирования, Page Object Model, CI/CD, диагностики падений и анализа flaky-поведения.
+Личный standalone-проект по **QA Automation на Playwright + TypeScript**. Репозиторий вырос из учебного PomidorQA-проекта и используется как отдельная площадка для практики E2E, API и unit-тестирования, Page Object Model, fixtures, test-data factories, CI/CD, диагностики падений и анализа flaky-поведения.
 
 Исходный учебный проект: [lebed52/pomidorqa-course-tests](https://github.com/lebed52/pomidorqa-course-tests).
 
@@ -12,22 +12,24 @@
 | Область | Реализация |
 | --- | --- |
 | E2E | реальные пользовательские сценарии PomidorQA в Chromium |
-| POM | локаторы и действия экранов вынесены в `tests/pages` |
-| Helpers | регистрация, browser contexts и подготовка каталоговых данных |
-| API | изолированный HTTP mock для правил бронирования и регистрации |
-| Unit | чистые проверки временных диапазонов, timezone и password validation |
+| POM | локаторы и действия экранов в `tests/pages` |
+| Fixtures | централизованное создание и teardown browser contexts |
+| Test data | общий генератор уникальных run id и тестовых пользователей |
+| Helpers | регистрация, подготовка каталога, app factory, маршруты |
+| API | изолированный HTTP mock для booking/participants API |
+| Unit | чистые проверки password validation, slots и timezone logic |
 | Quality gate | ESLint + TypeScript `tsc --noEmit` |
 | CI | отдельные Quality / Unit / API / E2E jobs |
-| Diagnostics | HTML report, trace, screenshot, video, failure artifacts |
-| Stability | ручной stress-run с `repeat-each` и `retries=0` |
+| Diagnostics | HTML report, trace, screenshot, video и failure artifacts |
+| Stability | stress-runs с `repeat-each`, workers 1/2 и `retries=0` |
 | Notifications | Telegram Bot API с итогом pipeline |
 
 ## Архитектура тестов
 
 ```text
 src/pyramid/
-├── auth.ts                    # чистая логика валидации пароля
-├── slots.ts                   # пересечение слотов и timezone formatting
+├── auth.ts                    # чистая логика password validation
+├── slots.ts                   # slots/timezone logic
 └── mock-booking-api.ts        # локальный HTTP API для API-уровня
 
 tests/
@@ -37,10 +39,14 @@ tests/
 ├── api/
 │   ├── booking-api.spec.ts
 │   └── participants-api.spec.ts
+├── fixtures/
+│   └── app-fixtures.ts        # appFactory + role fixtures + teardown
 ├── helpers/
-│   ├── user.ts                # TestUser, makeUser, registerUser, routes
-│   ├── booking.ts             # browser contexts и cleanup
-│   └── catalog.ts             # подготовка участников каталога
+│   ├── routes.ts              # централизованные PomidorQA routes
+│   ├── test-data.ts           # unique token / run id factory
+│   ├── user.ts                # TestUser, makeUser, registerUser
+│   ├── booking.ts             # AppContext, createApp, closeApps
+│   └── catalog.ts             # подготовка catalog participants
 ├── pages/
 │   ├── auth-page.ts
 │   ├── profile-page.ts
@@ -54,7 +60,25 @@ tests/
     └── catalog-search.spec.ts
 ```
 
-Главный принцип: **spec описывает сценарий и assertions, Page Object выполняет действия экрана, helper отвечает за повторяемую подготовку данных и контекста**.
+Главный принцип архитектуры:
+
+**spec описывает сценарий и assertions → Page Object выполняет действия экрана → helper/fixture отвечает за повторяемую подготовку, данные и жизненный цикл контекста.**
+
+## Поток E2E-теста
+
+```mermaid
+flowchart LR
+    T[Test spec] --> F[Playwright fixture]
+    F --> A[AppContext]
+    A --> P1[Page Objects]
+    T --> H[Helpers / factories]
+    H --> D[Unique test data]
+    P1 --> UI[PomidorQA live UI]
+    T --> E[Assertions]
+    F --> C[Centralized context cleanup]
+```
+
+Fixtures владеют browser contexts и закрывают их централизованно после теста. `appFactory` используется в сценариях, где требуется произвольное количество изолированных пользователей; role fixtures (`hostApp`, `guestApp`, `guest2App`) делают booking-сценарии читаемыми.
 
 ## E2E-сценарии
 
@@ -69,14 +93,14 @@ tests/
 - пустую выдачу;
 - исключение собственной карточки для авторизованного пользователя;
 - двух участников с одинаковым навыком;
-- фильтрацию подходящего/неподходящего участника;
+- включение подходящего и исключение неподходящего участника;
 - правило обязательного будущего свободного слота;
 - повторный поиск без перезагрузки;
 - поиск другим авторизованным пользователем.
 
-Созданные browser contexts закрываются в `finally`. Тестовые пользователи и навыки получают уникальные данные на каждый запуск.
+Для связанных сущностей одного сценария используется общий `runId`, при этом роли (`host`, `guest`, `guest2`) остаются различимыми. Это делает данные уникальными между запусками и одновременно сохраняет сценарий читаемым.
 
-## Синхронизация и стабильность
+## Детерминированность и синхронизация
 
 В проекте не используются `waitForTimeout`, `force: true`, `.only`, `skip` или `page.pause()` для маскировки проблем.
 
@@ -87,7 +111,15 @@ tests/
 - URL/navigation events;
 - polling/reload только там, где приложение реально имеет eventual consistency.
 
-При выборе конкретной бизнес-сущности используются уникальные данные и точные локаторы. `.first()` допустим только там, где сценарий действительно выбирает первый доступный слот, а не произвольного участника.
+При выборе конкретной бизнес-сущности используются уникальные данные и точные локаторы. Для booking-сценариев, которые сами создают ровно один слот, Page Object не выбирает произвольный `.first()`: он проверяет precondition «ровно один доступный день / слот» и падает с диагностическим сообщением, если состояние неожиданно изменилось.
+
+## Browser context lifecycle
+
+Создание контекста вынесено в `createApp()`, а teardown — в fixtures.
+
+Если setup падает после создания browser context, helper закрывает уже созданный context перед повторным выбросом ошибки. При общем teardown выполняется попытка закрыть все созданные contexts; ошибки cleanup не скрываются как обычные предупреждения.
+
+Это защищает E2E-suite от скрытых browser-context leaks и делает инфраструктурные проблемы видимыми в CI.
 
 ## CI pipeline
 
@@ -96,7 +128,7 @@ flowchart LR
     A[PR / push main / manual] --> Q[Quality\nESLint + TypeScript]
     A --> U[Unit]
     A --> P[API]
-    Q --> E[E2E / Chromium\n1 worker]
+    Q --> E[E2E / Chromium\n1 worker · retries 0]
     U --> E
     P --> E
     E --> S[GitHub Actions Summary]
@@ -107,13 +139,15 @@ flowchart LR
     E -. result .-> T
 ```
 
-`Quality`, `Unit` и `API` могут выполняться параллельно. Ограничение в один worker применяется только к E2E на общем live-стенде. Для E2E в обычном CI разрешены retries на уровне Playwright-конфига; отдельный stability workflow всегда запускается с `retries=0`.
+`Quality`, `Unit` и `API` выполняются независимо, а required E2E gate запускается на общем live-стенде с одним worker.
+
+Ключевое правило CI: **E2E retries = 0**. Первый реальный E2E failure делает check красным и не маскируется автоматическим retry.
 
 Основной workflow: `.github/workflows/playwright.yml`.
 
 ## Stability Check
 
-`.github/workflows/stability.yml` запускается вручную и предназначен не для получения «зелёного» результата любой ценой, а для поиска flaky-поведения.
+`.github/workflows/stability.yml` запускается вручную и предназначен именно для поиска flaky-поведения.
 
 Параметры:
 
@@ -123,6 +157,27 @@ flowchart LR
 - `retries=0`.
 
 Если хотя бы один повтор падает, workflow завершается ошибкой и сохраняет diagnostics.
+
+### Подтверждённый stability run
+
+Перед включением строгого CI gate был выполнен отдельный stress-run без retries:
+
+| Проверка | Результат |
+| --- | --- |
+| `booking-flow` ×10, workers=1 | ✅ passed |
+| `booking-flow` ×10, workers=2 | ✅ passed |
+| весь E2E ×5, workers=1 | ✅ passed |
+| весь E2E ×5, workers=2 | ✅ passed |
+
+Run: [GitHub Actions #34267366176](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/runs/34267366176).
+
+После этого required E2E gate был переведён на `--retries=0` и также прошёл полный CI.
+
+## Почему здесь есть `.first()` и где его нет
+
+В проекте действует правило: нельзя использовать `.first()` как способ «как-нибудь выбрать» конкретного пользователя, карточку, meeting или другой объект, который должен быть идентифицирован однозначно.
+
+Для booking flow сценарий сам создаёт единственный слот. Даже здесь текущая реализация не полагается на произвольный `.first()`: Page Object сначала проверяет количество доступных дней/слотов и продолжает только при значении `1`.
 
 ## Быстрый старт
 
@@ -189,12 +244,29 @@ npm run test:api
 npm run test:e2e
 ```
 
-Подробности: [CONTRIBUTING.md](CONTRIBUTING.md), правила автотестов: [CODEX.md](CODEX.md), review checklist: [REVIEW.md](REVIEW.md).
+Подробности:
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — workflow разработки;
+- [CODEX.md](CODEX.md) — правила построения автотестов;
+- [REVIEW.md](REVIEW.md) — review checklist.
+
+## Что важно для code review
+
+В review проверяется не только зелёный результат, но и качество сигнала теста:
+
+- assertion находится на правильном уровне;
+- locator идентифицирует нужную сущность;
+- action и verification не смешиваются без необходимости;
+- нет скрытых retry/sleep workaround;
+- browser contexts гарантированно завершают lifecycle;
+- test data независимы между запусками;
+- eventual consistency обрабатывается только там, где она реально существует;
+- CI не маскирует E2E failure retries.
 
 ## Зачем этот репозиторий
 
-Цель проекта — не просто накопить автотесты, а показать воспроизводимый QA Automation workflow:
+Цель проекта — показать не просто набор автотестов, а воспроизводимый QA Automation workflow:
 
-**изменение → code review → quality gates → unit/API → E2E → diagnostics → stability analysis → CI summary → notification**.
+**изменение → review → quality gates → unit/API → E2E → diagnostics → stability analysis → strict CI gate → summary/notification**.
 
-Репозиторий развивается отдельно от общего учебного `main`, поэтому архитектурные и инфраструктурные улучшения здесь можно доводить до portfolio-level состояния без расширения scope учебных PR.
+Репозиторий развивается отдельно от общего учебного `main`, поэтому архитектурные и инфраструктурные улучшения можно доводить до portfolio-level состояния, не расширяя scope учебных PR.
