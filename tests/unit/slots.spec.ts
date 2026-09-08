@@ -45,6 +45,19 @@ test.describe("Unit: пересечение слотов по времени", (
     expect(slotsOverlap(slotA, slotB)).toBe(false);
   });
 
+  test("слот A целиком позже слота B и не пересекается", () => {
+    const slotA: TimeRange = {
+      start: new Date("2026-08-01T14:00:00"),
+      end: new Date("2026-08-01T14:25:00"),
+    };
+    const slotB: TimeRange = {
+      start: new Date("2026-08-01T10:00:00"),
+      end: new Date("2026-08-01T10:25:00"),
+    };
+
+    expect(slotsOverlap(slotA, slotB)).toBe(false);
+  });
+
   test("вложенный слот пересекается", () => {
     const slotA: TimeRange = {
       start: new Date("2026-08-01T10:00:00"),
