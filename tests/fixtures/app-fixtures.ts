@@ -9,7 +9,6 @@ export type AppFactory = () => Promise<AppContext>;
 
 type AppFixtures = {
   appFactory: AppFactory;
-  app: AppContext;
   hostApp: AppContext;
   guestApp: AppContext;
   guest2App: AppContext;
@@ -32,12 +31,6 @@ export const test = base.extend<AppFixtures>({
     } finally {
       await closeApps(apps);
     }
-  },
-
-  app: async ({ appFactory }, use) => {
-    const app = await appFactory();
-
-    await use(app);
   },
 
   hostApp: async ({ appFactory }, use) => {
