@@ -68,7 +68,7 @@ export class BookingPage {
 
     await Promise.all([
       this.page.waitForURL(
-        (url) => url.pathname.startsWith("/pomidorqa/people/"),
+        (url) => url.pathname.startsWith(ROUTES.people),
         { waitUntil: "load" },
       ),
       personCard.click(),
