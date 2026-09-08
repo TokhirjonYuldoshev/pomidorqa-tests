@@ -1,5 +1,5 @@
-name: "🍅 PomidorQA CI"
-run-name: "🍅 PomidorQA CI • ${{ github.head_ref || github.ref_name }} • ${{ github.actor }}"
+name: "Playwright QA Automation CI"
+run-name: "Playwright QA Automation CI • ${{ github.head_ref || github.ref_name }} • ${{ github.actor }}"
 
 on:
   pull_request:
@@ -224,7 +224,7 @@ jobs:
           ACTOR_HTML="$(html_escape "$GITHUB_ACTOR")"
 
           cat >> "$GITHUB_STEP_SUMMARY" <<EOF
-          # 🍅 PomidorQA CI Summary
+          # Playwright QA Automation CI Summary
           _Автоматические проверки проекта • нативный GitHub Actions Summary_
 
           ## ${OVERALL}
@@ -307,7 +307,7 @@ jobs:
           </details>
 
           ---
-          _🍅 PomidorQA • Качественный код сегодня — уверенный релиз завтра._
+          _Playwright QA Automation • Качественный код сегодня — уверенный релиз завтра._
           EOF
 
   notify:
@@ -384,7 +384,7 @@ jobs:
           EVENT_HTML="$(escape_html "$(event_label "$GITHUB_EVENT_NAME")")"
 
           MESSAGE=$(cat <<EOF
-          🍅 <b>PomidorQA CI</b>
+          <b>Playwright QA Automation CI</b>
           <i>Автоматические проверки проекта</i>
 
           ━━━━━━━━━━━━━━
