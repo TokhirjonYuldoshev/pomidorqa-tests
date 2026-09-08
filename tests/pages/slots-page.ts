@@ -1,5 +1,5 @@
 import { type Locator, type Page } from "@playwright/test";
-import { ROUTES } from "../helpers/user";
+import { ROUTES } from "../helpers/routes";
 
 function toDateInputValue(date: Date): string {
   const year = date.getFullYear();
