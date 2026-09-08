@@ -14,6 +14,24 @@
 6. воспроизводимую диагностику CI failures;
 7. возможность отдельно stress-тестировать flaky-поведение.
 
+## Architecture at a glance
+
+```text
+Tests
+ |
+ ├── E2E scenarios
+ |
+ ├── Page Objects
+ |
+ ├── Fixtures
+ |
+ ├── Helpers
+ |
+ └── Test Data Factories
+```
+
+E2E-сценарии описывают бизнес-поведение и assertions. Page Objects инкапсулируют взаимодействие с UI, fixtures управляют browser contexts, helpers отвечают за повторяемую подготовку, а test-data factories создают независимые уникальные данные для каждого запуска.
+
 ## Слои
 
 ```mermaid
