@@ -1,9 +1,9 @@
 # 🍅 PomidorQA Playwright CI Lab
 
-[![PomidorQA CI](https://github.com/TokhirjonYuldoshev/pomidorqa-course-tests/actions/workflows/playwright.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-course-tests/actions/workflows/playwright.yml)
-[![Stability Check](https://github.com/TokhirjonYuldoshev/pomidorqa-course-tests/actions/workflows/stability.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-course-tests/actions/workflows/stability.yml)
+[![PomidorQA CI](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/playwright.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/playwright.yml)
+[![Stability Check](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/stability.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/stability.yml)
 
-Личный учебный CI/CD-стенд на **Playwright + TypeScript**. Здесь я отрабатываю не только написание автотестов, но и инженерную часть вокруг них: quality gates, изоляцию уровней тестирования, стабильность E2E, диагностику падений, защиту `main`, нативный GitHub Actions Summary и уведомления о результате pipeline в Telegram.
+Личный учебный CI/CD-стенд на **Playwright + TypeScript**. Здесь я отрабатываю не только написание автотестов, но и инженерную часть вокруг них: quality gates, изоляцию уровней тестирования, стабильность E2E, диагностику падений, настройку `main`, нативный GitHub Actions Summary и уведомления о результате pipeline в Telegram.
 
 Проект основан на учебном репозитории марафона [lebed52/pomidorqa-course-tests](https://github.com/lebed52/pomidorqa-course-tests). В этом репозитории находятся мои отдельные CI-эксперименты и улучшения, которые не смешиваются с общим учебным `main`.
 
@@ -20,7 +20,7 @@
 | CI Summary | нативный GitHub Actions Summary с 4 блоками, статусами, окружением и ссылками |
 | Stability | ручной stress-run с `repeat-each`, workers и `retries=0` |
 | Notifications | Telegram Bot API с итогом каждого CI run |
-| Main protection | PR-only, required checks, squash-only, linear history, без force-push/delete |
+| Main protection | требует повторной настройки после переноса в standalone-репозиторий |
 
 ## Архитектура pipeline
 
@@ -125,7 +125,7 @@ Summary организован как компактная сетка **2×2**:
 🍅 PomidorQA CI
 ✅ ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ
 
-📦 Репозиторий: TokhirjonYuldoshev/pomidorqa-course-tests
+📦 Репозиторий: TokhirjonYuldoshev/pomidorqa-tests
 🌿 Ветка: main
 ⚡ Событие: Push в репозиторий
 
@@ -147,15 +147,12 @@ Summary организован как компактная сетка **2×2**:
 
 ## Защита `main`
 
-`main` защищён ruleset-ом. Для изменения основной ветки требуется Pull Request и прохождение обязательных checks:
+После переноса проекта в отдельный standalone-репозиторий настройки защиты ветки не перенеслись автоматически. Сейчас `main` в `TokhirjonYuldoshev/pomidorqa-tests` не защищён ruleset-ом, поэтому защиту нужно настроить повторно в настройках репозитория.
 
-- `Quality / lint + typecheck`;
-- `Unit tests`;
-- `API tests`;
-- `E2E / Chromium`.
+Рекомендуемая конфигурация для этого проекта:
 
-Дополнительно включены:
-
+- изменения `main` через Pull Request;
+- required checks: `Quality / lint + typecheck`, `Unit tests`, `API tests`, `E2E / Chromium`;
 - branch must be up to date before merge;
 - conversation resolution before merge;
 - squash merge only;
@@ -172,8 +169,8 @@ Summary организован как компактная сетка **2×2**:
 - Chromium для локального E2E.
 
 ```bash
-git clone https://github.com/TokhirjonYuldoshev/pomidorqa-course-tests.git
-cd pomidorqa-course-tests
+git clone https://github.com/TokhirjonYuldoshev/pomidorqa-tests.git
+cd pomidorqa-tests
 npm ci
 npx playwright install chromium
 ```
@@ -215,6 +212,6 @@ eslint.config.mjs          # quality rules for Playwright tests
 
 Для меня этот проект — не просто набор автотестов. Он показывает полный QA automation workflow:
 
-**изменение → Pull Request → quality gates → E2E → native CI Summary + artifacts → stability analysis → защищённый merge → уведомление в Telegram**.
+**изменение → Pull Request → quality gates → E2E → native CI Summary + artifacts → stability analysis → merge в `main` → уведомление в Telegram**.
 
 Цель стенда — практиковать подход, близкий к рабочему процессу AQA/QA Automation Engineer, и фиксировать инженерные решения так, чтобы их можно было объяснить на code review или собеседовании.
