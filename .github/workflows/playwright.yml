@@ -128,7 +128,7 @@ jobs:
         run: npx playwright install chromium
 
       - name: Run E2E tests
-        run: npm run test:e2e
+        run: npm run test:e2e -- --workers=1
         env:
           CI: true
 
