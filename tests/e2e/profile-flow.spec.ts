@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { makeUniqueToken } from "../helpers/test-data";
 import { makeUser, registerUser } from "../helpers/user";
 import { ProfilePage } from "../pages/profile-page";
 
@@ -13,7 +14,8 @@ test.describe("Профиль: действия с полями", () => {
   });
 
   test("имя сохраняется после перезагрузки", async ({ page }) => {
-    const newName = `Тимур Тестович ${Date.now()}`;
+    const unique = makeUniqueToken();
+    const newName = `Тимур Тестович ${unique}`;
 
     await test.step("Сохраняем новое имя", async () => {
       await profilePage.saveName(newName);
@@ -45,7 +47,8 @@ test.describe("Профиль: действия с полями", () => {
   });
 
   test("telegram сохраняется после перезагрузки", async ({ page }) => {
-    const telegram = `@qa_timur_${Date.now()}`;
+    const unique = makeUniqueToken();
+    const telegram = `@qa_timur_${unique}`;
 
     await test.step("Сохраняем Telegram", async () => {
       await profilePage.saveTelegram(telegram);
@@ -61,7 +64,8 @@ test.describe("Профиль: действия с полями", () => {
   });
 
   test("о себе сохраняется после перезагрузки", async ({ page }) => {
-    const bio = `QA-инженер, прогон ${Date.now()}. Проверяю Playwright.`;
+    const unique = makeUniqueToken();
+    const bio = `QA-инженер, прогон ${unique}. Проверяю Playwright.`;
 
     await test.step("Сохраняем текст «О себе»", async () => {
       await profilePage.saveBio(bio);
@@ -77,7 +81,7 @@ test.describe("Профиль: действия с полями", () => {
   });
 
   test("навык «могу помочь» добавляется в нужный блок", async () => {
-    const skillTag = `Playwright-demo-${Date.now()}`;
+    const skillTag = `Playwright-demo-${makeUniqueToken()}`;
 
     await test.step("Добавляем навык «могу помочь»", async () => {
       await profilePage.addSkill(skillTag, "can_help");
@@ -100,7 +104,7 @@ test.describe("Профиль: действия с полями", () => {
   });
 
   test("навык «хочу разобрать» не попадает в «могу помочь»", async () => {
-    const runId = Date.now();
+    const runId = makeUniqueToken();
     const canHelpTag = `CanHelp-${runId}`;
     const wantToLearnTag = `WantToLearn-${runId}`;
 
@@ -120,7 +124,7 @@ test.describe("Профиль: действия с полями", () => {
   });
 
   test("имя, telegram и о себе сохраняются одной отправкой", async ({ page }) => {
-    const runId = Date.now();
+    const runId = makeUniqueToken();
     const name = `Тимур Тестовый ${runId}`;
     const telegram = `@qa_timur_${runId}`;
     const bio = `QA-инженер, прогон ${runId}. Проверяю форму профиля целиком.`;
