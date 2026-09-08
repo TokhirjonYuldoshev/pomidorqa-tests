@@ -22,7 +22,6 @@ export default defineConfig({
     {
       name: "e2e",
       testDir: "./tests/e2e",
-      retries: isCI ? 2 : 0,
       use: {
         ...devices["Desktop Chrome"],
         baseURL: process.env.POMIDORQA_BASE_URL ?? "https://aiqa.su",

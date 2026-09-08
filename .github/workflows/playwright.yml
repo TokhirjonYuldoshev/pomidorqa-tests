@@ -128,7 +128,7 @@ jobs:
         run: npx playwright install chromium
 
       - name: Run E2E tests
-        run: npm run test:e2e -- --workers=1
+        run: npm run test:e2e -- --workers=1 --retries=0
         env:
           CI: true
 
@@ -270,7 +270,7 @@ jobs:
                   <tbody>
                     <tr><td>Node.js</td><td><strong>24</strong></td></tr>
                     <tr><td>E2E workers</td><td><strong>1</strong> · shared live stand</td></tr>
-                    <tr><td>E2E retries</td><td><strong>2</strong></td></tr>
+                    <tr><td>E2E retries</td><td><strong>0</strong> · failures are not masked</td></tr>
                     <tr><td>Playwright cache</td><td>$(cache_ru "${CACHE_HIT:-}")</td></tr>
                     <tr><td>Browser</td><td>Chromium · Playwright</td></tr>
                     <tr><td>HTML report</td><td><a href="${ARTIFACTS_URL}">Открыть artifacts</a></td></tr>
