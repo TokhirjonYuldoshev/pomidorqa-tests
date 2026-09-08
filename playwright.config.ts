@@ -7,7 +7,6 @@ export default defineConfig({
   fullyParallel: false,
   forbidOnly: isCI,
   retries: 0,
-  workers: isCI ? 1 : undefined,
   reporter: isCI
     ? [["line"], ["github"], ["html", { open: "never" }]]
     : [["list"], ["html", { open: "on-failure" }]],
