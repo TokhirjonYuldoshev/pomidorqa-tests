@@ -1,6 +1,6 @@
 # 🍅 PomidorQA QA Automation
 
-[![PomidorQA CI](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/playwright.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/playwright.yml)
+[![Playwright QA Automation CI](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/playwright.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/playwright.yml)
 [![Stability Check](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/stability.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/stability.yml)
 
 Личный standalone-проект по **QA Automation на Playwright + TypeScript**. Репозиторий вырос из учебного PomidorQA-проекта и используется как отдельная площадка для практики E2E, API и unit-тестирования, Page Object Model, fixtures, test-data factories, CI/CD, диагностики падений и анализа flaky-поведения.
@@ -23,6 +23,35 @@
 | Diagnostics | HTML report, trace, screenshot, video и failure artifacts |
 | Stability | stress-runs с `repeat-each`, workers 1/2 и `retries=0` |
 | Notifications | Telegram Bot API с итогом pipeline |
+
+## Testing Strategy
+
+```text
+Testing Strategy
+
+├── Unit Tests
+├── API Tests
+├── E2E Tests
+└── CI Validation
+```
+
+- **Unit Tests** проверяют изолированную бизнес-логику без браузера и внешнего стенда.
+- **API Tests** проверяют HTTP-контракты booking/participants на локальном mock API.
+- **E2E Tests** проверяют пользовательские сценарии через Playwright на live PomidorQA UI.
+- **CI Validation** объединяет lint, typecheck, Unit, API и обязательный E2E gate с `retries=0`.
+
+## Test Coverage
+
+Covered scenarios:
+
+- ✓ Registration
+- ✓ Authentication
+- ✓ Profile management
+- ✓ Catalog search
+- ✓ Booking creation
+- ✓ Booking cancellation
+
+Дополнительно E2E-набор проверяет конкуренцию за один слот, правила видимости карточек участников, обязательное наличие будущего свободного слота, повторный поиск без reload и консистентность состояния после отмены встречи.
 
 ## Архитектура тестов
 
