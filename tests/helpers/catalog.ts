@@ -2,10 +2,6 @@ import { test } from "@playwright/test";
 import type { AppContext } from "./booking";
 import { registerUser, type TestUser } from "./user";
 
-export function makeRunId(prefix: string): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
 export async function registerWithSkill(
   app: AppContext,
   user: TestUser,
