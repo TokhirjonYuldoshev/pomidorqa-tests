@@ -53,9 +53,28 @@ export async function registerUser(
     await page.getByLabel("Email").fill(user.email);
     await page.getByLabel("Пароль").fill(user.password);
 
+    const registrationPath = new URL(ROUTES.register, page.url()).pathname;
+    const registrationResponsePromise = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname === registrationPath,
+      { timeout: 15_000 },
+    );
+
     await page
       .getByRole("button", { name: "Зарегистрироваться" })
       .click();
+
+    const registrationResponse = await registrationResponsePromise;
+
+    if (registrationResponse.status() >= 400) {
+      throw new Error(
+        `Регистрация ${user.email} вернула ` +
+          `HTTP ${registrationResponse.status()} ` +
+          `${registrationResponse.statusText()}. ` +
+          `URL: ${registrationResponse.url()}`,
+      );
+    }
 
     await expect(
       page,
