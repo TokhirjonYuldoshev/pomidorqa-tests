@@ -3,20 +3,37 @@ import playwright from "eslint-plugin-playwright";
 
 const playwrightRecommended = playwright.configs["flat/recommended"];
 
+const baseRules = {
+  "no-debugger": "error",
+  "no-duplicate-imports": "error",
+  "no-unreachable": "error",
+};
+
 export default [
   {
-    ignores: ["node_modules/**", "playwright-report/**", "test-results/**"],
+    ignores: [
+      "node_modules/**",
+      "playwright-report/**",
+      "test-results/**",
+      ".qa-artifacts/**",
+      ".visual-snapshots/**",
+    ],
   },
   {
-    files: ["src/**/*.ts", "tests/**/*.ts", "playwright.config.ts"],
+    files: [
+      "src/**/*.ts",
+      "tests/**/*.ts",
+      "playwright.config.ts",
+      "playwright.visual.config.ts",
+    ],
     languageOptions: {
       parser: tseslint.parser,
     },
-    rules: {
-      "no-debugger": "error",
-      "no-duplicate-imports": "error",
-      "no-unreachable": "error",
-    },
+    rules: baseRules,
+  },
+  {
+    files: ["scripts/**/*.mjs"],
+    rules: baseRules,
   },
   {
     ...playwrightRecommended,
