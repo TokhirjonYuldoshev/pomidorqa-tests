@@ -1,9 +1,11 @@
-# 🍅 PomidorQA QA Automation
+# PomidorQA QA Automation
 
 [![Playwright QA Automation CI](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/playwright.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/playwright.yml)
+[![Nightly E2E Regression](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/nightly.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/nightly.yml)
+[![Security & Quality Gates](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/security.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/security.yml)
 [![Stability Check](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/stability.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/stability.yml)
 
-Личный standalone-проект по **QA Automation на Playwright + TypeScript**. Репозиторий вырос из учебного PomidorQA-проекта и используется как отдельная площадка для практики E2E, API и unit-тестирования, Page Object Model, fixtures, test-data factories, CI/CD, диагностики падений и анализа flaky-поведения.
+Личный standalone-проект по **QA Automation на Playwright + TypeScript**. Репозиторий вырос из учебного PomidorQA-проекта и используется как отдельная площадка для практики E2E, API и unit-тестирования, Page Object Model, fixtures, test-data factories, cross-browser CI, Allure reporting, диагностики падений и анализа flaky-поведения.
 
 Исходный учебный проект: [lebed52/pomidorqa-course-tests](https://github.com/lebed52/pomidorqa-course-tests).
 
@@ -11,7 +13,7 @@
 
 | Область | Реализация |
 | --- | --- |
-| E2E | реальные пользовательские сценарии PomidorQA в Chromium |
+| E2E | реальные пользовательские сценарии PomidorQA; локально Chromium по умолчанию, в CI — Chromium / Firefox / WebKit |
 | POM | локаторы и действия экранов в `tests/pages` |
 | Fixtures | централизованное создание и teardown browser contexts |
 | Test data | общий генератор уникальных run id и тестовых пользователей |
@@ -19,8 +21,11 @@
 | API | изолированный HTTP mock для booking/participants API |
 | Unit | чистые проверки password validation, slots и timezone logic |
 | Quality gate | ESLint + TypeScript `tsc --noEmit` |
-| CI | отдельные Quality / Unit / API / E2E jobs |
-| Diagnostics | HTML report, trace, screenshot, video и failure artifacts |
+| CI | Quality / Unit / API → E2E matrix в трёх браузерах |
+| Reporting | Playwright HTML + Allure Report для каждого browser job |
+| Diagnostics | trace, screenshot, video, HTML report и failure artifacts |
+| Nightly | ежедневная полная E2E-регрессия в Chromium / Firefox / WebKit |
+| Security | `npm audit`, dependency-change review, ESLint + TypeScript |
 | Stability | stress-runs с `repeat-each`, workers 1/2 и `retries=0` |
 | Notifications | Telegram Bot API с итогом pipeline |
 
@@ -38,7 +43,7 @@ Testing Strategy
 - **Unit Tests** проверяют изолированную бизнес-логику без браузера и внешнего стенда.
 - **API Tests** проверяют HTTP-контракты booking/participants на локальном mock API.
 - **E2E Tests** проверяют пользовательские сценарии через Playwright на live PomidorQA UI.
-- **CI Validation** объединяет lint, typecheck, Unit, API и обязательный E2E gate с `retries=0`.
+- **CI Validation** объединяет lint, typecheck, Unit, API и обязательный cross-browser E2E gate с `retries=0`.
 
 ## Test Coverage
 
@@ -92,6 +97,11 @@ tests/
 Главный принцип архитектуры:
 
 **spec описывает сценарий и assertions → Page Object выполняет действия экрана → helper/fixture отвечает за повторяемую подготовку, данные и жизненный цикл контекста.**
+
+Подробные решения и готовые объяснения для собеседования:
+
+- [`docs/architecture.md`](docs/architecture.md) — архитектура, lifecycle, CI, reporting и stability decisions;
+- [`docs/interview-guide.md`](docs/interview-guide.md) — короткие и развёрнутые ответы на технические вопросы.
 
 ## Поток E2E-теста
 
@@ -157,22 +167,80 @@ flowchart LR
     A[PR / push main / manual] --> Q[Quality\nESLint + TypeScript]
     A --> U[Unit]
     A --> P[API]
-    Q --> E[E2E / Chromium\n1 worker · retries 0]
+    Q --> E[E2E Matrix]
     U --> E
     P --> E
+    E --> C[Chromium]
+    E --> F[Firefox]
+    E --> W[WebKit]
+    C --> R[Playwright HTML + Allure]
+    F --> R
+    W --> R
     E --> S[GitHub Actions Summary]
-    E --> R[Report + diagnostics]
-    Q -. result .-> T[Telegram]
-    U -. result .-> T
-    P -. result .-> T
-    E -. result .-> T
+    E -. result .-> T[Telegram]
 ```
 
-`Quality`, `Unit` и `API` выполняются независимо, а required E2E gate запускается на общем live-стенде с одним worker.
+`Quality`, `Unit` и `API` выполняются независимо. После них один и тот же E2E-suite запускается отдельными jobs в Chromium, Firefox и WebKit. Каждый browser job работает на общем live-стенде с `workers=1` и `retries=0`.
+
+`fail-fast: false` сохраняет результат всех трёх браузеров даже при падении одного из них. Для каждого движка отдельно загружаются Playwright HTML и Allure artifacts.
 
 Ключевое правило CI: **E2E retries = 0**. Первый реальный E2E failure делает check красным и не маскируется автоматическим retry.
 
 Основной workflow: `.github/workflows/playwright.yml`.
+
+## Browser Matrix
+
+Playwright config использует `E2E_BROWSER` для выбора движка:
+
+- `chromium` — Desktop Chrome;
+- `firefox` — Desktop Firefox;
+- `webkit` — Desktop Safari.
+
+Если `E2E_BROWSER` не задан, локальный E2E запускается в Chromium. Основной CI и Nightly явно передают браузер из GitHub Actions matrix и поэтому выполняют весь E2E-suite во всех трёх движках.
+
+## Allure Reporting
+
+Для анализа результатов используется **Allure Report** параллельно со встроенным Playwright HTML report.
+
+```text
+Test Execution
+      |
+      v
+Allure Results
+      |
+      v
+Allure Report
+      |
+      v
+GitHub Actions Artifact
+```
+
+Allure reporter включается в CI через `ALLURE_ENABLED=true`. Отчёт генерируется после browser job, сохраняется отдельным artifact для конкретного движка и остаётся доступным для failure analysis, если E2E-run завершился ошибкой и workflow не был отменён.
+
+## Nightly Regression
+
+`.github/workflows/nightly.yml` запускает полный E2E-suite:
+
+- ежедневно по cron `0 2 * * *` — **02:00 UTC**;
+- вручную через `workflow_dispatch`;
+- в Chromium, Firefox и WebKit;
+- с `workers=1` и `retries=0`;
+- с отдельными Allure / Playwright artifacts и failure diagnostics.
+
+Nightly не заменяет PR gate. Его задача — обнаружить регрессию live-стенда или внешнее изменение, появившееся уже после merge.
+
+## Security & Quality Gates
+
+`.github/workflows/security.yml` работает независимо от основного тестового pipeline.
+
+Gates:
+
+- `npm audit --audit-level=high` для dependency tree;
+- dependency-change review для `package.json` / `package-lock.json` в pull request;
+- `npm ci` для проверки lockfile consistency при изменении dependencies;
+- ESLint + TypeScript как отдельный code-quality signal.
+
+Dependency-change review не зависит от включённого GitHub Dependency Graph, поэтому workflow остаётся переносимым между репозиториями.
 
 ## Stability Check
 
@@ -214,13 +282,19 @@ Run: [GitHub Actions #34267366176](https://github.com/TokhirjonYuldoshev/pomidor
 
 - Node.js 24;
 - npm;
-- Chromium для локального E2E.
+- Chromium для E2E по умолчанию.
 
 ```bash
 git clone https://github.com/TokhirjonYuldoshev/pomidorqa-tests.git
 cd pomidorqa-tests
 npm ci
 npx playwright install chromium
+```
+
+Чтобы локально прогонять полную browser matrix, установите все три движка:
+
+```bash
+npx playwright install chromium firefox webkit
 ```
 
 ## Команды
@@ -231,9 +305,16 @@ npx playwright install chromium
 | `npm run typecheck` | TypeScript `tsc --noEmit` |
 | `npm run test:unit` | unit-тесты |
 | `npm run test:api` | API-тесты |
-| `npm run test:e2e` | E2E в Chromium |
-| `npm test` | все Playwright projects |
-| `npm run report` | открыть последний HTML report |
+| `npm run test:e2e` | E2E в Chromium по умолчанию; движок задаётся через `E2E_BROWSER` |
+| `npm test` | Unit + API + E2E с текущим `E2E_BROWSER` |
+| `npm run report` | открыть последний Playwright HTML report |
+
+Примеры cross-browser запуска:
+
+```bash
+E2E_BROWSER=firefox npm run test:e2e
+E2E_BROWSER=webkit npm run test:e2e
+```
 
 По умолчанию E2E используют `https://aiqa.su`. Base URL можно переопределить:
 
@@ -244,6 +325,7 @@ POMIDORQA_BASE_URL=http://localhost:3000 npm run test:e2e
 На Windows PowerShell:
 
 ```powershell
+$env:E2E_BROWSER="firefox"
 $env:POMIDORQA_BASE_URL="http://localhost:3000"
 npm run test:e2e
 ```
@@ -273,11 +355,15 @@ npm run test:api
 npm run test:e2e
 ```
 
+Полная cross-browser проверка выполняется CI matrix после открытия PR.
+
 Подробности:
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — workflow разработки;
 - [CODEX.md](CODEX.md) — правила построения автотестов;
-- [REVIEW.md](REVIEW.md) — review checklist.
+- [REVIEW.md](REVIEW.md) — review checklist;
+- [docs/architecture.md](docs/architecture.md) — архитектурные решения;
+- [docs/interview-guide.md](docs/interview-guide.md) — interview preparation layer.
 
 ## Что важно для code review
 
@@ -296,6 +382,6 @@ npm run test:e2e
 
 Цель проекта — показать не просто набор автотестов, а воспроизводимый QA Automation workflow:
 
-**изменение → review → quality gates → unit/API → E2E → diagnostics → stability analysis → strict CI gate → summary/notification**.
+**изменение → review → quality/security gates → unit/API → cross-browser E2E → Allure/diagnostics → nightly/stability analysis → summary/notification**.
 
 Репозиторий развивается отдельно от общего учебного `main`, поэтому архитектурные и инфраструктурные улучшения можно доводить до portfolio-level состояния, не расширяя scope учебных PR.
