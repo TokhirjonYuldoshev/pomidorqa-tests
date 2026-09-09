@@ -3,6 +3,8 @@ playwright-report/
 test-results/
 allure-results/
 allure-report/
+.qa-artifacts/
+.visual-snapshots/
 .env
 .env.local
 *.log
