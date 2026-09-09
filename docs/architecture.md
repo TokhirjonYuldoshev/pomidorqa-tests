@@ -12,7 +12,8 @@
 4. централизованный browser-context lifecycle;
 5. разделение scenario, actions, assertions и setup;
 6. воспроизводимую диагностику CI failures;
-7. возможность отдельно stress-тестировать flaky-поведение.
+7. возможность отдельно stress-тестировать flaky-поведение;
+8. отдельные non-functional сигналы для accessibility, performance и visual regression.
 
 ## Architecture at a glance
 
@@ -28,9 +29,16 @@ Tests
  ├── Helpers
  |
  └── Test Data Factories
+
+Quality workflows
+ |
+ ├── Accessibility Audit
+ ├── Performance Smoke / Lighthouse
+ ├── Visual Regression
+ └── Telegram Notification Diagnostics
 ```
 
-E2E-сценарии описывают бизнес-поведение и assertions. Page Objects инкапсулируют взаимодействие с UI, fixtures управляют browser contexts, helpers отвечают за повторяемую подготовку, а test-data factories создают независимые уникальные данные для каждого запуска.
+E2E-сценарии описывают бизнес-поведение и assertions. Page Objects инкапсулируют взаимодействие с UI, fixtures управляют browser contexts, helpers отвечают за повторяемую подготовку, а test-data factories создают независимые уникальные данные для каждого запуска. Non-functional workflows вынесены отдельно, чтобы не смешивать функциональный E2E-сигнал с accessibility, performance и visual checks.
 
 ## Слои
 
@@ -218,6 +226,71 @@ Allure Report
 Отчёт генерируется и при failed E2E run, если workflow не был отменён. При падении тестов в GitHub Actions Summary появляется отдельная ссылка на Allure artifact для анализа причины failure.
 
 Playwright HTML report сохраняется параллельно как встроенный быстрый отчёт, а Allure используется как дополнительный слой анализа результатов и истории выполнения.
+
+## Non-functional QA workflows
+
+Функциональный E2E-suite дополнен независимыми workflow для других классов качества. Они намеренно не смешаны с бизнес-E2E: каждый даёт отдельный сигнал и отдельные artifacts.
+
+### Accessibility Audit
+
+`.github/workflows/accessibility.yml` запускает WCAG-аудит через `axe-core@4.13.0` в Chromium.
+
+- используется отдельный `scripts/accessibility-audit.mjs`;
+- отчёты сохраняются в `.qa-artifacts/accessibility/` и загружаются как GitHub Actions artifact на 14 дней;
+- обычный режим информационный;
+- при ручном `workflow_dispatch` можно включить `enforce=true`, тогда serious/critical нарушения делают workflow красным;
+- workflow также имеет отдельный weekly schedule.
+
+Такой режим позволяет сначала собирать accessibility baseline и анализировать реальные нарушения, а затем при необходимости превратить выбранный порог в gate.
+
+### Performance Smoke / Lighthouse
+
+`.github/workflows/performance.yml` выполняет desktop Lighthouse smoke для трёх публичных страниц:
+
+- catalog — `/pomidorqa`;
+- login — `/pomidorqa/auth/login`;
+- register — `/pomidorqa/auth/register`.
+
+Проверяются категории `performance`, `accessibility`, `best-practices` и `seo` через pinned `lighthouse@13.4.1`. JSON-отчёты сохраняются в `.qa-artifacts/lighthouse/` и публикуются artifact на 14 дней.
+
+Budget findings по умолчанию информационные. При ручном запуске можно включить enforcement и использовать те же budgets как blocking signal.
+
+### Visual Regression
+
+`.github/workflows/visual.yml` использует отдельный `playwright.visual.config.ts` и `tests/visual/public-pages.visual.spec.ts`.
+
+Текущая стратегия:
+
+- Chromium;
+- страницы login и register;
+- baseline хранится в GitHub Actions cache и ключуется по версии Playwright;
+- если совместимого baseline ещё нет, первый run создаёт его;
+- следующие runs сравнивают текущие screenshots с baseline;
+- `maxDiffPixelRatio = 0.01`;
+- snapshots сохраняются как artifact на 30 дней, а failure diagnostics — отдельно.
+
+Visual workflow изолирован от функциональных E2E-тестов, чтобы screenshot diff не смешивался с проверкой бизнес-логики.
+
+### Telegram diagnostics
+
+Основной CI отправляет итог через Telegram Bot API. Для диагностики интеграции существует отдельный ручной `.github/workflows/telegram-test.yml`.
+
+Он проверяет интеграцию по цепочке:
+
+```text
+Repository secrets
+      |
+      v
+getMe — bot token
+      |
+      v
+getChat — target chat
+      |
+      v
+sendMessage — real diagnostic message
+```
+
+Workflow не выводит значения secrets в лог и даёт точную причину failure: отсутствующий secret, невалидный bot token, недоступный chat ID или ошибка `sendMessage`.
 
 ## Nightly Regression
 
