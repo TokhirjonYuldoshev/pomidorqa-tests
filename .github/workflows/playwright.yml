@@ -87,8 +87,11 @@ jobs:
         env:
           CI: true
 
+  # Temporary pause: the shared live aiqa.su stand is currently unstable.
+  # The full Chromium / Firefox / WebKit matrix remains available via Run workflow.
   e2e:
     name: E2E / ${{ matrix.label }}
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     needs: [quality, unit, api]
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -214,7 +217,7 @@ jobs:
               success) echo "✅ Успешно" ;;
               failure) echo "❌ Ошибка" ;;
               cancelled) echo "⏹️ Отменено" ;;
-              skipped) echo "⏭️ Пропущено" ;;
+              skipped) echo "⏸️ Временно приостановлено" ;;
               *) echo "❔ ${1:-unknown}" ;;
             esac
           }
@@ -238,7 +241,10 @@ jobs:
 
           if [[ "$QUALITY" == "success" && "$UNIT" == "success" && "$API" == "success" && "$E2E" == "success" ]]; then
             OVERALL="✅ ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ"
-            OVERALL_NOTE="Сборка завершена успешно и готова к слиянию."
+            OVERALL_NOTE="Сборка завершена успешно, включая ручную browser matrix."
+          elif [[ "$QUALITY" == "success" && "$UNIT" == "success" && "$API" == "success" && "$E2E" == "skipped" ]]; then
+            OVERALL="✅ БАЗОВЫЕ ПРОВЕРКИ ПРОЙДЕНЫ"
+            OVERALL_NOTE="Live E2E matrix временно приостановлена из-за нестабильности общего стенда; её можно запустить вручную через Run workflow."
           elif [[ "$QUALITY" == "failure" || "$UNIT" == "failure" || "$API" == "failure" || "$E2E" == "failure" ]]; then
             OVERALL="❌ ЕСТЬ ОШИБКИ"
             OVERALL_NOTE="Одна или несколько проверок завершились с ошибкой."
@@ -305,7 +311,8 @@ jobs:
                   <thead><tr><th>Параметр</th><th>Значение</th></tr></thead>
                   <tbody>
                     <tr><td>Node.js</td><td><strong>24</strong></td></tr>
-                    <tr><td>E2E workers</td><td><strong>1 per browser</strong> · shared live stand</td></tr>
+                    <tr><td>Live E2E</td><td><strong>Manual only</strong> · temporary pause while shared stand is unstable</td></tr>
+                    <tr><td>E2E workers</td><td><strong>1 per browser</strong></td></tr>
                     <tr><td>E2E retries</td><td><strong>0</strong> · failures are not masked</td></tr>
                     <tr><td>Browsers</td><td>Chromium · Firefox · WebKit</td></tr>
                     <tr><td>Allure reports</td><td><a href="${ARTIFACTS_URL}">Открыть artifacts</a></td></tr>
@@ -371,7 +378,7 @@ jobs:
               success) echo "✅ Успешно" ;;
               failure) echo "❌ Ошибка" ;;
               cancelled) echo "⏹️ Отменено" ;;
-              skipped) echo "⏭️ Пропущено" ;;
+              skipped) echo "⏸️ Временно приостановлено" ;;
               *) echo "❔ $1" ;;
             esac
           }
@@ -405,6 +412,10 @@ jobs:
             OVERALL_ICON="✅"
             OVERALL_TITLE="ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ"
             OVERALL_SUBTITLE="Сборка завершена успешно"
+          elif [[ "$QUALITY" == "success" && "$UNIT" == "success" && "$API" == "success" && "$E2E" == "skipped" ]]; then
+            OVERALL_ICON="✅"
+            OVERALL_TITLE="БАЗОВЫЕ ПРОВЕРКИ ПРОЙДЕНЫ"
+            OVERALL_SUBTITLE="Live E2E matrix временно приостановлена; доступен ручной запуск"
           else
             OVERALL_ICON="⚠️"
             OVERALL_TITLE="СБОРКА ЗАВЕРШЕНА НЕ ПОЛНОСТЬЮ"
