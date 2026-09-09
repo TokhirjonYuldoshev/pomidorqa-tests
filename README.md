@@ -24,7 +24,7 @@
 | Fixtures | централизованный lifecycle browser contexts |
 | Test data | уникальные run id и тестовые пользователи |
 | Helpers | регистрация, catalog setup, app factory, маршруты |
-| Reporting | Playwright HTML + Allure Report |
+| Reporting | Playwright HTML + Allure Report локально и в CI |
 | Diagnostics | trace, screenshot, video и failure artifacts |
 | Accessibility | axe-core WCAG audit с optional enforcement |
 | Performance | Lighthouse smoke: Performance / Accessibility / Best Practices / SEO |
@@ -186,22 +186,31 @@ E2E_BROWSER=webkit npm run test:e2e
 
 ## Allure Reporting
 
-Для анализа результатов используется **Allure Report** параллельно со встроенным Playwright HTML report.
+**Allure является обычной частью проекта, а не CI-only зависимостью.** `allure-playwright` и Allure 3 CLI зафиксированы в `devDependencies`, поэтому обычного `npm ci` достаточно и для локальных запусков, и для GitHub Actions.
+
+Playwright по умолчанию пишет результаты одновременно в Playwright HTML и `allure-results/`:
 
 ```text
 Test Execution
+      |
+      +--> Playwright HTML
       |
       v
 Allure Results
       |
       v
 Allure Report
-      |
-      v
-GitHub Actions Artifact
 ```
 
-Allure reporter включается через `ALLURE_ENABLED=true`. Отчёты и Playwright HTML artifacts используются для failure analysis вместе с trace/screenshots/video.
+После любого локального запуска через Playwright можно собрать и открыть Allure Report:
+
+```bash
+npm run test:unit
+npm run allure:generate
+npm run allure:open
+```
+
+Аналогично это работает после API или E2E запуска. В CI основной E2E workflow, Nightly и Stability используют те же зависимости из `package-lock.json`, генерируют Allure Report и сохраняют его как GitHub Actions artifact. Отдельной `npm install --no-save` для Allure больше не требуется.
 
 ## Accessibility Audit
 
@@ -315,7 +324,8 @@ Dependency-change review не зависит от включённого GitHub 
 - `booking-flow` или весь E2E-suite;
 - `repeat-each`: 5 или 10;
 - workers: 1 или 2;
-- `retries=0`.
+- `retries=0`;
+- Playwright HTML и Allure Report artifacts.
 
 Подтверждённая stability matrix:
 
@@ -349,11 +359,13 @@ npx playwright install chromium
 | --- | --- |
 | `npm run lint` | ESLint для `src`, `tests`, `scripts` и Playwright configs |
 | `npm run typecheck` | TypeScript `tsc --noEmit` |
-| `npm run test:unit` | Unit tests |
-| `npm run test:api` | API tests |
-| `npm run test:e2e` | E2E в Chromium по умолчанию; движок задаётся через `E2E_BROWSER` |
+| `npm run test:unit` | Unit tests + Allure results |
+| `npm run test:api` | API tests + Allure results |
+| `npm run test:e2e` | E2E в Chromium по умолчанию + Allure results; движок задаётся через `E2E_BROWSER` |
 | `npm test` | Unit + API + E2E с текущим `E2E_BROWSER` |
 | `npm run report` | открыть последний Playwright HTML report |
+| `npm run allure:generate` | собрать `allure-report/` из `allure-results/` |
+| `npm run allure:open` | открыть локально собранный Allure Report |
 
 По умолчанию E2E используют `https://aiqa.su`. Base URL можно переопределить:
 
