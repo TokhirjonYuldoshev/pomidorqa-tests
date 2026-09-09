@@ -80,7 +80,7 @@ jobs:
         run: npm audit --audit-level=high
 
   quality:
-    name: Quality / lint + typecheck
+    name: Security / code quality
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
