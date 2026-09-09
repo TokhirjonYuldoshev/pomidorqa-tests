@@ -107,6 +107,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Allure Playwright reporter
+        run: npm install --no-save --package-lock=false allure-playwright@3.11.1
+
       - name: Resolve Playwright version
         id: playwright_version
         run: |
@@ -131,6 +134,29 @@ jobs:
         run: npm run test:e2e -- --workers=1 --retries=0
         env:
           CI: true
+          ALLURE_ENABLED: true
+
+      - name: Generate Allure report
+        if: ${{ !cancelled() }}
+        run: npx --yes allure@3.16.1 generate allure-results --output allure-report
+
+      - name: Upload Allure report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: allure-report-${{ github.run_id }}
+          path: allure-report/
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish Allure failure link
+        if: ${{ failure() }}
+        run: |
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          {
+            echo "### 📊 Allure failure analysis"
+            echo "[Open Allure report artifact](${RUN_URL}#artifacts)"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Playwright HTML report
         if: ${{ !cancelled() }}
@@ -230,7 +256,7 @@ jobs:
           ## ${OVERALL}
           > ${OVERALL_NOTE}
 
-          [▶️ Открыть run](${RUN_URL}) · [📦 Playwright artifacts](${ARTIFACTS_URL}) · [✈️ Telegram-бот](https://t.me/Tokhirjon_QA_Bot)
+          [▶️ Открыть run](${RUN_URL}) · [📊 Allure report](${ARTIFACTS_URL}) · [📦 Playwright artifacts](${ARTIFACTS_URL}) · [✈️ Telegram-бот](https://t.me/Tokhirjon_QA_Bot)
 
           ---
 
@@ -273,6 +299,7 @@ jobs:
                     <tr><td>E2E retries</td><td><strong>0</strong> · failures are not masked</td></tr>
                     <tr><td>Playwright cache</td><td>$(cache_ru "${CACHE_HIT:-}")</td></tr>
                     <tr><td>Browser</td><td>Chromium · Playwright</td></tr>
+                    <tr><td>Allure report</td><td><a href="${ARTIFACTS_URL}">Открыть artifact</a></td></tr>
                     <tr><td>HTML report</td><td><a href="${ARTIFACTS_URL}">Открыть artifacts</a></td></tr>
                   </tbody>
                 </table>
