@@ -1,4 +1,5 @@
 import { expect, test } from "../fixtures/app-fixtures";
+import { waitForCatalogParticipant } from "../helpers/catalog";
 import { makeRunId } from "../helpers/test-data";
 import { makeUser, registerUser } from "../helpers/user";
 
@@ -6,7 +7,7 @@ test.describe("Бронирование встречи", () => {
   test(
     "основной путь и гонка двух гостей за один слот",
     async ({ hostApp, guestApp, guest2App }) => {
-      test.setTimeout(120_000);
+      test.setTimeout(180_000);
 
       const runId = makeRunId("booking-flow");
       const skillTag = `Playwright-demo-${runId}`;
@@ -33,6 +34,12 @@ test.describe("Бронирование встречи", () => {
           await hostApp.slotsPage.goto();
           await hostApp.slotsPage.addSlot(slotTime);
         },
+      );
+
+      await waitForCatalogParticipant(
+        guestApp,
+        host,
+        skillTag,
       );
 
       await test.step(
