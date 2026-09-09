@@ -63,6 +63,47 @@ export class BookingPage {
     return this.personCards.filter({ hasText: name });
   }
 
+  async waitForCatalogPerson(
+    skillTag: string,
+    name: string,
+    timeoutMs = 60_000,
+  ): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    const personCard = this.personCard(name);
+    let refreshCount = 0;
+
+    await this.goToCatalog();
+
+    while (Date.now() < deadline) {
+      await this.searchCatalog(skillTag);
+
+      const remainingMs = deadline - Date.now();
+
+      try {
+        await personCard.waitFor({
+          state: "visible",
+          timeout: Math.max(1, Math.min(5_000, remainingMs)),
+        });
+        return;
+      } catch (error) {
+        if (!(error instanceof errors.TimeoutError)) {
+          throw error;
+        }
+
+        if (Date.now() >= deadline) {
+          break;
+        }
+
+        refreshCount += 1;
+      }
+    }
+
+    throw new Error(
+      `Участник ${name} с навыком ${skillTag} не появился в каталоге за ${timeoutMs} мс ` +
+        `после ${refreshCount} повторных запросов. URL: ${this.page.url()}`,
+    );
+  }
+
   async openPerson(name: string): Promise<void> {
     const personCard = this.personCard(name);
 
