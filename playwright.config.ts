@@ -1,7 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const isCI = Boolean(process.env.CI);
-const isAllureEnabled = process.env.ALLURE_ENABLED === "true";
 
 const e2eDevices = {
   chromium: devices["Desktop Chrome"],
@@ -23,15 +22,17 @@ export default defineConfig({
   forbidOnly: isCI,
   retries: 0,
   reporter: isCI
-    ? isAllureEnabled
-      ? [
-          ["line"],
-          ["github"],
-          ["html", { open: "never" }],
-          ["allure-playwright", { resultsDir: "allure-results" }],
-        ]
-      : [["line"], ["github"], ["html", { open: "never" }]]
-    : [["list"], ["html", { open: "on-failure" }]],
+    ? [
+        ["line"],
+        ["github"],
+        ["html", { open: "never" }],
+        ["allure-playwright", { resultsDir: "allure-results" }],
+      ]
+    : [
+        ["list"],
+        ["html", { open: "on-failure" }],
+        ["allure-playwright", { resultsDir: "allure-results" }],
+      ],
   projects: [
     {
       name: "unit",
