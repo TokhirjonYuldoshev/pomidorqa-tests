@@ -239,10 +239,12 @@ Nightly не заменяет PR CI: pull request должен пройти об
 Gates:
 
 - `npm audit --audit-level=high` — блокирует high/critical vulnerabilities в npm dependency tree;
-- GitHub Dependency Review — блокирует новые high/critical уязвимые зависимости, появившиеся в pull request;
+- dependency change review — сравнивает `package.json` и `package-lock.json` между base/head pull request и при изменениях выполняет `npm ci` + `npm audit --audit-level=high`;
 - ESLint + TypeScript — подтверждает code-quality signal отдельно от security checks.
 
-Dependency Review выполняется только для pull requests, потому что его задача — сравнить dependency changes между base и head revisions. `npm audit` и code quality запускаются также после push в `main` и вручную.
+Dependency change review запускается только для pull requests. Если dependency manifests не изменялись, job явно фиксирует это и завершается без лишней установки зависимостей. Если изменялись, проверяются lockfile consistency и high/critical vulnerabilities.
+
+Такой gate не зависит от repository-level GitHub Dependency Graph и поэтому остаётся переносимым между репозиториями. `npm audit` и code quality запускаются также после push в `main` и вручную.
 
 Security workflow не заменяет Unit/API/E2E проверки: он отвечает за другой класс риска и формирует отдельный GitHub Actions Summary.
 
