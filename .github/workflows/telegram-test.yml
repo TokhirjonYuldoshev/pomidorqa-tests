@@ -1,0 +1,127 @@
+name: Telegram Notification Test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  telegram:
+    name: Telegram / validate and send
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Validate Telegram secrets
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          missing=0
+
+          if [[ -z "$TELEGRAM_BOT_TOKEN" ]]; then
+            echo "::error::Repository secret TELEGRAM_BOT_TOKEN is not configured."
+            missing=1
+          fi
+
+          if [[ -z "$TELEGRAM_CHAT_ID" ]]; then
+            echo "::error::Repository secret TELEGRAM_CHAT_ID is not configured."
+            missing=1
+          fi
+
+          if [[ "$missing" -ne 0 ]]; then
+            {
+              echo "## ✈️ Telegram diagnostics"
+              echo
+              echo "❌ Required repository secrets are missing."
+              echo
+              echo "Configure **TELEGRAM_BOT_TOKEN** and **TELEGRAM_CHAT_ID** in GitHub Actions repository secrets, then run this workflow again."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Validate bot token
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          HTTP_CODE=$(curl --silent --show-error \
+            --connect-timeout 10 \
+            --max-time 20 \
+            --output /tmp/telegram-getme.json \
+            --write-out "%{http_code}" \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe")
+
+          if [[ "$HTTP_CODE" != "200" ]] || ! node -e '
+            const fs = require("fs");
+            const data = JSON.parse(fs.readFileSync("/tmp/telegram-getme.json", "utf8"));
+            process.exit(data.ok === true ? 0 : 1);
+          '; then
+            echo "::error::Telegram Bot API rejected TELEGRAM_BOT_TOKEN (HTTP ${HTTP_CODE})."
+            exit 1
+          fi
+
+          echo "Telegram bot token is valid."
+
+      - name: Validate target chat
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          HTTP_CODE=$(curl --silent --show-error \
+            --connect-timeout 10 \
+            --max-time 20 \
+            --output /tmp/telegram-getchat.json \
+            --write-out "%{http_code}" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getChat")
+
+          if [[ "$HTTP_CODE" != "200" ]] || ! node -e '
+            const fs = require("fs");
+            const data = JSON.parse(fs.readFileSync("/tmp/telegram-getchat.json", "utf8"));
+            process.exit(data.ok === true ? 0 : 1);
+          '; then
+            echo "::error::Telegram Bot API cannot access TELEGRAM_CHAT_ID (HTTP ${HTTP_CODE}). Start a private chat with the bot or add it to the target chat, then verify the chat ID."
+            exit 1
+          fi
+
+          echo "Telegram target chat is accessible."
+
+      - name: Send diagnostic message
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          MESSAGE="✅ Telegram notification test passed%0A%0ARepository: ${GITHUB_REPOSITORY}%0ARun: ${RUN_URL}"
+
+          HTTP_CODE=$(curl --silent --show-error \
+            --connect-timeout 10 \
+            --max-time 20 \
+            --output /tmp/telegram-send.json \
+            --write-out "%{http_code}" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MESSAGE}" \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage")
+
+          if [[ "$HTTP_CODE" != "200" ]] || ! node -e '
+            const fs = require("fs");
+            const data = JSON.parse(fs.readFileSync("/tmp/telegram-send.json", "utf8"));
+            process.exit(data.ok === true ? 0 : 1);
+          '; then
+            echo "::error::Telegram sendMessage failed (HTTP ${HTTP_CODE})."
+            exit 1
+          fi
+
+          {
+            echo "## ✈️ Telegram diagnostics"
+            echo
+            echo "✅ Bot token is valid."
+            echo "✅ Target chat is accessible."
+            echo "✅ Test message was accepted by Telegram Bot API."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "Telegram diagnostic message sent successfully."
