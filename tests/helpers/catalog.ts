@@ -40,3 +40,21 @@ export async function prepareCatalogParticipant(
   await registerWithSkill(app, user, skill);
   await addFutureSlot(app, user.name, time);
 }
+
+export async function waitForCatalogParticipant(
+  app: AppContext,
+  user: TestUser,
+  skill: string,
+  timeoutMs = 60_000,
+): Promise<void> {
+  await test.step(
+    `${user.name}: ждём публикации участника в каталоге`,
+    async () => {
+      await app.bookingPage.waitForCatalogPerson(
+        skill,
+        user.name,
+        timeoutMs,
+      );
+    },
+  );
+}
