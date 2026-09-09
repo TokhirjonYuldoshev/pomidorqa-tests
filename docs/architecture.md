@@ -162,7 +162,7 @@ flowchart LR
     Q --> E[E2E Chromium]
     U --> E
     A --> E
-    E --> REPORT[HTML / trace / screenshot / video]
+    E --> REPORT[Playwright HTML + Allure]
     E --> SUMMARY[CI summary]
     E --> TG[Telegram result]
 ```
@@ -175,6 +175,28 @@ retries=0
 ```
 
 Один worker выбран из-за общего live-стенда. Ноль retries нужен, чтобы первый реальный failure оставался красным сигналом.
+
+## Allure Reporting
+
+```text
+Test Execution
+
+        |
+        v
+
+Allure Results
+
+        |
+        v
+
+Allure Report
+```
+
+Во время E2E-запуска Allure reporter сохраняет сырые результаты в `allure-results/`. После завершения тестов CI генерирует статический отчёт `allure-report/` и загружает его как GitHub Actions artifact.
+
+Отчёт генерируется и при failed E2E run, если workflow не был отменён. При падении тестов в GitHub Actions Summary появляется отдельная ссылка на Allure artifact для анализа причины failure.
+
+Playwright HTML report сохраняется параллельно как встроенный быстрый отчёт, а Allure используется как дополнительный слой анализа результатов и истории выполнения.
 
 ## Stability workflow
 
