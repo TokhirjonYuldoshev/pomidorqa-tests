@@ -144,6 +144,28 @@ Fixtures владеют browser contexts и закрывают их центра
 
 Основные E2E и stability/nightly проверки работают с `retries=0`: первый реальный failure остаётся видимым сигналом.
 
+## CI pipeline
+
+```mermaid
+flowchart LR
+    A[PR / push main / manual] --> Q[Quality\nESLint + TypeScript]
+    A --> U[Unit]
+    A --> P[API]
+    Q --> E[E2E Matrix]
+    U --> E
+    P --> E
+    E --> C[Chromium]
+    E --> F[Firefox]
+    E --> W[WebKit]
+    C --> R[Playwright HTML + Allure]
+    F --> R
+    W --> R
+    E --> S[GitHub Actions Summary]
+    E -. result .-> T[Telegram]
+```
+
+`Quality`, `Unit` и `API` выполняются независимо. После них один и тот же E2E-suite проходит browser matrix в Chromium, Firefox и WebKit. Для browser jobs используются `workers=1`, `retries=0`, `fail-fast: false`, отдельные Playwright HTML / Allure artifacts, Summary и Telegram notification.
+
 ## Browser Matrix
 
 Playwright config использует `E2E_BROWSER` для выбора движка:
