@@ -1,0 +1,82 @@
+name: Registration Contract Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: PomidorQA base URL
+        required: false
+        default: https://aiqa.su
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: registration-contract-smoke
+  cancel-in-progress: false
+
+jobs:
+  registration-contract:
+    name: Registration Contract / Chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run registration contract smoke
+        run: node scripts/registration-contract-smoke.mjs
+        env:
+          POMIDORQA_BASE_URL: ${{ inputs.base_url }}
+
+      - name: Publish contract summary
+        if: ${{ always() }}
+        run: |
+          if [[ ! -f .qa-artifacts/registration-contract/summary.json ]]; then
+            echo "## Registration Contract Smoke" >> "$GITHUB_STEP_SUMMARY"
+            echo "Summary artifact was not created." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          node <<'NODE' >> "$GITHUB_STEP_SUMMARY"
+          const fs = require('node:fs');
+          const result = JSON.parse(
+            fs.readFileSync('.qa-artifacts/registration-contract/summary.json', 'utf8'),
+          );
+
+          const icon = result.status === 'passed' ? '✅' : '❌';
+          console.log('## Registration Contract Smoke');
+          console.log('');
+          console.log(`${icon} Result: **${result.status}**`);
+          console.log(`- Base URL: \`${result.baseUrl}\``);
+          console.log(`- Expected: \`${result.expected.requestMethod} ${result.expected.requestPath} -> ${result.expected.responseStatus}\``);
+          console.log(`- Actual status: \`${result.actual.responseStatus ?? 'n/a'}\``);
+          console.log(`- Final path: \`${result.actual.finalPath ?? 'n/a'}\``);
+          if (result.error) {
+            console.log(`- Error: ${result.error}`);
+          }
+          NODE
+
+      - name: Upload contract artifact
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: registration-contract-${{ github.run_id }}
+          path: .qa-artifacts/registration-contract/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
