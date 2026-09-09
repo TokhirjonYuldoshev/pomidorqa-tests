@@ -1,0 +1,113 @@
+name: Performance Smoke / Lighthouse
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/performance.yml"
+      - "scripts/lighthouse-summary.mjs"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/performance.yml"
+      - "scripts/lighthouse-summary.mjs"
+  schedule:
+    - cron: "45 3 * * 2"
+  workflow_dispatch:
+    inputs:
+      enforce:
+        description: Fail when Lighthouse smoke budgets are not met
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  lighthouse:
+    name: Lighthouse / public pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve Playwright version
+        id: playwright_version
+        run: |
+          PLAYWRIGHT_VERSION=$(node -p "require('@playwright/test/package.json').version")
+          echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Chromium
+        id: browser_cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ steps.playwright_version.outputs.version }}-chromium
+
+      - name: Install Chromium system dependencies
+        run: npx playwright install-deps chromium
+
+      - name: Install Chromium on cache miss
+        if: steps.browser_cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+
+      - name: Resolve Chromium executable
+        run: |
+          CHROME_PATH=$(node -p "require('@playwright/test').chromium.executablePath()")
+          test -x "$CHROME_PATH"
+          echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
+
+      - name: Run Lighthouse smoke audits
+        env:
+          BASE_URL: https://aiqa.su
+        run: |
+          mkdir -p .qa-artifacts/lighthouse
+
+          run_lighthouse() {
+            local name="$1"
+            local route="$2"
+            npx --yes lighthouse@13.4.1 "${BASE_URL}${route}" \
+              --quiet \
+              --preset=desktop \
+              --chrome-flags="--headless --no-sandbox --disable-dev-shm-usage" \
+              --only-categories=performance,accessibility,best-practices,seo \
+              --output=json \
+              --output-path=".qa-artifacts/lighthouse/${name}.json"
+          }
+
+          run_lighthouse catalog /pomidorqa
+          run_lighthouse login /pomidorqa/auth/login
+          run_lighthouse register /pomidorqa/auth/register
+
+      - name: Publish Lighthouse summary
+        run: node scripts/lighthouse-summary.mjs .qa-artifacts/lighthouse
+        env:
+          LIGHTHOUSE_ENFORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.enforce || false }}
+
+      - name: Upload Lighthouse reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-smoke-${{ github.run_id }}
+          path: .qa-artifacts/lighthouse/
+          if-no-files-found: error
+          retention-days: 14

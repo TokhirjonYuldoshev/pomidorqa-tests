@@ -1,0 +1,96 @@
+name: Accessibility Audit
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/accessibility.yml"
+      - "scripts/accessibility-audit.mjs"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/accessibility.yml"
+      - "scripts/accessibility-audit.mjs"
+  schedule:
+    - cron: "15 3 * * 3"
+  workflow_dispatch:
+    inputs:
+      enforce:
+        description: Fail on serious/critical accessibility violations
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  accessibility:
+    name: Accessibility / WCAG audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Resolve Playwright version
+        id: playwright_version
+        run: |
+          PLAYWRIGHT_VERSION=$(node -p "require('@playwright/test/package.json').version")
+          echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Chromium
+        id: browser_cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ steps.playwright_version.outputs.version }}-chromium
+
+      - name: Install Chromium system dependencies
+        run: npx playwright install-deps chromium
+
+      - name: Install Chromium on cache miss
+        if: steps.browser_cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+
+      - name: Download pinned axe-core
+        run: |
+          mkdir -p .qa-artifacts
+          curl --fail --silent --show-error --location \
+            --retry 3 \
+            "https://cdn.jsdelivr.net/npm/axe-core@4.13.0/axe.min.js" \
+            --output .qa-artifacts/axe.min.js
+
+      - name: Run WCAG accessibility audit
+        run: node scripts/accessibility-audit.mjs
+        env:
+          CI: true
+          AXE_SOURCE_PATH: .qa-artifacts/axe.min.js
+          ACCESSIBILITY_ENFORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.enforce || false }}
+          POMIDORQA_BASE_URL: https://aiqa.su
+
+      - name: Upload accessibility reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: accessibility-audit-${{ github.run_id }}
+          path: .qa-artifacts/accessibility/
+          if-no-files-found: error
+          retention-days: 14
