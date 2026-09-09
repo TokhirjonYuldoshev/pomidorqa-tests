@@ -225,7 +225,7 @@ Playwright HTML report сохраняется параллельно как вс
 
 Workflow запускается:
 
-- автоматически каждый день по cron `0 2 * * *` — **02:00 UTC**;
+- автоматически каждый день по cron `0 23 * * *` — **23:00 UTC, что соответствует 02:00 локального времени UTC+3 следующего дня**;
 - вручную через `workflow_dispatch`.
 
 Каждый nightly run выполняет полный E2E-suite в Chromium, Firefox и WebKit. Для каждого браузера используются `workers=1` и `retries=0`, а Allure/Playwright HTML artifacts сохраняются отдельно.

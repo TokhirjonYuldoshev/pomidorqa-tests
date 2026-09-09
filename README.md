@@ -221,7 +221,7 @@ Allure reporter включается в CI через `ALLURE_ENABLED=true`. О�
 
 `.github/workflows/nightly.yml` запускает полный E2E-suite:
 
-- ежедневно по cron `0 2 * * *` — **02:00 UTC**;
+- ежедневно по cron `0 23 * * *` — **23:00 UTC = 02:00 локального времени (UTC+3) следующего дня**;
 - вручную через `workflow_dispatch`;
 - в Chromium, Firefox и WebKit;
 - с `workers=1` и `retries=0`;
