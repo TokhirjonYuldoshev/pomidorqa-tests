@@ -17,7 +17,9 @@ tests/api/        HTTP-проверки mock API
 
 ## 2. Page Objects и helpers
 
-- `helpers/user.ts` — пользователь, уникальные данные, регистрация, routes;
+- `helpers/routes.ts` — маршруты PomidorQA;
+- `helpers/test-data.ts` — уникальные tokens/run ids;
+- `helpers/user.ts` — `TestUser`, создание пользователя и регистрация;
 - `helpers/booking.ts` — browser contexts и cleanup;
 - `helpers/catalog.ts` — подготовка участников для каталога;
 - `pages/auth-page.ts` — login page;
@@ -27,13 +29,13 @@ tests/api/        HTTP-проверки mock API
 
 Имя метода описывает смысл действия: `saveProfile`, `addSkill`, `cancelBookingWith`, а не технический `clickButton`.
 
-Assertions по возможности остаются в spec. Допустимо, чтобы инфраструктурный helper подтверждал завершение входного действия, например `registerUser` проверяет redirect после регистрации.
+Assertions по возможности остаются в spec. Допустимо, чтобы инфраструктурный helper подтверждал завершение входного действия. Например, `registerUser` ждёт конкретный registration mutation response, проверяет HTTP status и затем подтверждает redirect.
 
 ## 3. Данные и независимость
 
 Каждый тест создаёт уникальные данные. Нельзя зависеть от результата другого теста или от заранее созданного пользователя.
 
-Созданные вручную browser contexts закрываются в `finally` через `closeApps`.
+Browser contexts, созданные через fixtures/app factory, регистрируются для централизованного teardown. Низкоуровневые helpers также обязаны закрывать context, если setup упал до передачи ownership fixture.
 
 ## 4. Локаторы
 
@@ -46,7 +48,7 @@ Assertions по возможности остаются в spec. Допусти�
 
 Не выбираем конкретного участника через `.first()`, если сущность можно идентифицировать по уникальному имени/навыку.
 
-`.first()` допустим для семантики «первый доступный слот», когда это и есть правило сценария.
+`.first()` допустим только там, где сценарий действительно задаёт семантику первого элемента и это не создаёт неоднозначности бизнес-сущности.
 
 ## 5. Синхронизация
 
@@ -58,9 +60,9 @@ Assertions по возможности остаются в spec. Допусти�
 - `test.skip` как способ скрыть дефект;
 - `page.pause()`.
 
-После mutation ждём наблюдаемый сигнал: response нужного POST, URL, конкретное UI-состояние. Polling/reload используется только для реальной eventual consistency.
+После mutation ждём наблюдаемый сигнал: response нужного POST, URL, конкретное UI-состояние. Polling/reload используется только для подтверждённой eventual consistency.
 
-Ответ mutation с HTTP `>= 400` должен превращаться в понятную ошибку теста.
+Ответ mutation с HTTP `>= 400` должен превращаться в понятную ошибку теста. Для регистрации дополнительно проверяется точный `POST /pomidorqa/auth/register`, чтобы служебные POST-запросы страницы не считались registration mutation.
 
 ## 6. test.step
 
@@ -96,7 +98,7 @@ npm run test:api
 npm run test:e2e
 ```
 
-Для stress-run используется отдельный Stability workflow с `retries=0`.
+Для stress-run используется отдельный Stability workflow с `retries=0`. Узкие диагностические проверки, такие как Registration Contract Smoke, остаются manual-only и не заменяют основной E2E gate.
 
 ## 10. Ревью
 
