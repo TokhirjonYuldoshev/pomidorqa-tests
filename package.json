@@ -11,7 +11,7 @@
     "lint": "eslint src tests scripts playwright.config.ts playwright.visual.config.ts",
     "typecheck": "tsc --noEmit",
     "report": "playwright show-report",
-    "allure:generate": "allure generate allure-results --clean --output allure-report",
+    "allure:generate": "allure generate allure-results --output allure-report",
     "allure:open": "allure open allure-report"
   },
   "devDependencies": {
