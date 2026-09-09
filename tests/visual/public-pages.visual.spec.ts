@@ -14,9 +14,7 @@ test.describe("public pages visual regression", () => {
       });
 
       await expect(page.locator("body")).toBeVisible();
-      await page.evaluate(async () => {
-        await document.fonts.ready;
-      });
+      await page.evaluate("document.fonts.ready");
 
       await expect(page).toHaveScreenshot(`${target.name}-page.png`, {
         fullPage: true,
