@@ -115,8 +115,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Allure Playwright reporter
-        run: npm install --no-save --package-lock=false allure-playwright@3.11.1
+      - name: Install Allure reporter with locked Playwright
+        run: |
+          LOCKED_PLAYWRIGHT_VERSION=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")
+          npm install --no-save --package-lock=false \
+            "allure-playwright@3.11.1" \
+            "@playwright/test@${LOCKED_PLAYWRIGHT_VERSION}"
+          INSTALLED_PLAYWRIGHT_VERSION=$(node -p "require('@playwright/test/package.json').version")
+          if [[ "$INSTALLED_PLAYWRIGHT_VERSION" != "$LOCKED_PLAYWRIGHT_VERSION" ]]; then
+            echo "::error::Playwright version drift detected: lockfile=$LOCKED_PLAYWRIGHT_VERSION installed=$INSTALLED_PLAYWRIGHT_VERSION"
+            exit 1
+          fi
+          echo "Playwright version verified: $INSTALLED_PLAYWRIGHT_VERSION"
 
       - name: Resolve Playwright version
         id: playwright_version
