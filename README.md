@@ -4,8 +4,11 @@
 [![Nightly E2E Regression](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/nightly.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/nightly.yml)
 [![Security & Quality Gates](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/security.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/security.yml)
 [![Stability Check](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/stability.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/stability.yml)
+[![Accessibility Audit](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/accessibility.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/accessibility.yml)
+[![Performance Smoke / Lighthouse](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/performance.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/performance.yml)
+[![Visual Regression](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/visual.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/visual.yml)
 
-Личный standalone-проект по **QA Automation на Playwright + TypeScript**. Репозиторий вырос из учебного PomidorQA-проекта и используется как отдельная площадка для практики E2E, API и unit-тестирования, Page Object Model, fixtures, test-data factories, cross-browser CI, Allure reporting, диагностики падений и анализа flaky-поведения.
+Личный standalone-проект по **QA Automation на Playwright + TypeScript**. Репозиторий вырос из учебного PomidorQA-проекта и используется как отдельная площадка для практики Unit, API, E2E, Page Object Model, fixtures, test-data factories, cross-browser testing, Allure reporting, accessibility, performance smoke, visual regression, security gates, nightly regression и анализа flaky-поведения.
 
 Исходный учебный проект: [lebed52/pomidorqa-course-tests](https://github.com/lebed52/pomidorqa-course-tests).
 
@@ -13,21 +16,23 @@
 
 | Область | Реализация |
 | --- | --- |
-| E2E | реальные пользовательские сценарии PomidorQA; локально Chromium по умолчанию, в CI — Chromium / Firefox / WebKit |
-| POM | локаторы и действия экранов в `tests/pages` |
-| Fixtures | централизованное создание и teardown browser contexts |
-| Test data | общий генератор уникальных run id и тестовых пользователей |
-| Helpers | регистрация, подготовка каталога, app factory, маршруты |
-| API | изолированный HTTP mock для booking/participants API |
 | Unit | чистые проверки password validation, slots и timezone logic |
-| Quality gate | ESLint + TypeScript `tsc --noEmit` |
-| CI | Quality / Unit / API → E2E matrix в трёх браузерах |
-| Reporting | Playwright HTML + Allure Report для каждого browser job |
-| Diagnostics | trace, screenshot, video, HTML report и failure artifacts |
+| API | изолированный HTTP mock для booking/participants API |
+| E2E | реальные пользовательские сценарии PomidorQA |
+| Browser Matrix | Chromium / Firefox / WebKit через Playwright projects и `E2E_BROWSER` |
+| POM | локаторы и UI actions в `tests/pages` |
+| Fixtures | централизованный lifecycle browser contexts |
+| Test data | уникальные run id и тестовые пользователи |
+| Helpers | регистрация, catalog setup, app factory, маршруты |
+| Reporting | Playwright HTML + Allure Report |
+| Diagnostics | trace, screenshot, video и failure artifacts |
+| Accessibility | axe-core WCAG audit с optional enforcement |
+| Performance | Lighthouse smoke: Performance / Accessibility / Best Practices / SEO |
+| Visual Regression | Chromium screenshot baseline для login/register |
 | Nightly | ежедневная полная E2E-регрессия в Chromium / Firefox / WebKit |
 | Security | `npm audit`, dependency-change review, ESLint + TypeScript |
-| Stability | stress-runs с `repeat-each`, workers 1/2 и `retries=0` |
-| Notifications | Telegram Bot API с итогом pipeline |
+| Stability | `repeat-each`, workers 1/2 и `retries=0` |
+| Notifications | Telegram CI notification + отдельный diagnostic workflow |
 
 ## Testing Strategy
 
@@ -37,13 +42,18 @@ Testing Strategy
 ├── Unit Tests
 ├── API Tests
 ├── E2E Tests
-└── CI Validation
+├── Non-functional QA
+│   ├── Accessibility
+│   ├── Performance Smoke
+│   └── Visual Regression
+└── CI / Security / Nightly Validation
 ```
 
 - **Unit Tests** проверяют изолированную бизнес-логику без браузера и внешнего стенда.
 - **API Tests** проверяют HTTP-контракты booking/participants на локальном mock API.
 - **E2E Tests** проверяют пользовательские сценарии через Playwright на live PomidorQA UI.
-- **CI Validation** объединяет lint, typecheck, Unit, API и обязательный cross-browser E2E gate с `retries=0`.
+- **Non-functional QA** даёт отдельный сигнал по accessibility, performance и визуальным изменениям.
+- **CI / Security / Nightly** разделяют merge-validation, dependency/code-quality проверки и плановую regression-проверку live-стенда.
 
 ## Test Coverage
 
@@ -56,52 +66,53 @@ Covered scenarios:
 - ✓ Booking creation
 - ✓ Booking cancellation
 
-Дополнительно E2E-набор проверяет конкуренцию за один слот, правила видимости карточек участников, обязательное наличие будущего свободного слота, повторный поиск без reload и консистентность состояния после отмены встречи.
+Дополнительно E2E-набор проверяет:
+
+- гонку двух пользователей за один слот;
+- правила видимости карточек участников;
+- обязательное наличие будущего свободного слота;
+- повторный поиск без reload;
+- консистентность состояния после отмены встречи.
 
 ## Архитектура тестов
 
 ```text
 src/pyramid/
-├── auth.ts                    # чистая логика password validation
-├── slots.ts                   # slots/timezone logic
-└── mock-booking-api.ts        # локальный HTTP API для API-уровня
+├── auth.ts
+├── slots.ts
+└── mock-booking-api.ts
 
 tests/
 ├── unit/
-│   ├── auth.spec.ts
-│   └── slots.spec.ts
 ├── api/
-│   ├── booking-api.spec.ts
-│   └── participants-api.spec.ts
+├── e2e/
 ├── fixtures/
-│   └── app-fixtures.ts        # appFactory + role fixtures + teardown
 ├── helpers/
-│   ├── routes.ts              # централизованные PomidorQA routes
-│   ├── test-data.ts           # unique token / run id factory
-│   ├── user.ts                # TestUser, makeUser, registerUser
-│   ├── booking.ts             # AppContext, createApp, closeApps
-│   └── catalog.ts             # подготовка catalog participants
 ├── pages/
-│   ├── auth-page.ts
-│   ├── profile-page.ts
-│   ├── slots-page.ts
-│   └── booking-page.ts
-└── e2e/
-    ├── login-error.spec.ts
-    ├── profile-flow.spec.ts
-    ├── booking-flow.spec.ts
-    ├── booking-cancel.spec.ts
-    └── catalog-search.spec.ts
+└── visual/
+
+scripts/
+├── accessibility-audit.mjs
+└── lighthouse-summary.mjs
+
+docs/
+├── architecture.md
+└── interview-guide.md
+
+.github/workflows/
+├── playwright.yml
+├── nightly.yml
+├── security.yml
+├── stability.yml
+├── accessibility.yml
+├── performance.yml
+├── visual.yml
+└── telegram-test.yml
 ```
 
 Главный принцип архитектуры:
 
-**spec описывает сценарий и assertions → Page Object выполняет действия экрана → helper/fixture отвечает за повторяемую подготовку, данные и жизненный цикл контекста.**
-
-Подробные решения и готовые объяснения для собеседования:
-
-- [`docs/architecture.md`](docs/architecture.md) — архитектура, lifecycle, CI, reporting и stability decisions;
-- [`docs/interview-guide.md`](docs/interview-guide.md) — короткие и развёрнутые ответы на технические вопросы.
+**spec описывает сценарий и assertions → Page Object выполняет действия экрана → helper/fixture отвечает за повторяемую подготовку, данные и lifecycle контекста.**
 
 ## Поток E2E-теста
 
@@ -109,84 +120,29 @@ tests/
 flowchart LR
     T[Test spec] --> F[Playwright fixture]
     F --> A[AppContext]
-    A --> P1[Page Objects]
+    A --> P[Page Objects]
     T --> H[Helpers / factories]
     H --> D[Unique test data]
-    P1 --> UI[PomidorQA live UI]
+    P --> UI[PomidorQA live UI]
     T --> E[Assertions]
     F --> C[Centralized context cleanup]
 ```
 
-Fixtures владеют browser contexts и закрывают их централизованно после теста. `appFactory` используется в сценариях, где требуется произвольное количество изолированных пользователей; role fixtures (`hostApp`, `guestApp`, `guest2App`) делают booking-сценарии читаемыми.
+Fixtures владеют browser contexts и закрывают их централизованно после теста. `appFactory` используется, когда сценарию требуется произвольное количество изолированных пользователей; role fixtures (`hostApp`, `guestApp`, `guest2App`) делают booking-сценарии читаемыми.
 
-## E2E-сценарии
+## Детерминированность и flaky policy
 
-Проект проверяет, в частности:
-
-- сохранение данных профиля и навыков;
-- одинаковую безопасную ошибку логина для неверного пароля и неизвестного email;
-- основной booking flow;
-- гонку двух пользователей за один слот;
-- отмену встречи и консистентность состояния у гостя и хоста;
-- поиск по уникальному навыку;
-- пустую выдачу;
-- исключение собственной карточки для авторизованного пользователя;
-- двух участников с одинаковым навыком;
-- включение подходящего и исключение неподходящего участника;
-- правило обязательного будущего свободного слота;
-- повторный поиск без перезагрузки;
-- поиск другим авторизованным пользователем.
-
-Для связанных сущностей одного сценария используется общий `runId`, при этом роли (`host`, `guest`, `guest2`) остаются различимыми. Это делает данные уникальными между запусками и одновременно сохраняет сценарий читаемым.
-
-## Детерминированность и синхронизация
-
-В проекте не используются `waitForTimeout`, `force: true`, `.only`, `skip` или `page.pause()` для маскировки проблем.
+В проекте не используются `waitForTimeout`, `force: true`, `.only`, `skip` или `page.pause()` как способ маскировать проблемы.
 
 Для state-changing действий используются наблюдаемые сигналы:
 
-- HTTP response нужного POST-запроса;
+- HTTP response нужного mutation request;
+- URL/navigation transition;
 - появление или исчезновение конкретного UI-состояния;
-- URL/navigation events;
-- polling/reload только там, где приложение реально имеет eventual consistency.
+- Playwright auto-waiting;
+- polling/reload только там, где подтверждена реальная eventual consistency.
 
-При выборе конкретной бизнес-сущности используются уникальные данные и точные локаторы. Для booking-сценариев, которые сами создают ровно один слот, Page Object не выбирает произвольный `.first()`: он проверяет precondition «ровно один доступный день / слот» и падает с диагностическим сообщением, если состояние неожиданно изменилось.
-
-## Browser context lifecycle
-
-Создание контекста вынесено в `createApp()`, а teardown — в fixtures.
-
-Если setup падает после создания browser context, helper закрывает уже созданный context перед повторным выбросом ошибки. При общем teardown выполняется попытка закрыть все созданные contexts; ошибки cleanup не скрываются как обычные предупреждения.
-
-Это защищает E2E-suite от скрытых browser-context leaks и делает инфраструктурные проблемы видимыми в CI.
-
-## CI pipeline
-
-```mermaid
-flowchart LR
-    A[PR / push main / manual] --> Q[Quality\nESLint + TypeScript]
-    A --> U[Unit]
-    A --> P[API]
-    Q --> E[E2E Matrix]
-    U --> E
-    P --> E
-    E --> C[Chromium]
-    E --> F[Firefox]
-    E --> W[WebKit]
-    C --> R[Playwright HTML + Allure]
-    F --> R
-    W --> R
-    E --> S[GitHub Actions Summary]
-    E -. result .-> T[Telegram]
-```
-
-`Quality`, `Unit` и `API` выполняются независимо. После них один и тот же E2E-suite запускается отдельными jobs в Chromium, Firefox и WebKit. Каждый browser job работает на общем live-стенде с `workers=1` и `retries=0`.
-
-`fail-fast: false` сохраняет результат всех трёх браузеров даже при падении одного из них. Для каждого движка отдельно загружаются Playwright HTML и Allure artifacts.
-
-Ключевое правило CI: **E2E retries = 0**. Первый реальный E2E failure делает check красным и не маскируется автоматическим retry.
-
-Основной workflow: `.github/workflows/playwright.yml`.
+Основные E2E и stability/nightly проверки работают с `retries=0`: первый реальный failure остаётся видимым сигналом.
 
 ## Browser Matrix
 
@@ -196,7 +152,15 @@ Playwright config использует `E2E_BROWSER` для выбора дви�
 - `firefox` — Desktop Firefox;
 - `webkit` — Desktop Safari.
 
-Если `E2E_BROWSER` не задан, локальный E2E запускается в Chromium. Основной CI и Nightly явно передают браузер из GitHub Actions matrix и поэтому выполняют весь E2E-suite во всех трёх движках.
+Если `E2E_BROWSER` не задан, локальный E2E запускается в Chromium.
+
+Полную matrix можно запустить через GitHub Actions или локально после установки всех трёх движков:
+
+```bash
+npx playwright install chromium firefox webkit
+E2E_BROWSER=firefox npm run test:e2e
+E2E_BROWSER=webkit npm run test:e2e
+```
 
 ## Allure Reporting
 
@@ -215,7 +179,85 @@ Allure Report
 GitHub Actions Artifact
 ```
 
-Allure reporter включается в CI через `ALLURE_ENABLED=true`. Отчёт генерируется после browser job, сохраняется отдельным artifact для конкретного движка и остаётся доступным для failure analysis, если E2E-run завершился ошибкой и workflow не был отменён.
+Allure reporter включается через `ALLURE_ENABLED=true`. Отчёты и Playwright HTML artifacts используются для failure analysis вместе с trace/screenshots/video.
+
+## Accessibility Audit
+
+`.github/workflows/accessibility.yml` запускает WCAG-аудит через pinned `axe-core@4.13.0` в Chromium.
+
+Особенности:
+
+- отдельный `scripts/accessibility-audit.mjs`;
+- отчёты сохраняются как GitHub Actions artifacts на 14 дней;
+- обычный режим информационный;
+- ручной `workflow_dispatch` поддерживает `enforce=true`, чтобы serious/critical нарушения становились blocking failure;
+- есть отдельный weekly schedule.
+
+Accessibility вынесен в отдельный workflow, чтобы WCAG-сигнал не смешивался с функциональными assertions.
+
+## Performance Smoke / Lighthouse
+
+`.github/workflows/performance.yml` выполняет desktop Lighthouse smoke для:
+
+- `/pomidorqa` — catalog;
+- `/pomidorqa/auth/login` — login;
+- `/pomidorqa/auth/register` — register.
+
+Проверяются категории:
+
+- Performance;
+- Accessibility;
+- Best Practices;
+- SEO.
+
+Используется pinned `lighthouse@13.4.1`. JSON reports публикуются как artifacts. Budgets по умолчанию информационные, а ручной запуск позволяет включить enforcement.
+
+Последний подтверждённый прогон показал:
+
+| Page | Performance | Accessibility | Best Practices | SEO |
+| --- | ---: | ---: | ---: | ---: |
+| catalog | 95 | 96 | 77 | 100 |
+| login | 97 | 96 | 77 | 90 |
+| register | 97 | 92 | 77 | 90 |
+
+Три findings относятся к Best Practices (`77 < 80`) и в информационном режиме не делают workflow красным.
+
+## Visual Regression
+
+`.github/workflows/visual.yml` использует отдельный `playwright.visual.config.ts` и `tests/visual/public-pages.visual.spec.ts`.
+
+Текущая стратегия:
+
+- Chromium;
+- login и register;
+- baseline в GitHub Actions cache, ключуемый по версии Playwright;
+- первый совместимый run создаёт baseline, следующие сравнивают screenshots;
+- `maxDiffPixelRatio = 0.01`;
+- snapshots сохраняются как artifact на 30 дней;
+- failure diagnostics сохраняются отдельно.
+
+Это позволяет ловить визуальные изменения независимо от функциональных E2E assertions.
+
+## Telegram Notifications & Diagnostics
+
+Основной CI отправляет итог pipeline через Telegram Bot API.
+
+Для отдельной диагностики интеграции есть `.github/workflows/telegram-test.yml`, который запускается вручную и проверяет:
+
+```text
+TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID
+                |
+                v
+             getMe
+                |
+                v
+             getChat
+                |
+                v
+           sendMessage
+```
+
+Так можно отличить отсутствующий secret, неверный bot token, неправильный chat ID и реальную ошибку отправки. Значения secrets в лог не выводятся.
 
 ## Nightly Regression
 
@@ -227,7 +269,7 @@ Allure reporter включается в CI через `ALLURE_ENABLED=true`. О�
 - с `workers=1` и `retries=0`;
 - с отдельными Allure / Playwright artifacts и failure diagnostics.
 
-Nightly не заменяет PR gate. Его задача — обнаружить регрессию live-стенда или внешнее изменение, появившееся уже после merge.
+Nightly отвечает за обнаружение регрессий live-стенда или внешних изменений, появившихся уже после merge.
 
 ## Security & Quality Gates
 
@@ -235,29 +277,25 @@ Nightly не заменяет PR gate. Его задача — обнаружи�
 
 Gates:
 
-- `npm audit --audit-level=high` для dependency tree;
-- dependency-change review для `package.json` / `package-lock.json` в pull request;
-- `npm ci` для проверки lockfile consistency при изменении dependencies;
+- `npm audit --audit-level=high`;
+- dependency-change review для `package.json` / `package-lock.json`;
+- `npm ci` для lockfile consistency при изменении dependencies;
 - ESLint + TypeScript как отдельный code-quality signal.
 
 Dependency-change review не зависит от включённого GitHub Dependency Graph, поэтому workflow остаётся переносимым между репозиториями.
 
 ## Stability Check
 
-`.github/workflows/stability.yml` запускается вручную и предназначен именно для поиска flaky-поведения.
+`.github/workflows/stability.yml` запускается вручную и предназначен для исследования flaky-поведения.
 
-Параметры:
+Поддерживаются:
 
 - `booking-flow` или весь E2E-suite;
 - `repeat-each`: 5 или 10;
 - workers: 1 или 2;
 - `retries=0`.
 
-Если хотя бы один повтор падает, workflow завершается ошибкой и сохраняет diagnostics.
-
-### Подтверждённый stability run
-
-Перед включением строгого CI gate был выполнен отдельный stress-run без retries:
+Подтверждённая stability matrix:
 
 | Проверка | Результат |
 | --- | --- |
@@ -267,14 +305,6 @@ Dependency-change review не зависит от включённого GitHub 
 | весь E2E ×5, workers=2 | ✅ passed |
 
 Run: [GitHub Actions #34267366176](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/runs/34267366176).
-
-После этого required E2E gate был переведён на `--retries=0` и также прошёл полный CI.
-
-## Почему здесь есть `.first()` и где его нет
-
-В проекте действует правило: нельзя использовать `.first()` как способ «как-нибудь выбрать» конкретного пользователя, карточку, meeting или другой объект, который должен быть идентифицирован однозначно.
-
-Для booking flow сценарий сам создаёт единственный слот. Даже здесь текущая реализация не полагается на произвольный `.first()`: Page Object сначала проверяет количество доступных дней/слотов и продолжает только при значении `1`.
 
 ## Быстрый старт
 
@@ -291,30 +321,17 @@ npm ci
 npx playwright install chromium
 ```
 
-Чтобы локально прогонять полную browser matrix, установите все три движка:
-
-```bash
-npx playwright install chromium firefox webkit
-```
-
 ## Команды
 
 | Команда | Назначение |
 | --- | --- |
-| `npm run lint` | ESLint для `src`, `tests` и Playwright config |
+| `npm run lint` | ESLint для `src`, `tests`, `scripts` и Playwright configs |
 | `npm run typecheck` | TypeScript `tsc --noEmit` |
-| `npm run test:unit` | unit-тесты |
-| `npm run test:api` | API-тесты |
+| `npm run test:unit` | Unit tests |
+| `npm run test:api` | API tests |
 | `npm run test:e2e` | E2E в Chromium по умолчанию; движок задаётся через `E2E_BROWSER` |
 | `npm test` | Unit + API + E2E с текущим `E2E_BROWSER` |
 | `npm run report` | открыть последний Playwright HTML report |
-
-Примеры cross-browser запуска:
-
-```bash
-E2E_BROWSER=firefox npm run test:e2e
-E2E_BROWSER=webkit npm run test:e2e
-```
 
 По умолчанию E2E используют `https://aiqa.su`. Base URL можно переопределить:
 
@@ -343,8 +360,6 @@ docs/...
 chore/...
 ```
 
-Учебные ветки `hw<N>-<username>` сохраняются только когда этого требует курс.
-
 Перед PR:
 
 ```bash
@@ -355,15 +370,13 @@ npm run test:api
 npm run test:e2e
 ```
 
-Полная cross-browser проверка выполняется CI matrix после открытия PR.
-
-Подробности:
+## Документация
 
 - [CONTRIBUTING.md](CONTRIBUTING.md) — workflow разработки;
 - [CODEX.md](CODEX.md) — правила построения автотестов;
 - [REVIEW.md](REVIEW.md) — review checklist;
-- [docs/architecture.md](docs/architecture.md) — архитектурные решения;
-- [docs/interview-guide.md](docs/interview-guide.md) — interview preparation layer.
+- [docs/architecture.md](docs/architecture.md) — архитектура, CI, reporting и non-functional QA;
+- [docs/interview-guide.md](docs/interview-guide.md) — готовые объяснения решений для собеседования.
 
 ## Что важно для code review
 
@@ -382,6 +395,6 @@ npm run test:e2e
 
 Цель проекта — показать не просто набор автотестов, а воспроизводимый QA Automation workflow:
 
-**изменение → review → quality/security gates → unit/API → cross-browser E2E → Allure/diagnostics → nightly/stability analysis → summary/notification**.
+**изменение → review → quality/security gates → Unit/API → E2E → reporting/diagnostics → accessibility/performance/visual checks → nightly/stability analysis → summary/notification**.
 
 Репозиторий развивается отдельно от общего учебного `main`, поэтому архитектурные и инфраструктурные улучшения можно доводить до portfolio-level состояния, не расширяя scope учебных PR.
