@@ -7,8 +7,9 @@
 [![Accessibility Audit](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/accessibility.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/accessibility.yml)
 [![Performance Smoke / Lighthouse](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/performance.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/performance.yml)
 [![Visual Regression](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/visual.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/visual.yml)
+[![Registration Contract Smoke](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/registration-contract-smoke.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/registration-contract-smoke.yml)
 
-Личный standalone-проект по **QA Automation на Playwright + TypeScript**. Репозиторий вырос из учебного PomidorQA-проекта и используется как отдельная площадка для практики Unit, API, E2E, Page Object Model, fixtures, test-data factories, cross-browser testing, Allure reporting, accessibility, performance smoke, visual regression, security gates, nightly regression и анализа flaky-поведения.
+Личный standalone-проект по **QA Automation на Playwright + TypeScript**. Репозиторий вырос из учебного PomidorQA-проекта и используется как отдельная площадка для практики Unit, API, E2E, Page Object Model, fixtures, test-data factories, cross-browser testing, Allure reporting, accessibility, performance smoke, visual regression, security gates, nightly regression, manual contract smoke и анализа flaky-поведения.
 
 Исходный учебный проект: [lebed52/pomidorqa-course-tests](https://github.com/lebed52/pomidorqa-course-tests).
 
@@ -29,6 +30,7 @@
 | Accessibility | axe-core WCAG audit с optional enforcement |
 | Performance | Lighthouse smoke: Performance / Accessibility / Best Practices / SEO |
 | Visual Regression | Chromium screenshot baseline для login/register |
+| Registration Contract | manual-only smoke для `POST /pomidorqa/auth/register → 303 → /pomidorqa` |
 | Nightly | ежедневная полная E2E-регрессия в Chromium / Firefox / WebKit |
 | Security | `npm audit`, dependency-change review, ESLint + TypeScript |
 | Stability | `repeat-each`, workers 1/2 и `retries=0` |
@@ -54,6 +56,7 @@ Testing Strategy
 - **E2E Tests** проверяют пользовательские сценарии через Playwright на live PomidorQA UI.
 - **Non-functional QA** даёт отдельный сигнал по accessibility, performance и визуальным изменениям.
 - **CI / Security / Nightly** разделяют merge-validation, dependency/code-quality проверки и плановую regression-проверку live-стенда.
+- **Registration Contract Smoke** запускается вручную как узкая диагностика сетевого контракта регистрации и не является PR gate.
 
 ## Test Coverage
 
@@ -93,11 +96,13 @@ tests/
 
 scripts/
 ├── accessibility-audit.mjs
-└── lighthouse-summary.mjs
+├── lighthouse-summary.mjs
+└── registration-contract-smoke.mjs
 
 docs/
 ├── architecture.md
-└── interview-guide.md
+├── interview-guide.md
+└── registration-contract-smoke.md
 
 .github/workflows/
 ├── playwright.yml
@@ -107,7 +112,8 @@ docs/
 ├── accessibility.yml
 ├── performance.yml
 ├── visual.yml
-└── telegram-test.yml
+├── telegram-test.yml
+└── registration-contract-smoke.yml
 ```
 
 Главный принцип архитектуры:
@@ -290,6 +296,29 @@ TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID
 
 Так можно отличить отсутствующий secret, неверный bot token, неправильный chat ID и реальную ошибку отправки. Значения secrets в лог не выводятся.
 
+## Registration Contract Smoke
+
+`.github/workflows/registration-contract-smoke.yml` — отдельная **manual-only** проверка контракта регистрации. Она не запускается на `pull_request`, `push` или cron и не является required gate.
+
+Проверяется реальная цепочка на live-стенде:
+
+```text
+GET /pomidorqa/auth/register
+          |
+          v
+POST /pomidorqa/auth/register
+          |
+          v
+HTTP 303
+          |
+          v
+/pomidorqa
+```
+
+Smoke запускает Chromium, создаёт уникального тестового пользователя, фильтрует точный `POST /pomidorqa/auth/register`, проверяет статус `303` и финальный redirect. Результат сохраняется в `.qa-artifacts/registration-contract/summary.json` и публикуется как artifact на 14 дней.
+
+Workflow оставлен ручным намеренно: каждый запуск создаёт тестового пользователя на live-стенде и нужен как узкая диагностика registration endpoint, а не как постоянный PR/scheduled gate. Подробнее: [docs/registration-contract-smoke.md](docs/registration-contract-smoke.md).
+
 ## Nightly Regression
 
 `.github/workflows/nightly.yml` запускает полный E2E-suite:
@@ -410,7 +439,8 @@ npm run test:e2e
 - [CODEX.md](CODEX.md) — правила построения автотестов;
 - [REVIEW.md](REVIEW.md) — review checklist;
 - [docs/architecture.md](docs/architecture.md) — архитектура, CI, reporting и non-functional QA;
-- [docs/interview-guide.md](docs/interview-guide.md) — готовые объяснения решений для собеседования.
+- [docs/interview-guide.md](docs/interview-guide.md) — готовые объяснения решений для собеседования;
+- [docs/registration-contract-smoke.md](docs/registration-contract-smoke.md) — manual-only проверка registration HTTP contract.
 
 ## Что важно для code review
 
