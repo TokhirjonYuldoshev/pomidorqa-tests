@@ -232,6 +232,22 @@ Workflow запускается:
 
 Nightly не заменяет PR CI: pull request должен пройти обычные Quality, Unit, API и E2E matrix checks до merge. Плановый запуск нужен для обнаружения регрессий или изменений live-стенда, которые появились уже после merge.
 
+## Security & Quality Gates
+
+`.github/workflows/security.yml` добавляет независимый security pipeline поверх основного тестового CI.
+
+Gates:
+
+- `npm audit --audit-level=high` — блокирует high/critical vulnerabilities в npm dependency tree;
+- dependency change review — сравнивает `package.json` и `package-lock.json` между base/head pull request и при изменениях выполняет `npm ci` + `npm audit --audit-level=high`;
+- ESLint + TypeScript — подтверждает code-quality signal отдельно от security checks.
+
+Dependency change review запускается только для pull requests. Если dependency manifests не изменялись, job явно фиксирует это и завершается без лишней установки зависимостей. Если изменялись, проверяются lockfile consistency и high/critical vulnerabilities.
+
+Такой gate не зависит от repository-level GitHub Dependency Graph и поэтому остаётся переносимым между репозиториями. `npm audit` и code quality запускаются также после push в `main` и вручную.
+
+Security workflow не заменяет Unit/API/E2E проверки: он отвечает за другой класс риска и формирует отдельный GitHub Actions Summary.
+
 ## Stability workflow
 
 Отдельный workflow не является required gate. Его задача — исследование стабильности.

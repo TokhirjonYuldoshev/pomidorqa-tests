@@ -1,0 +1,136 @@
+name: "Security & Quality Gates"
+run-name: "Security & Quality Gates • ${{ github.head_ref || github.ref_name }} • ${{ github.actor }}"
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  npm-audit:
+    name: Security / npm audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
+  dependency-review:
+    name: Security / dependency change review
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository history
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect dependency manifest changes
+        id: manifests
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- package.json package-lock.json)
+
+          if [[ -z "$CHANGED_FILES" ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No package.json or package-lock.json changes in this pull request."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Dependency files changed:"
+            printf '%s\n' "$CHANGED_FILES"
+          fi
+
+      - name: Setup Node.js
+        if: steps.manifests.outputs.changed == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Validate lockfile consistency
+        if: steps.manifests.outputs.changed == 'true'
+        run: npm ci
+
+      - name: Audit dependency changes
+        if: steps.manifests.outputs.changed == 'true'
+        run: npm audit --audit-level=high
+
+  quality:
+    name: Quality / lint + typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: TypeScript typecheck
+        run: npm run typecheck
+
+  summary:
+    name: Security Summary
+    if: ${{ always() }}
+    needs: [npm-audit, dependency-review, quality]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Publish security summary
+        env:
+          AUDIT: ${{ needs.npm-audit.result }}
+          DEPENDENCIES: ${{ needs.dependency-review.result }}
+          QUALITY: ${{ needs.quality.result }}
+        run: |
+          status_label() {
+            case "$1" in
+              success) echo "✅ passed" ;;
+              failure) echo "❌ failed" ;;
+              skipped) echo "⏭️ skipped" ;;
+              cancelled) echo "⏹️ cancelled" ;;
+              *) echo "❔ ${1:-unknown}" ;;
+            esac
+          }
+
+          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          # Security & Quality Gates
+
+          | Gate | Result |
+          | --- | --- |
+          | npm audit (high/critical) | $(status_label "$AUDIT") |
+          | Dependency change review | $(status_label "$DEPENDENCIES") |
+          | ESLint + TypeScript | $(status_label "$QUALITY") |
+          EOF
