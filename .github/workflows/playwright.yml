@@ -88,10 +88,10 @@ jobs:
           CI: true
 
   # Temporary pause: the shared live aiqa.su stand is currently unstable.
-  # The full Chromium / Firefox / WebKit matrix remains available via Run workflow.
+  # Required browser check contexts stay present on PRs, but the expensive live
+  # execution happens only for workflow_dispatch until the stand stabilizes.
   e2e:
     name: E2E / ${{ matrix.label }}
-    if: ${{ github.event_name == 'workflow_dispatch' }}
     needs: [quality, unit, api]
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -106,19 +106,27 @@ jobs:
           - browser: webkit
             label: WebKit
     steps:
+      - name: Live E2E temporarily paused
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        run: echo "Live ${{ matrix.label }} E2E is temporarily paused while the shared aiqa.su stand is unstable. Use Run workflow for a manual full browser run."
+
       - name: Checkout repository
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         uses: actions/checkout@v6
 
       - name: Setup Node.js
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: npm
 
       - name: Install dependencies
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         run: npm ci
 
       - name: Install Allure reporter with locked Playwright
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         run: |
           LOCKED_PLAYWRIGHT_VERSION=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")
           npm install --no-save --package-lock=false \
@@ -132,12 +140,14 @@ jobs:
           echo "Playwright version verified: $INSTALLED_PLAYWRIGHT_VERSION"
 
       - name: Resolve Playwright version
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         id: playwright_version
         run: |
           PLAYWRIGHT_VERSION=$(node -p "require('@playwright/test/package.json').version")
           echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browser
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         id: browser_cache
         uses: actions/cache@v5
         with:
@@ -145,13 +155,15 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ steps.playwright_version.outputs.version }}-${{ matrix.browser }}
 
       - name: Install browser system dependencies
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         run: npx playwright install-deps ${{ matrix.browser }}
 
       - name: Install browser on cache miss
-        if: steps.browser_cache.outputs.cache-hit != 'true'
+        if: ${{ github.event_name == 'workflow_dispatch' && steps.browser_cache.outputs.cache-hit != 'true' }}
         run: npx playwright install ${{ matrix.browser }}
 
       - name: Run E2E tests
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         run: npm run test:e2e -- --workers=1 --retries=0
         env:
           CI: true
@@ -159,11 +171,11 @@ jobs:
           E2E_BROWSER: ${{ matrix.browser }}
 
       - name: Generate Allure report
-        if: ${{ !cancelled() }}
+        if: ${{ github.event_name == 'workflow_dispatch' && !cancelled() }}
         run: npx --yes allure@3.16.1 generate allure-results --output allure-report
 
       - name: Upload Allure report
-        if: ${{ !cancelled() }}
+        if: ${{ github.event_name == 'workflow_dispatch' && !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: allure-report-${{ matrix.browser }}-${{ github.run_id }}
@@ -172,7 +184,7 @@ jobs:
           retention-days: 14
 
       - name: Publish Allure failure link
-        if: ${{ failure() }}
+        if: ${{ github.event_name == 'workflow_dispatch' && failure() }}
         run: |
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           {
@@ -181,7 +193,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Playwright HTML report
-        if: ${{ !cancelled() }}
+        if: ${{ github.event_name == 'workflow_dispatch' && !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report-${{ matrix.browser }}-${{ github.run_id }}
@@ -190,7 +202,7 @@ jobs:
           retention-days: 14
 
       - name: Upload failure diagnostics
-        if: ${{ failure() }}
+        if: ${{ github.event_name == 'workflow_dispatch' && failure() }}
         uses: actions/upload-artifact@v7
         with:
           name: test-results-${{ matrix.browser }}-${{ github.run_id }}
@@ -217,7 +229,7 @@ jobs:
               success) echo "✅ Успешно" ;;
               failure) echo "❌ Ошибка" ;;
               cancelled) echo "⏹️ Отменено" ;;
-              skipped) echo "⏸️ Временно приостановлено" ;;
+              skipped) echo "⏭️ Пропущено" ;;
               *) echo "❔ ${1:-unknown}" ;;
             esac
           }
@@ -239,21 +251,26 @@ jobs:
             printf '%s' "$text"
           }
 
-          if [[ "$QUALITY" == "success" && "$UNIT" == "success" && "$API" == "success" && "$E2E" == "success" ]]; then
-            OVERALL="✅ ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ"
-            OVERALL_NOTE="Сборка завершена успешно, включая ручную browser matrix."
-          elif [[ "$QUALITY" == "success" && "$UNIT" == "success" && "$API" == "success" && "$E2E" == "skipped" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" != "workflow_dispatch" && "$QUALITY" == "success" && "$UNIT" == "success" && "$API" == "success" ]]; then
             OVERALL="✅ БАЗОВЫЕ ПРОВЕРКИ ПРОЙДЕНЫ"
             OVERALL_NOTE="Live E2E matrix временно приостановлена из-за нестабильности общего стенда; её можно запустить вручную через Run workflow."
+            E2E_DISPLAY="⏸️ Временно приостановлено"
+          elif [[ "$QUALITY" == "success" && "$UNIT" == "success" && "$API" == "success" && "$E2E" == "success" ]]; then
+            OVERALL="✅ ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ"
+            OVERALL_NOTE="Сборка завершена успешно, включая browser matrix."
+            E2E_DISPLAY="$(status_ru "$E2E")"
           elif [[ "$QUALITY" == "failure" || "$UNIT" == "failure" || "$API" == "failure" || "$E2E" == "failure" ]]; then
             OVERALL="❌ ЕСТЬ ОШИБКИ"
             OVERALL_NOTE="Одна или несколько проверок завершились с ошибкой."
+            E2E_DISPLAY="$(status_ru "$E2E")"
           elif [[ "$QUALITY" == "cancelled" || "$UNIT" == "cancelled" || "$API" == "cancelled" || "$E2E" == "cancelled" ]]; then
             OVERALL="⏹️ ЗАПУСК ОТМЕНЁН"
             OVERALL_NOTE="Выполнение pipeline было остановлено."
+            E2E_DISPLAY="$(status_ru "$E2E")"
           else
             OVERALL="⚠️ ПРОВЕРКИ ЗАВЕРШЕНЫ НЕ ПОЛНОСТЬЮ"
             OVERALL_NOTE="Часть проверок была пропущена."
+            E2E_DISPLAY="$(status_ru "$E2E")"
           fi
 
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
@@ -286,7 +303,7 @@ jobs:
                     <tr><td>ESLint + TypeScript</td><td>$(status_ru "$QUALITY")</td></tr>
                     <tr><td>Unit tests</td><td>$(status_ru "$UNIT")</td></tr>
                     <tr><td>API tests</td><td>$(status_ru "$API")</td></tr>
-                    <tr><td>E2E Matrix / Chromium + Firefox + WebKit</td><td>$(status_ru "$E2E")</td></tr>
+                    <tr><td>E2E Matrix / Chromium + Firefox + WebKit</td><td>${E2E_DISPLAY}</td></tr>
                   </tbody>
                 </table>
               </td>
@@ -345,7 +362,7 @@ jobs:
           - Quality: <code>${QUALITY}</code>
           - Unit: <code>${UNIT}</code>
           - API: <code>${API}</code>
-          - E2E Matrix: <code>${E2E}</code>
+          - E2E Matrix: ${E2E_DISPLAY}
           </details>
 
           ---
@@ -378,7 +395,7 @@ jobs:
               success) echo "✅ Успешно" ;;
               failure) echo "❌ Ошибка" ;;
               cancelled) echo "⏹️ Отменено" ;;
-              skipped) echo "⏸️ Временно приостановлено" ;;
+              skipped) echo "⏭️ Пропущено" ;;
               *) echo "❔ $1" ;;
             esac
           }
@@ -400,26 +417,31 @@ jobs:
             printf '%s' "$text"
           }
 
-          if [[ "$QUALITY" == "failure" || "$UNIT" == "failure" || "$API" == "failure" || "$E2E" == "failure" ]]; then
+          if [[ "$GITHUB_EVENT_NAME" != "workflow_dispatch" && "$QUALITY" == "success" && "$UNIT" == "success" && "$API" == "success" ]]; then
+            OVERALL_ICON="✅"
+            OVERALL_TITLE="БАЗОВЫЕ ПРОВЕРКИ ПРОЙДЕНЫ"
+            OVERALL_SUBTITLE="Live E2E matrix временно приостановлена; доступен ручной запуск"
+            E2E_LABEL="⏸️ Временно приостановлено"
+          elif [[ "$QUALITY" == "failure" || "$UNIT" == "failure" || "$API" == "failure" || "$E2E" == "failure" ]]; then
             OVERALL_ICON="❌"
             OVERALL_TITLE="СБОРКА ЗАВЕРШИЛАСЬ С ОШИБКОЙ"
             OVERALL_SUBTITLE="Одна или несколько проверок не пройдены"
+            E2E_LABEL="$(result_label "$E2E")"
           elif [[ "$QUALITY" == "cancelled" || "$UNIT" == "cancelled" || "$API" == "cancelled" || "$E2E" == "cancelled" ]]; then
             OVERALL_ICON="⏹️"
             OVERALL_TITLE="СБОРКА ОТМЕНЕНА"
             OVERALL_SUBTITLE="Выполнение пайплайна было остановлено"
+            E2E_LABEL="$(result_label "$E2E")"
           elif [[ "$QUALITY" == "success" && "$UNIT" == "success" && "$API" == "success" && "$E2E" == "success" ]]; then
             OVERALL_ICON="✅"
             OVERALL_TITLE="ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ"
             OVERALL_SUBTITLE="Сборка завершена успешно"
-          elif [[ "$QUALITY" == "success" && "$UNIT" == "success" && "$API" == "success" && "$E2E" == "skipped" ]]; then
-            OVERALL_ICON="✅"
-            OVERALL_TITLE="БАЗОВЫЕ ПРОВЕРКИ ПРОЙДЕНЫ"
-            OVERALL_SUBTITLE="Live E2E matrix временно приостановлена; доступен ручной запуск"
+            E2E_LABEL="$(result_label "$E2E")"
           else
             OVERALL_ICON="⚠️"
             OVERALL_TITLE="СБОРКА ЗАВЕРШЕНА НЕ ПОЛНОСТЬЮ"
             OVERALL_SUBTITLE="Часть проверок была пропущена"
+            E2E_LABEL="$(result_label "$E2E")"
           fi
 
           BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
@@ -451,7 +473,7 @@ jobs:
           <blockquote>$(result_label "$QUALITY")  Линт и типизация
           $(result_label "$UNIT")  Unit tests
           $(result_label "$API")  API tests
-          $(result_label "$E2E")  E2E Matrix / Chromium + Firefox + WebKit</blockquote>
+          ${E2E_LABEL}  E2E Matrix / Chromium + Firefox + WebKit</blockquote>
 
           🔗 <a href="${RUN_URL}"><b>Открыть запуск в GitHub Actions</b></a>
           <i>Запуск #${GITHUB_RUN_NUMBER}</i>
