@@ -111,7 +111,8 @@ Pull Request / main
 - Accessibility Audit;
 - Performance Smoke / Lighthouse;
 - Visual Regression;
-- Telegram Notification Test.
+- Telegram Notification Test;
+- Registration Contract Smoke.
 
 ## Почему POM?
 
@@ -152,12 +153,23 @@ skill + runId
 
 ### Короткий ответ
 
-Для анализа результатов использую Allure Report. Он дополняет встроенный Playwright HTML report и используется для failure analysis.
+Allure — штатная часть проекта. Reporter подключён в Playwright локально и в CI, а Allure Report дополняет встроенный Playwright HTML report для анализа результатов и failures.
 
 ### Если попросят подробнее
 
+`allure-playwright` и Allure 3 CLI зафиксированы в `devDependencies`, поэтому обычного `npm ci` достаточно. Unit, API и E2E запуски формируют `allure-results/`, после чего локально можно выполнить:
+
+```bash
+npm run allure:generate
+npm run allure:open
+```
+
+В основном E2E CI, Nightly и Stability статический Allure Report генерируется автоматически и сохраняется artifact.
+
 ```text
 Test Execution
+      |
+      +--> Playwright HTML
       |
       v
 Allure Results
@@ -169,7 +181,7 @@ Allure Report
 GitHub Actions Artifact
 ```
 
-Для каждого браузерного запуска можно сохранять отдельные artifacts, а trace/screenshots/video дают дополнительный технический контекст.
+Для каждого browser job сохраняются отдельные reports, а trace/screenshots/video дают дополнительный технический контекст.
 
 ## Зачем Browser Matrix?
 
@@ -296,6 +308,30 @@ sendMessage
 
 Так диагностика не зависит от полного E2E-run. Значения `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` в лог не выводятся.
 
+## Зачем Registration Contract Smoke?
+
+### Короткий ответ
+
+Это отдельная manual-only проверка HTTP-контракта регистрации. Она нужна, чтобы быстро понять, изменился ли сам registration endpoint, не запуская для этого всю E2E matrix.
+
+### Если попросят подробнее
+
+Workflow проверяет реальную цепочку:
+
+```text
+POST /pomidorqa/auth/register
+          |
+          v
+HTTP 303
+          |
+          v
+/pomidorqa
+```
+
+Проверка запускается в Chromium, использует уникального пользователя и точный method + pathname, поэтому служебный `POST /api/track` не принимается за registration mutation. Результат сохраняется JSON artifact.
+
+Она intentionally manual-only: каждый запуск создаёт пользователя на live-стенде, а сама проверка нужна для диагностики контракта, а не как ещё один постоянный PR gate.
+
 ## Почему один worker в E2E?
 
 ### Короткий ответ
@@ -346,15 +382,14 @@ Retry не использовал бы как первое «исправлен�
 
 - axe-core — WCAG violations;
 - Lighthouse — Performance / Accessibility / Best Practices / SEO;
-- Playwright screenshots — visual diff;
-- Telegram diagnostic workflow — observability самой CI-интеграции.
+- Playwright screenshots — visual diff.
 
-Это показывает, что тестовая стратегия не ограничивается только функциональным happy path.
+Отдельно от non-functional QA есть operational diagnostics: Telegram Notification Test и Registration Contract Smoke. Это показывает, что тестовая стратегия не ограничивается только функциональным happy path и умеет локализовать инфраструктурные проблемы.
 
 ## Как коротко рассказать об этом проекте
 
 Пример ответа примерно на 45–60 секунд:
 
-> Это standalone QA Automation-проект на Playwright и TypeScript. В нём есть Unit, API и E2E уровни, Page Objects, fixtures, helpers и генерация уникальных тестовых данных. E2E поддерживает Chromium, Firefox и WebKit, работает без retries и сохраняет Playwright/Allure diagnostics. Отдельно я настроил nightly regression, stability workflow, security gates, accessibility audit через axe-core, Lighthouse performance smoke и visual regression по screenshot baseline. Для CI-уведомлений используется Telegram Bot API, а отдельный diagnostic workflow проверяет token, chat и реальную отправку сообщения. Основной акцент проекта — не количество тестов, а разделение типов тестового сигнала и возможность быстро понять причину failure.
+> Это standalone portfolio-проект по QA Automation на Playwright и TypeScript. В нём есть Unit, API и E2E уровни, Page Objects, fixtures, helpers и генерация уникальных тестовых данных. E2E автоматически проходит в Chromium, Firefox и WebKit с `retries=0`, а Playwright HTML и Allure используются локально и в CI вместе с trace, screenshots и video diagnostics. Отдельно я настроил Nightly Regression, Stability Check, Security & Quality Gates, Accessibility Audit через axe-core, Lighthouse Performance Smoke и Visual Regression. Для CI-уведомлений используется Telegram Bot API, а ручные диагностические workflows отдельно проверяют Telegram-интеграцию и HTTP-контракт регистрации. Основной акцент проекта — качество тестового сигнала, детерминированность и возможность быстро локализовать причину failure.
 
 Не нужно заучивать формулировку дословно. Важно понимать, зачем существует каждый слой и какую проблему он решает.

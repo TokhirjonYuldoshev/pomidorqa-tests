@@ -2,7 +2,7 @@
   "name": "pomidorqa-tests",
   "version": "1.0.0",
   "private": true,
-  "description": "Personal QA automation project for PomidorQA: Playwright, TypeScript, API, E2E, CI and stability checks",
+  "description": "QA Automation portfolio project: Playwright + TypeScript, Unit/API/E2E, cross-browser CI, Allure and non-functional quality checks",
   "scripts": {
     "test": "playwright test",
     "test:unit": "playwright test --project=unit",
