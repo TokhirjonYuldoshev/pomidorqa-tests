@@ -2,11 +2,12 @@ import { expect, test } from "../fixtures/app-fixtures";
 import {
   prepareCatalogParticipant,
   registerWithSkill,
+  waitForCatalogParticipant,
 } from "../helpers/catalog";
 import { makeRunId } from "../helpers/test-data";
 import { makeUser, registerUser } from "../helpers/user";
 
-const TEST_TIMEOUT = 120_000;
+const TEST_TIMEOUT = 180_000;
 const CATALOG_RESULT_TIMEOUT = 30_000;
 
 test.describe("Поиск участников PomidorQA", () => {
@@ -24,6 +25,12 @@ test.describe("Поиск участников PomidorQA", () => {
 
       await prepareCatalogParticipant(
         hostApp,
+        host,
+        skill,
+      );
+
+      await waitForCatalogParticipant(
+        guestApp,
         host,
         skill,
       );
@@ -65,6 +72,12 @@ test.describe("Поиск участников PomidorQA", () => {
 
       await prepareCatalogParticipant(
         hostApp,
+        host,
+        existingSkill,
+      );
+
+      await waitForCatalogParticipant(
+        guestApp,
         host,
         existingSkill,
       );
@@ -126,6 +139,12 @@ test.describe("Поиск участников PomidorQA", () => {
 
       await prepareCatalogParticipant(
         hostApp,
+        host,
+        skill,
+      );
+
+      await waitForCatalogParticipant(
+        guestApp,
         host,
         skill,
       );
@@ -198,6 +217,18 @@ test.describe("Поиск участников PomidorQA", () => {
         "13:00",
       );
 
+      await waitForCatalogParticipant(
+        guestApp,
+        hostOne,
+        sharedSkill,
+      );
+
+      await waitForCatalogParticipant(
+        guestApp,
+        hostTwo,
+        sharedSkill,
+      );
+
       await test.step(
         "Гость: ищет общий навык двух участников",
         async () => {
@@ -265,6 +296,18 @@ test.describe("Поиск участников PomidorQA", () => {
         otherHost,
         otherSkill,
         "13:00",
+      );
+
+      await waitForCatalogParticipant(
+        guestApp,
+        matchingHost,
+        matchingSkill,
+      );
+
+      await waitForCatalogParticipant(
+        guestApp,
+        otherHost,
+        otherSkill,
       );
 
       await test.step(
@@ -374,6 +417,12 @@ test.describe("Поиск участников PomidorQA", () => {
         sharedSkill,
       );
 
+      await waitForCatalogParticipant(
+        guestApp,
+        eligibleHost,
+        sharedSkill,
+      );
+
       await test.step(
         "Контроль: навык участника без слота сохранён в профиле",
         async () => {
@@ -441,6 +490,18 @@ test.describe("Поиск участников PomidorQA", () => {
         hostB,
         skillB,
         "13:00",
+      );
+
+      await waitForCatalogParticipant(
+        guestApp,
+        hostA,
+        skillA,
+      );
+
+      await waitForCatalogParticipant(
+        guestApp,
+        hostB,
+        skillB,
       );
 
       await test.step(
@@ -511,6 +572,12 @@ test.describe("Поиск участников PomidorQA", () => {
 
       await prepareCatalogParticipant(
         hostApp,
+        host,
+        skill,
+      );
+
+      await waitForCatalogParticipant(
+        searcherApp,
         host,
         skill,
       );
