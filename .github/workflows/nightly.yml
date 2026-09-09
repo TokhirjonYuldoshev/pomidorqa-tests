@@ -3,7 +3,8 @@ run-name: "Nightly E2E Regression • ${{ github.ref_name }} • ${{ github.acto
 
 on:
   schedule:
-    - cron: "0 2 * * *"
+    # GitHub cron uses UTC: 23:00 UTC = 02:00 local time (UTC+3) next day.
+    - cron: "0 23 * * *"
   workflow_dispatch:
 
 permissions:
@@ -146,7 +147,7 @@ jobs:
 
           ## ${STATUS}
 
-          - Schedule: 0 2 * * * (02:00 UTC daily)
+          - Schedule: 0 23 * * * (23:00 UTC = 02:00 local time UTC+3)
           - Browsers: Chromium, Firefox, WebKit
           - Workers: 1 per browser
           - Retries: 0
