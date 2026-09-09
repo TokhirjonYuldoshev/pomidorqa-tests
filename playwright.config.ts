@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const isCI = Boolean(process.env.CI);
+const isAllureEnabled = process.env.ALLURE_ENABLED === "true";
 
 export default defineConfig({
   timeout: 30_000,
@@ -8,7 +9,14 @@ export default defineConfig({
   forbidOnly: isCI,
   retries: 0,
   reporter: isCI
-    ? [["line"], ["github"], ["html", { open: "never" }]]
+    ? isAllureEnabled
+      ? [
+          ["line"],
+          ["github"],
+          ["html", { open: "never" }],
+          ["allure-playwright", { resultsDir: "allure-results" }],
+        ]
+      : [["line"], ["github"], ["html", { open: "never" }]]
     : [["list"], ["html", { open: "on-failure" }]],
   projects: [
     {
