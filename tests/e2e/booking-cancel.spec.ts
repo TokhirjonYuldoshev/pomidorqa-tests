@@ -1,4 +1,5 @@
 import { expect, test } from "../fixtures/app-fixtures";
+import { waitForCatalogParticipant } from "../helpers/catalog";
 import { makeRunId } from "../helpers/test-data";
 import { makeUser, registerUser } from "../helpers/user";
 import type { BookingPage } from "../pages/booking-page";
@@ -27,7 +28,7 @@ async function expectBookingCancelledFor(
 test(
   "гость отменяет встречу — после reload отмену видят гость и хост",
   async ({ hostApp, guestApp }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(180_000);
 
     const runId = makeRunId("booking-cancel");
     const skillTag = `Cancel-${runId}`;
@@ -55,6 +56,12 @@ test(
 
         await hostApp.slotsPage.addSlot("12:00");
       },
+    );
+
+    await waitForCatalogParticipant(
+      guestApp,
+      hostUser,
+      skillTag,
     );
 
     await test.step(
