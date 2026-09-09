@@ -37,18 +37,47 @@ jobs:
         run: npm audit --audit-level=high
 
   dependency-review:
-    name: Security / dependency review
+    name: Security / dependency change review
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Checkout repository
+      - name: Checkout repository history
         uses: actions/checkout@v6
-
-      - name: Review dependency changes
-        uses: actions/dependency-review-action@v5
         with:
-          fail-on-severity: high
+          fetch-depth: 0
+
+      - name: Detect dependency manifest changes
+        id: manifests
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- package.json package-lock.json)
+
+          if [[ -z "$CHANGED_FILES" ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No package.json or package-lock.json changes in this pull request."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Dependency files changed:"
+            printf '%s\n' "$CHANGED_FILES"
+          fi
+
+      - name: Setup Node.js
+        if: steps.manifests.outputs.changed == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Validate lockfile consistency
+        if: steps.manifests.outputs.changed == 'true'
+        run: npm ci
+
+      - name: Audit dependency changes
+        if: steps.manifests.outputs.changed == 'true'
+        run: npm audit --audit-level=high
 
   quality:
     name: Quality / lint + typecheck
@@ -102,6 +131,6 @@ jobs:
           | Gate | Result |
           | --- | --- |
           | npm audit (high/critical) | $(status_label "$AUDIT") |
-          | Dependency review | $(status_label "$DEPENDENCIES") |
+          | Dependency change review | $(status_label "$DEPENDENCIES") |
           | ESLint + TypeScript | $(status_label "$QUALITY") |
           EOF
