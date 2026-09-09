@@ -219,6 +219,19 @@ Allure Report
 
 Playwright HTML report сохраняется параллельно как встроенный быстрый отчёт, а Allure используется как дополнительный слой анализа результатов и истории выполнения.
 
+## Nightly Regression
+
+`.github/workflows/nightly.yml` отделяет плановую регрессию от required PR gate.
+
+Workflow запускается:
+
+- автоматически каждый день по cron `0 2 * * *` — **02:00 UTC**;
+- вручную через `workflow_dispatch`.
+
+Каждый nightly run выполняет полный E2E-suite в Chromium, Firefox и WebKit. Для каждого браузера используются `workers=1` и `retries=0`, а Allure/Playwright HTML artifacts сохраняются отдельно.
+
+Nightly не заменяет PR CI: pull request должен пройти обычные Quality, Unit, API и E2E matrix checks до merge. Плановый запуск нужен для обнаружения регрессий или изменений live-стенда, которые появились уже после merge.
+
 ## Stability workflow
 
 Отдельный workflow не является required gate. Его задача — исследование стабильности.
