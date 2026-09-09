@@ -10,11 +10,15 @@
     "test:e2e": "playwright test --project=e2e",
     "lint": "eslint src tests scripts playwright.config.ts playwright.visual.config.ts",
     "typecheck": "tsc --noEmit",
-    "report": "playwright show-report"
+    "report": "playwright show-report",
+    "allure:generate": "allure generate allure-results --output allure-report",
+    "allure:open": "allure open allure-report"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0",
     "@types/node": "^24.0.0",
+    "allure": "3.16.1",
+    "allure-playwright": "3.11.1",
     "eslint": "^10.8.1",
     "eslint-plugin-playwright": "^2.11.0",
     "typescript-eslint": "^8.67.0",

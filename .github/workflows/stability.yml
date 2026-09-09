@@ -102,6 +102,19 @@ jobs:
           --workers=${{ inputs.workers }}
           --retries=0
 
+      - name: Generate Allure report
+        if: ${{ always() }}
+        run: npm run allure:generate
+
+      - name: Upload stability Allure report
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: stability-allure-${{ github.run_id }}
+          path: allure-report/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Upload stability HTML report
         if: ${{ always() }}
         uses: actions/upload-artifact@v7
@@ -140,6 +153,7 @@ jobs:
             echo "- Workers: \`${{ inputs.workers }}\`"
             echo "- Retries: \`0\` (failures are not masked)"
             echo "- Browser cache hit: \`${CACHE_HIT:-n/a}\`"
+            echo "- Allure report: uploaded as a workflow artifact"
             echo "- Result: ${RESULT}"
           } >> "$GITHUB_STEP_SUMMARY"
 
