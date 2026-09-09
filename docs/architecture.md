@@ -13,7 +13,8 @@
 5. разделение scenario, actions, assertions и setup;
 6. воспроизводимую диагностику CI failures;
 7. возможность отдельно stress-тестировать flaky-поведение;
-8. отдельные non-functional сигналы для accessibility, performance и visual regression.
+8. отдельные non-functional сигналы для accessibility, performance и visual regression;
+9. узкие manual-only diagnostics для проверки отдельных интеграций и HTTP-контрактов без расширения required PR gate.
 
 ## Architecture at a glance
 
@@ -34,11 +35,15 @@ Quality workflows
  |
  ├── Accessibility Audit
  ├── Performance Smoke / Lighthouse
- ├── Visual Regression
- └── Telegram Notification Diagnostics
+ └── Visual Regression
+
+Operational diagnostics
+ |
+ ├── Telegram Notification Test
+ └── Registration Contract Smoke
 ```
 
-E2E-сценарии описывают бизнес-поведение и assertions. Page Objects инкапсулируют взаимодействие с UI, fixtures управляют browser contexts, helpers отвечают за повторяемую подготовку, а test-data factories создают независимые уникальные данные для каждого запуска. Non-functional workflows вынесены отдельно, чтобы не смешивать функциональный E2E-сигнал с accessibility, performance и visual checks.
+E2E-сценарии описывают бизнес-поведение и assertions. Page Objects инкапсулируют взаимодействие с UI, fixtures управляют browser contexts, helpers отвечают за повторяемую подготовку, а test-data factories создают независимые уникальные данные для каждого запуска. Non-functional workflows вынесены отдельно, чтобы не смешивать функциональный E2E-сигнал с accessibility, performance и visual checks. Узкие manual-only diagnostics отдельно проверяют CI-интеграции и сетевой контракт регистрации.
 
 ## Слои
 
@@ -145,6 +150,8 @@ skill + runId
 - Playwright auto-waiting;
 - polling/reload только для подтверждённой eventual consistency.
 
+Для регистрации helper ждёт точный `POST /pomidorqa/auth/register`, проверяет HTTP status mutation response и только затем валидирует redirect. Это отделяет реальную registration mutation от других POST-запросов страницы.
+
 ## Booking slot semantics
 
 Booking tests сами создают единственный future slot для уникального host.
@@ -207,25 +214,25 @@ Allure и Playwright HTML artifacts получают имя браузера, п
 
 ## Allure Reporting
 
+Allure является обычной зависимостью проекта: `allure-playwright` и Allure 3 CLI зафиксированы в `devDependencies` и устанавливаются обычным `npm ci`.
+
 ```text
 Test Execution
-
-        |
-        v
-
+      |
+      +--> Playwright HTML
+      |
+      v
 Allure Results
-
-        |
-        v
-
+      |
+      v
 Allure Report
 ```
 
-Во время E2E-запуска Allure reporter сохраняет сырые результаты в `allure-results/`. После завершения тестов CI генерирует статический отчёт `allure-report/` и загружает его как GitHub Actions artifact.
+Reporter включён в Playwright config и пишет `allure-results/` как локально, так и в CI для Unit, API и E2E запусков. Локально статический отчёт собирается через `npm run allure:generate` и открывается через `npm run allure:open`.
 
-Отчёт генерируется и при failed E2E run, если workflow не был отменён. При падении тестов в GitHub Actions Summary появляется отдельная ссылка на Allure artifact для анализа причины failure.
+В GitHub Actions основной E2E CI, Nightly и Stability используют те же lockfile-зависимости, генерируют `allure-report/` и сохраняют его как artifact. Для browser matrix отчёты разделены по движкам.
 
-Playwright HTML report сохраняется параллельно как встроенный быстрый отчёт, а Allure используется как дополнительный слой анализа результатов и истории выполнения.
+Отчёт генерируется и при failed E2E run, если workflow не был отменён. При падении тестов GitHub Actions Summary даёт ссылку на artifacts для анализа причины failure. Trace/screenshots/video дополняют Allure и Playwright HTML техническим контекстом.
 
 ## Non-functional QA workflows
 
@@ -271,6 +278,8 @@ Budget findings по умолчанию информационные. При р�
 
 Visual workflow изолирован от функциональных E2E-тестов, чтобы screenshot diff не смешивался с проверкой бизнес-логики.
 
+## Operational diagnostics
+
 ### Telegram diagnostics
 
 Основной CI отправляет итог через Telegram Bot API. Для диагностики интеграции существует отдельный ручной `.github/workflows/telegram-test.yml`.
@@ -291,6 +300,27 @@ sendMessage — real diagnostic message
 ```
 
 Workflow не выводит значения secrets в лог и даёт точную причину failure: отсутствующий secret, невалидный bot token, недоступный chat ID или ошибка `sendMessage`.
+
+### Registration Contract Smoke
+
+`.github/workflows/registration-contract-smoke.yml` — manual-only проверка реального HTTP-контракта регистрации.
+
+```text
+GET /pomidorqa/auth/register
+          |
+          v
+POST /pomidorqa/auth/register
+          |
+          v
+HTTP 303
+          |
+          v
+/pomidorqa
+```
+
+Проверка использует Chromium и уникального пользователя, фильтрует точный method + pathname, проверяет `303` и финальный redirect. Результат сохраняется в `.qa-artifacts/registration-contract/summary.json` и публикуется artifact на 14 дней.
+
+Workflow намеренно не запускается на PR, push или cron: каждый запуск создаёт пользователя на live-стенде и нужен как узкая диагностика контракта, а не как required gate. Подробности находятся в `docs/registration-contract-smoke.md`.
 
 ## Nightly Regression
 
@@ -331,7 +361,8 @@ Security workflow не заменяет Unit/API/E2E проверки: он от
 - workers `1/2`;
 - `retries=0`;
 - booking-flow или весь E2E suite;
-- HTML report и failure diagnostics.
+- Playwright HTML и Allure Report artifacts;
+- failure diagnostics.
 
 Перед включением strict CI gate была подтверждена матрица:
 
