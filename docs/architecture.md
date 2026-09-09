@@ -159,22 +159,43 @@ flowchart LR
     PR[PR / main] --> Q[Quality]
     PR --> U[Unit]
     PR --> A[API]
-    Q --> E[E2E Chromium]
+    Q --> E[E2E Matrix]
     U --> E
     A --> E
-    E --> REPORT[Playwright HTML + Allure]
+    E --> C[Chromium]
+    E --> F[Firefox]
+    E --> W[WebKit]
+    C --> REPORT[Playwright HTML + Allure]
+    F --> REPORT
+    W --> REPORT
     E --> SUMMARY[CI summary]
     E --> TG[Telegram result]
 ```
 
-Required E2E gate выполняется с:
+Каждый browser job выполняется с:
 
 ```text
 workers=1
 retries=0
 ```
 
-Один worker выбран из-за общего live-стенда. Ноль retries нужен, чтобы первый реальный failure оставался красным сигналом.
+Один worker на браузер выбран из-за общего live-стенда. Ноль retries нужен, чтобы первый реальный failure оставался красным сигналом.
+
+## Browser Matrix Testing
+
+```text
+E2E Matrix
+
+├── Chromium
+├── Firefox
+└── WebKit
+```
+
+Один и тот же E2E-suite выполняется в трёх движках Playwright. Browser выбирается через `E2E_BROWSER`, а GitHub Actions matrix создаёт отдельный job для Chromium, Firefox и WebKit.
+
+`fail-fast: false` позволяет завершить все три browser jobs даже если один из них падает. Это сохраняет полный cross-browser сигнал за один CI run вместо остановки матрицы после первого failure.
+
+Allure и Playwright HTML artifacts получают имя браузера, поэтому результаты каждого движка можно анализировать отдельно.
 
 ## Allure Reporting
 
