@@ -1,0 +1,128 @@
+name: Bug report
+description: Report a reproducible product, test, or CI defect with actionable evidence.
+title: "[BUG] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a defect. Separate observed facts from assumptions and attach evidence where possible.
+
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Affected layer
+      description: Where was the failure observed?
+      options:
+        - Live product / E2E behavior
+        - Test code / framework
+        - API / contract
+        - CI / GitHub Actions
+        - Reporting / observability
+        - Security / dependency
+        - Non-functional (accessibility / performance / visual)
+        - Unknown / requires triage
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: Technical/business impact. Priority is tracked separately from severity.
+      options:
+        - Blocker
+        - Critical
+        - Major
+        - Minor
+        - Trivial
+        - Not assessed
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - P0 - immediate
+        - P1 - high
+        - P2 - normal
+        - P3 - low
+        - Not assessed
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser/engine, OS, branch/commit, workflow/run, target URL or other relevant context.
+      placeholder: |
+        Browser: WebKit / Playwright 1.x
+        OS: GitHub-hosted Ubuntu
+        Commit: <sha>
+        Run: <GitHub Actions URL>
+    validations:
+      required: true
+
+  - type: textarea
+    id: preconditions
+    attributes:
+      label: Preconditions and test data
+      description: Required state, role, account, unique data, or setup. Do not paste secrets or production credentials.
+      placeholder: Describe only the minimum state needed to reproduce.
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide the shortest deterministic reproduction path.
+      placeholder: |
+        1. Open ...
+        2. Perform ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+      description: State the expected observable behavior or contract.
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: State only what was observed. Keep hypotheses in the triage section below.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Attach screenshots, trace/video, Allure/HTML report, response details, or workflow logs. Redact secrets and personal data.
+      placeholder: Links, artifact names, response status/body excerpts, screenshots, trace details.
+
+  - type: textarea
+    id: triage
+    attributes:
+      label: Triage notes / hypothesis
+      description: Optional suspected cause or layer classification. Clearly distinguish hypothesis from confirmed fact.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Reporter checklist
+      options:
+        - label: I checked that this is not an obvious duplicate.
+          required: true
+        - label: I did not add retries, arbitrary sleeps, forced actions, or weakened assertions to hide the failure.
+          required: true
+        - label: I removed or redacted secrets, credentials, tokens and personal data from the report.
+          required: true
