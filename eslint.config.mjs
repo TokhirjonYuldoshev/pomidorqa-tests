@@ -49,6 +49,7 @@ export default [
       "playwright/no-commented-out-tests": "error",
       "playwright/no-page-pause": "error",
       "playwright/no-focused-test": "error",
+      "playwright/no-skipped-test": "error",
       "playwright/expect-expect": "error",
       "playwright/no-conditional-in-test": "off",
       "playwright/consistent-spacing-between-blocks": "off",
