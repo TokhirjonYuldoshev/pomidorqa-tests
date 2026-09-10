@@ -37,17 +37,28 @@ npx playwright install chromium firefox webkit
 
 ## Quality gates
 
-Перед отправкой изменений должны проходить релевантные проверки:
+Быстрый детерминированный preflight перед PR не зависит от live-стенда и запускает lint, typecheck, Unit и API:
+
+```bash
+npm run verify:local
+```
+
+Live E2E остаётся отдельным сигналом и запускается осознанно:
+
+```bash
+npm run test:e2e
+```
+
+При необходимости те же локальные проверки можно запускать по отдельности:
 
 ```bash
 npm run lint
 npm run typecheck
 npm run test:unit
 npm run test:api
-npm run test:e2e
 ```
 
-Полный запуск:
+Полный Playwright-запуск:
 
 ```bash
 npm test
