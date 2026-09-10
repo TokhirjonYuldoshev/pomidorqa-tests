@@ -34,7 +34,48 @@ jobs:
         run: npm ci
 
       - name: Audit dependencies
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=high --json | tee npm-audit.json
+
+      - name: Publish audit severity summary
+        if: ${{ always() }}
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+          if (!fs.existsSync('npm-audit.json')) {
+            fs.appendFileSync(summaryPath, '## npm audit evidence\n\nAudit JSON was not produced.\n');
+            process.exit(0);
+          }
+
+          const report = JSON.parse(fs.readFileSync('npm-audit.json', 'utf8'));
+          const counts = report.metadata?.vulnerabilities ?? {};
+          const total = counts.total ?? 0;
+          const lines = [
+            '## npm audit evidence',
+            '',
+            '| Severity | Count |',
+            '| --- | ---: |',
+            `| Critical | ${counts.critical ?? 0} |`,
+            `| High | ${counts.high ?? 0} |`,
+            `| Moderate | ${counts.moderate ?? 0} |`,
+            `| Low | ${counts.low ?? 0} |`,
+            `| Info | ${counts.info ?? 0} |`,
+            `| **Total** | **${total}** |`,
+            '',
+            'Enforcement threshold: **high / critical**. Lower-severity findings remain visible in the evidence instead of being hidden.',
+            '',
+          ];
+          fs.appendFileSync(summaryPath, `${lines.join('\n')}\n`);
+          NODE
+
+      - name: Upload npm audit evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: npm-audit-${{ github.run_id }}
+          path: npm-audit.json
+          if-no-files-found: warn
+          retention-days: 14
 
   dependency-review:
     name: Security / dependency change review
@@ -130,7 +171,7 @@ jobs:
 
           | Gate | Result |
           | --- | --- |
-          | npm audit (high/critical) | $(status_label "$AUDIT") |
+          | npm audit (high/critical enforcement) | $(status_label "$AUDIT") |
           | Dependency change review | $(status_label "$DEPENDENCIES") |
           | ESLint + TypeScript | $(status_label "$QUALITY") |
           EOF
