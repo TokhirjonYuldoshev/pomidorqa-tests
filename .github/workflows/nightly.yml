@@ -119,24 +119,143 @@ jobs:
           ARTIFACTS_URL="${RUN_URL}#artifacts"
 
           if [[ "$E2E_RESULT" == "success" ]]; then
-            STATUS="✅ Nightly regression passed"
+            STATUS="✅ Nightly regression пройдена"
+            NOTE="Полная browser matrix завершилась успешно."
           elif [[ "$E2E_RESULT" == "failure" ]]; then
-            STATUS="❌ Nightly regression failed"
+            STATUS="❌ Nightly regression завершилась с ошибкой"
+            NOTE="Один или несколько browser jobs требуют разбора."
           elif [[ "$E2E_RESULT" == "cancelled" ]]; then
-            STATUS="⏹️ Nightly regression cancelled"
+            STATUS="⏹️ Nightly regression отменена"
+            NOTE="Запуск был остановлен до завершения полной матрицы."
           else
-            STATUS="⚠️ Nightly regression incomplete"
+            STATUS="⚠️ Nightly regression завершена не полностью"
+            NOTE="Проверьте технические статусы browser jobs."
           fi
 
           cat >> "$GITHUB_STEP_SUMMARY" <<EOF
           # Nightly E2E Regression
+          _Плановая полная регрессия live PomidorQA_
 
           ## ${STATUS}
+          > ${NOTE}
 
-          - Schedule: 0 23 * * * (23:00 UTC = 02:00 local time UTC+3)
-          - Browsers: Chromium, Firefox, WebKit
-          - Workers: 1 per browser
-          - Retries: 0
-          - Scope: full E2E suite
-          - [Open artifacts](${ARTIFACTS_URL})
+          | Параметр | Значение |
+          | --- | --- |
+          | Расписание | 23:00 UTC = 02:00 UTC+3 |
+          | Browser matrix | Chromium · Firefox · WebKit |
+          | Workers | 1 на браузер |
+          | Retries | 0 |
+          | Scope | полный E2E-suite |
+          | Matrix result | ${E2E_RESULT} |
+
+          [▶️ Открыть run](${RUN_URL}) · [📦 Reports и diagnostics](${ARTIFACTS_URL})
+
+          > ✈️ После завершения Nightly итог отправляется в Telegram; notification transport не изменяет результат E2E.
           EOF
+
+  notify:
+    name: Nightly / Telegram Notification
+    if: ${{ always() }}
+    needs: [e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Send nightly result to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          E2E_RESULT: ${{ needs.e2e.result }}
+        run: |
+          if [[ -z "$TELEGRAM_BOT_TOKEN" || -z "$TELEGRAM_CHAT_ID" ]]; then
+            echo "::notice::Telegram secrets are not configured; nightly notification skipped."
+            exit 0
+          fi
+
+          result_label() {
+            case "$1" in
+              success) echo "✅ Успешно" ;;
+              failure) echo "❌ Ошибка" ;;
+              cancelled) echo "⏹️ Отменено" ;;
+              skipped) echo "⏭️ Пропущено" ;;
+              *) echo "❔ ${1:-unknown}" ;;
+            esac
+          }
+
+          escape_html() {
+            local text="$1"
+            text="${text//&/&amp;}"
+            text="${text//</&lt;}"
+            text="${text//>/&gt;}"
+            printf '%s' "$text"
+          }
+
+          case "$E2E_RESULT" in
+            success)
+              OVERALL_ICON="✅"
+              OVERALL_TITLE="NIGHTLY REGRESSION ПРОЙДЕНА"
+              OVERALL_SUBTITLE="Chromium, Firefox и WebKit завершили полный E2E-suite"
+              ;;
+            failure)
+              OVERALL_ICON="❌"
+              OVERALL_TITLE="NIGHTLY REGRESSION УПАЛА"
+              OVERALL_SUBTITLE="Один или несколько browser jobs требуют разбора"
+              ;;
+            cancelled)
+              OVERALL_ICON="⏹️"
+              OVERALL_TITLE="NIGHTLY REGRESSION ОТМЕНЕНА"
+              OVERALL_SUBTITLE="Browser matrix не была завершена"
+              ;;
+            *)
+              OVERALL_ICON="⚠️"
+              OVERALL_TITLE="NIGHTLY REGRESSION НЕПОЛНАЯ"
+              OVERALL_SUBTITLE="Проверьте технические статусы запуска"
+              ;;
+          esac
+
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          REPOSITORY_HTML="$(escape_html "$GITHUB_REPOSITORY")"
+          ACTOR_HTML="$(escape_html "$GITHUB_ACTOR")"
+          SHORT_SHA="${GITHUB_SHA:0:7}"
+
+          MESSAGE=$(cat <<EOF
+          <b>PomidorQA • Nightly E2E Regression</b>
+          <i>Плановая полная регрессия live-стенда</i>
+
+          ━━━━━━━━━━━━━━
+          ${OVERALL_ICON} <b>${OVERALL_TITLE}</b>
+          <i>${OVERALL_SUBTITLE}</i>
+          ━━━━━━━━━━━━━━
+
+          📦 <b>Репозиторий</b>
+          <code>${REPOSITORY_HTML}</code>
+
+          🌙 <b>Запуск:</b> Nightly / 23:00 UTC
+          🔖 <b>Commit:</b> <code>${SHORT_SHA}</code>
+          👤 <b>Actor:</b> ${ACTOR_HTML}
+
+          🌐 <b>Browser matrix</b>
+          <blockquote>$(result_label "$E2E_RESULT")  Chromium + Firefox + WebKit
+          ⚙️ Workers: 1 на браузер
+          ♻️ Retries: 0</blockquote>
+
+          📊 <b>Reports:</b> Allure + Playwright HTML
+          🔗 <a href="${RUN_URL}"><b>Открыть Nightly run в GitHub Actions</b></a>
+          <i>Запуск #${GITHUB_RUN_NUMBER}</i>
+          EOF
+          )
+
+          if ! curl --silent --show-error --fail-with-body \
+            --retry 2 \
+            --retry-all-errors \
+            --connect-timeout 10 \
+            --max-time 20 \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=${MESSAGE}" \
+            --data-urlencode "parse_mode=HTML" \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            > /tmp/telegram-response.json; then
+            echo "::warning::Nightly Telegram notification could not be sent. E2E result is not affected."
+            exit 0
+          fi
+
+          echo "Nightly Telegram notification sent."
