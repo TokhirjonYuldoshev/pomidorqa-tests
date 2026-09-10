@@ -12,16 +12,19 @@ const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ baseURL });
 const page = await context.newPage();
 const mutations = [];
+const appRequests = new Set();
 
 page.on("request", (request) => {
+  const url = new URL(request.url());
+  if (url.origin === new URL(baseURL).origin && !url.pathname.startsWith("/_next/")) {
+    appRequests.add(`${request.method()} ${url.pathname}`);
+  }
+
   if (!["GET", "HEAD", "OPTIONS"].includes(request.method())) {
-    const body = request.postData() ?? "";
-    const fieldNames = [...new URLSearchParams(body).keys()];
     mutations.push({
       method: request.method(),
-      path: new URL(request.url()).pathname,
+      path: url.pathname,
       contentType: request.headers()["content-type"] ?? null,
-      fieldNames,
     });
   }
 });
@@ -76,9 +79,33 @@ try {
     buttons: Array.from(document.querySelectorAll("button")).map((button) => ({
       text: (button.textContent ?? "").replace(/\s+/g, " ").trim(),
     })).filter((item) => /удал|delete|remove|аккаунт/i.test(item.text)),
+    scripts: Array.from(document.scripts).map((script) => script.src).filter(Boolean),
   }));
 
-  console.log("DELETE_CANDIDATES", JSON.stringify(candidates));
+  console.log("DELETE_CANDIDATES", JSON.stringify({
+    forms: candidates.forms,
+    links: candidates.links,
+    buttons: candidates.buttons,
+  }));
+
+  for (const src of candidates.scripts) {
+    try {
+      const response = await context.request.get(src);
+      if (!response.ok()) continue;
+      const source = await response.text();
+      const hints = source.match(/.{0,120}(?:\/api\/[A-Za-z0-9_./?=&-]+|deleteUser|deleteAccount|removeUser|удалить).{0,120}/gi) ?? [];
+      if (hints.length > 0) {
+        console.log("SCRIPT_HINTS", JSON.stringify({
+          path: new URL(src).pathname,
+          hints: hints.slice(0, 20),
+        }));
+      }
+    } catch {
+      // Diagnostic only: an unreadable chunk must not fail the probe.
+    }
+  }
+
+  console.log("APP_REQUESTS", JSON.stringify([...appRequests].sort()));
   console.log("MUTATIONS", JSON.stringify(mutations));
 } finally {
   await context.close();
