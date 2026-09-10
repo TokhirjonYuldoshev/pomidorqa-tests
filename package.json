@@ -8,6 +8,7 @@
     "test:unit": "playwright test --project=unit",
     "test:api": "playwright test --project=api",
     "test:e2e": "playwright test --project=e2e",
+    "verify:local": "npm run lint && npm run typecheck && npm run test:unit -- --reporter=line && npm run test:api -- --reporter=line",
     "lint": "eslint src tests scripts playwright.config.ts playwright.visual.config.ts",
     "typecheck": "tsc --noEmit",
     "report": "playwright show-report",
