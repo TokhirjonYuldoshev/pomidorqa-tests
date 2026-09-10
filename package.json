@@ -15,13 +15,13 @@
     "allure:open": "allure open allure-report"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.0",
+    "@playwright/test": "^1.63.0",
     "@types/node": "^24.0.0",
     "allure": "3.16.1",
-    "allure-playwright": "3.11.1",
-    "eslint": "^10.8.1",
+    "allure-playwright": "3.12.0",
+    "eslint": "^10.10.0",
     "eslint-plugin-playwright": "^2.11.0",
-    "typescript-eslint": "^8.67.0",
+    "typescript-eslint": "^8.69.0",
     "typescript": "^5.9.0"
   }
 }
