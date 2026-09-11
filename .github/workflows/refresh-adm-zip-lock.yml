@@ -1,0 +1,51 @@
+name: Temporary adm-zip lock refresh
+
+on:
+  push:
+    branches:
+      - security/remediate-adm-zip
+
+permissions:
+  contents: read
+
+jobs:
+  refresh-lock:
+    name: Refresh adm-zip lock resolution
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+
+      - name: Refresh transitive adm-zip resolution
+        run: npm update adm-zip --package-lock-only
+
+      - name: Verify remediated resolution
+        run: |
+          node <<'NODE'
+          const lock = require('./package-lock.json');
+          const resolved = lock.packages?.['node_modules/adm-zip']?.version;
+          console.log(`Resolved adm-zip: ${resolved}`);
+          if (!resolved || resolved === '0.6.0') {
+            process.exit(1);
+          }
+          NODE
+
+      - name: Validate deterministic install
+        run: npm ci
+
+      - name: Validate security threshold
+        run: npm audit --audit-level=high
+
+      - name: Upload npm-generated lockfile
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: adm-zip-remediated-lock-${{ github.run_id }}
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 1
