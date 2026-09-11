@@ -346,9 +346,9 @@ Dependency-change review не зависит от включённого GitHub 
 
 ## Stability Check
 
-`.github/workflows/stability.yml` запускается вручную и предназначен для исследования flaky-поведения.
+`.github/workflows/stability.yml` запускается еженедельно по cron `17 4 * * 0` и вручную через `workflow_dispatch`. Он предназначен для исследования flaky-поведения и не является PR merge gate.
 
-Поддерживаются:
+Плановый профиль фиксирован и консервативен: `booking-flow` ×5, `workers=1`, `retries=0`. Ручной запуск дополнительно поддерживает:
 
 - `booking-flow` или весь E2E-suite;
 - `repeat-each`: 5 или 10;
@@ -356,16 +356,13 @@ Dependency-change review не зависит от включённого GitHub 
 - `retries=0`;
 - Playwright HTML и Allure Report artifacts.
 
-Подтверждённая stability matrix:
+Scheduled-default path проверен отдельным evidence-run без workflow inputs:
 
 | Проверка | Результат |
 | --- | --- |
-| `booking-flow` ×10, workers=1 | ✅ passed |
-| `booking-flow` ×10, workers=2 | ✅ passed |
-| весь E2E ×5, workers=1 | ✅ passed |
-| весь E2E ×5, workers=2 | ✅ passed |
+| `booking-flow` ×5, workers=1, retries=0 | ✅ passed |
 
-Run: [GitHub Actions #34267366176](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/runs/34267366176).
+Evidence: [GitHub Actions #34651454560](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/runs/34651454560).
 
 ## Быстрый старт
 
