@@ -1,0 +1,134 @@
+name: QA CI incident
+description: Capture a deterministic gate, live E2E, security, non-functional, Nightly, platform, or observability incident with evidence and ownership.
+title: "[CI incident] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for CI/regression incidents. Start from the first owning signal. Preserve diagnostics and do not rerun until green, inflate timeouts, or add sleeps/retries to hide a live failure.
+
+  - type: dropdown
+    id: signal
+    attributes:
+      label: Owning signal
+      options:
+        - Quality / lint + typecheck
+        - Unit tests
+        - API tests
+        - E2E / Chromium
+        - E2E / Firefox
+        - E2E / WebKit
+        - Security gate
+        - Accessibility
+        - Lighthouse / performance
+        - Visual regression
+        - Nightly regression
+        - Registration Contract Smoke
+        - GitHub Actions runner/platform
+        - Telegram observability only
+        - Unknown / needs triage
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - SEV-1 — confirmed critical user-path regression on live site
+        - SEV-2 — required Quality/Unit/API/E2E/Security gate broken on main
+        - SEV-3 — Nightly/non-functional regression while core PR gates are healthy
+        - SEV-4 — reporting/Telegram presentation or transport issue
+    validations:
+      required: true
+
+  - type: input
+    id: run
+    attributes:
+      label: GitHub Actions run
+      placeholder: https://github.com/.../actions/runs/...
+
+  - type: input
+    id: revision
+    attributes:
+      label: Revision / branch
+      placeholder: main @ abc1234
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser / execution layer
+      options:
+        - Not applicable
+        - Chromium
+        - Firefox
+        - WebKit
+        - Multiple browsers
+        - Unit
+        - API
+        - Unknown
+    validations:
+      required: true
+
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+      description: Include exact failing step/assertion/status/locator or security/non-functional finding.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior / contract
+      description: State the invariant that should hold. For registration, include the exact POST/303/redirect contract when relevant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Reference trace, screenshots, video, Playwright/Allure report, logs, network evidence, or security/non-functional report. Do not paste secrets.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: reproducibility
+    attributes:
+      label: Reproducibility
+      options:
+        - Consistent
+        - Intermittent
+        - One occurrence
+        - Unknown
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Impact and scope
+      description: Explain which confidence/user path is affected and which independent signals remain healthy.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: discipline
+    attributes:
+      label: Triage discipline
+      options:
+        - label: I identified the first owning signal rather than only the final notification/summary.
+          required: true
+        - label: I preserved the original run and available diagnostics.
+          required: true
+        - label: I did not add waitForTimeout, arbitrary sleeps, force, skip/only, retry inflation, or blanket timeout increases as a workaround.
+          required: true
+        - label: If I reran a live failure, it was at most one targeted diagnostic rerun after concrete external-recovery evidence.
+          required: true
+        - label: I did not include credentials, tokens, or other secrets.
+          required: true
