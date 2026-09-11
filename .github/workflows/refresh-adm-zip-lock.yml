@@ -6,7 +6,7 @@ on:
       - security/remediate-adm-zip
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   refresh-lock:
@@ -36,16 +36,24 @@ jobs:
           }
           NODE
 
+      - name: Verify scoped dependency diff
+        run: |
+          set -euo pipefail
+          changed="$(git diff --name-only)"
+          printf 'Changed files after npm update:\n%s\n' "$changed"
+          test "$changed" = "package-lock.json"
+
       - name: Validate deterministic install
         run: npm ci
 
       - name: Validate security threshold
         run: npm audit --audit-level=high
 
-      - name: Upload npm-generated lockfile
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        with:
-          name: adm-zip-remediated-lock-${{ github.run_id }}
-          path: package-lock.json
-          if-no-files-found: error
-          retention-days: 1
+      - name: Commit npm-generated lockfile
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "security: resolve adm-zip advisory"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
