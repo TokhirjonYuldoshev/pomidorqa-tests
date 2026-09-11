@@ -1,6 +1,8 @@
 name: Playwright Stability Check
 
 on:
+  schedule:
+    - cron: "17 4 * * 0"
   workflow_dispatch:
     inputs:
       scenario:
@@ -35,9 +37,14 @@ defaults:
   run:
     shell: bash
 
+env:
+  STABILITY_SCENARIO: ${{ inputs.scenario || 'booking-flow' }}
+  STABILITY_REPEAT_EACH: ${{ inputs.repeat_each || '5' }}
+  STABILITY_WORKERS: ${{ inputs.workers || '1' }}
+
 jobs:
   stability:
-    name: E2E stability / ${{ inputs.scenario }}
+    name: E2E stability / ${{ inputs.scenario || 'booking-flow' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -75,10 +82,8 @@ jobs:
 
       - name: Resolve test target
         id: target
-        env:
-          SCENARIO: ${{ inputs.scenario }}
         run: |
-          case "$SCENARIO" in
+          case "$STABILITY_SCENARIO" in
             booking-flow)
               echo "path=tests/e2e/booking-flow.spec.ts" >> "$GITHUB_OUTPUT"
               ;;
@@ -86,7 +91,7 @@ jobs:
               echo "path=tests/e2e" >> "$GITHUB_OUTPUT"
               ;;
             *)
-              echo "Unsupported scenario: $SCENARIO" >&2
+              echo "Unsupported scenario: $STABILITY_SCENARIO" >&2
               exit 2
               ;;
           esac
@@ -98,8 +103,8 @@ jobs:
           CI: true
         run: >-
           npx playwright test --project=e2e "${{ steps.target.outputs.path }}"
-          --repeat-each=${{ inputs.repeat_each }}
-          --workers=${{ inputs.workers }}
+          --repeat-each="$STABILITY_REPEAT_EACH"
+          --workers="$STABILITY_WORKERS"
           --retries=0
 
       - name: Generate Allure report
@@ -148,9 +153,9 @@ jobs:
           {
             echo "## 🔁 Playwright stability check"
             echo
-            echo "- Scenario: \`${{ inputs.scenario }}\`"
-            echo "- Repeat each: \`${{ inputs.repeat_each }}\`"
-            echo "- Workers: \`${{ inputs.workers }}\`"
+            echo "- Scenario: \`$STABILITY_SCENARIO\`"
+            echo "- Repeat each: \`$STABILITY_REPEAT_EACH\`"
+            echo "- Workers: \`$STABILITY_WORKERS\`"
             echo "- Retries: \`0\` (failures are not masked)"
             echo "- Browser cache hit: \`${CACHE_HIT:-n/a}\`"
             echo "- Allure report: uploaded as a workflow artifact"
