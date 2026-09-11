@@ -17,11 +17,16 @@
 
 ## Перед началом работы
 
+Проект и GitHub Actions стандартизированы на **Node.js 24**. `.nvmrc` фиксирует ту же major-версию для инструментов, которые поддерживают этот файл.
+
 ```bash
 git checkout main
 git pull --ff-only origin main
+nvm use 24
 npm ci
 ```
+
+На Windows с nvm-windows используйте явное `nvm use 24`; на Unix-like окружениях обычный nvm также может прочитать `.nvmrc`. Если nvm не используется, убедитесь, что `node --version` показывает Node 24. `npm run verify:local` проверяет runtime первым шагом и fail-fast завершится на другой major-версии, чтобы локальный результат не расходился с CI baseline.
 
 Для локального E2E при необходимости установите Chromium:
 
@@ -37,7 +42,7 @@ npx playwright install chromium firefox webkit
 
 ## Quality gates
 
-Быстрый детерминированный preflight перед PR не зависит от live-стенда и запускает lint, typecheck, Unit и API:
+Быстрый детерминированный preflight перед PR не зависит от live-стенда и запускает Node runtime check, lint, typecheck, Unit и API:
 
 ```bash
 npm run verify:local
@@ -52,6 +57,7 @@ npm run test:e2e
 При необходимости те же локальные проверки можно запускать по отдельности:
 
 ```bash
+npm run runtime:check
 npm run lint
 npm run typecheck
 npm run test:unit
