@@ -33,17 +33,30 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate CycloneDX npm SBOM
+        id: sbom
+        continue-on-error: true
+        run: npm sbom --sbom-format cyclonedx > npm-sbom.cdx.json
+
       - name: Audit dependencies
+        id: audit
+        continue-on-error: true
         run: npm audit --audit-level=high --json | tee npm-audit.json
 
-      - name: Publish audit severity summary
+      - name: Publish audit and supply-chain summary
         if: ${{ always() }}
+        env:
+          AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+          SBOM_OUTCOME: ${{ steps.sbom.outcome }}
         run: |
           node <<'NODE'
           const fs = require('node:fs');
           const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+          const auditOutcome = process.env.AUDIT_OUTCOME ?? 'not-run';
+          const sbomOutcome = process.env.SBOM_OUTCOME ?? 'not-run';
+
           if (!fs.existsSync('npm-audit.json')) {
-            fs.appendFileSync(summaryPath, '## npm audit evidence\n\nAudit JSON was not produced.\n');
+            fs.appendFileSync(summaryPath, `## npm security evidence\n\nAudit JSON was not produced.\n\n- Audit step: **${auditOutcome}**\n- CycloneDX SBOM: **${sbomOutcome}**\n`);
             process.exit(0);
           }
 
@@ -51,7 +64,7 @@ jobs:
           const counts = report.metadata?.vulnerabilities ?? {};
           const total = counts.total ?? 0;
           const lines = [
-            '## npm audit evidence',
+            '## npm security evidence',
             '',
             '| Severity | Count |',
             '| --- | ---: |',
@@ -62,7 +75,11 @@ jobs:
             `| Info | ${counts.info ?? 0} |`,
             `| **Total** | **${total}** |`,
             '',
-            'Enforcement threshold: **high / critical**. Lower-severity findings remain visible in the evidence instead of being hidden.',
+            `- Audit step: **${auditOutcome}**`,
+            `- CycloneDX SBOM generation: **${sbomOutcome}**`,
+            `- Vulnerability evidence: \`npm-audit-${process.env.GITHUB_RUN_ID}\` artifact (14 days)`,
+            `- Supply-chain evidence: \`npm-sbom-${process.env.GITHUB_RUN_ID}\` artifact (14 days)`,
+            '- Enforcement threshold: **high / critical**. Lower-severity findings remain visible in the evidence instead of being hidden.',
             '',
           ];
           fs.appendFileSync(summaryPath, `${lines.join('\n')}\n`);
@@ -76,6 +93,31 @@ jobs:
           path: npm-audit.json
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Upload npm CycloneDX SBOM evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: npm-sbom-${{ github.run_id }}
+          path: npm-sbom.cdx.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Enforce npm security evidence
+        if: ${{ always() }}
+        env:
+          AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+          SBOM_OUTCOME: ${{ steps.sbom.outcome }}
+        run: |
+          set -euo pipefail
+          if [[ "$AUDIT_OUTCOME" != 'success' ]]; then
+            echo "npm audit finished with outcome: $AUDIT_OUTCOME" >&2
+            exit 1
+          fi
+          if [[ "$SBOM_OUTCOME" != 'success' ]]; then
+            echo "npm CycloneDX SBOM generation finished with outcome: $SBOM_OUTCOME" >&2
+            exit 1
+          fi
 
   dependency-review:
     name: Security / dependency change review
@@ -171,7 +213,7 @@ jobs:
 
           | Gate | Result |
           | --- | --- |
-          | npm audit (high/critical enforcement) | $(status_label "$AUDIT") |
+          | npm audit + CycloneDX SBOM evidence | $(status_label "$AUDIT") |
           | Dependency change review | $(status_label "$DEPENDENCIES") |
           | ESLint + TypeScript | $(status_label "$QUALITY") |
           EOF
