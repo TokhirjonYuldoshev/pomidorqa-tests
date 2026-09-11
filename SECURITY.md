@@ -47,7 +47,26 @@ Dependency updates are proposed through Dependabot and are not trusted solely be
 
 Before merge, changes must pass the repository's existing quality gates, including lint/typecheck, Unit, API, cross-browser E2E and security checks where applicable. Major-version updates require explicit compatibility review.
 
-Security workflow evidence is retained as CI artifacts so a green high/critical gate does not erase visibility into lower-severity findings.
+The npm security workflow retains two independent evidence types for 14 days:
+
+- `npm audit` JSON for vulnerability findings;
+- a CycloneDX SBOM generated from the exact `npm ci` dependency state.
+
+The blocking threshold is **high / critical**. Lower-severity findings are not hidden: they remain visible in retained evidence and, when no safe upstream remediation is currently available, are tracked explicitly as owned risk instead of being suppressed by lockfile edits, blanket ignores, unsafe downgrades or ad-hoc threshold changes.
+
+A lower-severity dependency risk is considered responsibly handled only when its owner, advisory, current dependency state and remediation trigger are visible. For the currently observed `adm-zip` moderate advisory, see issue #55.
+
+## Security risk decisions
+
+A dependency finding may remain below the blocking threshold only when all of the following are true:
+
+1. the severity and realistic exploit conditions are understood;
+2. the finding is visible in retained CI evidence;
+3. a supported remediation path has been checked rather than assumed;
+4. the repository does not weaken unrelated gates to obtain a green build;
+5. the finding has an explicit re-evaluation trigger, such as an upstream patched release or owning-parent dependency update.
+
+When a supported remediation exists, it must enter through a normal focused dependency change and pass the same Quality, Unit, API, Chromium, Firefox, WebKit and security gates as other changes.
 
 ## Reporting a repository security issue
 
