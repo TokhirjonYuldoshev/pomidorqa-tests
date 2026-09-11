@@ -17,16 +17,16 @@
 
 ## Перед началом работы
 
-Проект и GitHub Actions стандартизированы на **Node.js 24**. `.nvmrc` фиксирует ту же major-версию для локальной разработки.
+Проект и GitHub Actions стандартизированы на **Node.js 24**. `.nvmrc` фиксирует ту же major-версию для инструментов, которые поддерживают этот файл.
 
 ```bash
 git checkout main
 git pull --ff-only origin main
-nvm use
+nvm use 24
 npm ci
 ```
 
-Если `nvm` не используется, убедитесь, что `node --version` показывает Node 24. `npm run verify:local` проверяет runtime первым шагом и fail-fast завершится на другой major-версии, чтобы локальный результат не расходился с CI baseline.
+На Windows с nvm-windows используйте явное `nvm use 24`; на Unix-like окружениях обычный nvm также может прочитать `.nvmrc`. Если nvm не используется, убедитесь, что `node --version` показывает Node 24. `npm run verify:local` проверяет runtime первым шагом и fail-fast завершится на другой major-версии, чтобы локальный результат не расходился с CI baseline.
 
 Для локального E2E при необходимости установите Chromium:
 
