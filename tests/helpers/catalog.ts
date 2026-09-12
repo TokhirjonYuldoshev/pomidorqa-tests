@@ -1,18 +1,23 @@
 import { test } from "@playwright/test";
 import type { AppContext } from "./booking";
-import { registerUser, type TestUser } from "./user";
+import {
+  registerUserViaApi,
+  type TestUser,
+} from "./user";
+import type { SkillType } from "../pages/profile-page";
 
 export async function registerWithSkill(
   app: AppContext,
   user: TestUser,
   skill: string,
+  type: SkillType = "can_help",
 ): Promise<void> {
   await test.step(
-    `${user.name}: регистрируется и добавляет навык ${skill}`,
+    `${user.name}: создаёт аккаунт через API и добавляет навык ${skill}`,
     async () => {
-      await registerUser(app.page, user);
+      await registerUserViaApi(app.context.request, user);
       await app.profilePage.goto();
-      await app.profilePage.addSkill(skill, "can_help");
+      await app.profilePage.addSkill(skill, type);
     },
   );
 }
