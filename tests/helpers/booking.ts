@@ -6,6 +6,7 @@ import {
 import { BookingPage } from "../pages/booking-page";
 import { ProfilePage } from "../pages/profile-page";
 import { SlotsPage } from "../pages/slots-page";
+import { deleteCurrentTestUser } from "./user";
 
 export type AppContext = {
   context: BrowserContext;
@@ -44,11 +45,34 @@ export async function createApp(
   }
 }
 
+async function cleanupAndCloseApp(app: AppContext): Promise<void> {
+  const failures: unknown[] = [];
+
+  try {
+    await deleteCurrentTestUser(app.context.request);
+  } catch (error) {
+    failures.push(error);
+  } finally {
+    try {
+      await app.context.close();
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+
+  if (failures.length > 0) {
+    throw new AggregateError(
+      failures,
+      `Не удалось полностью очистить тестовый AppContext: ${failures.length} ошибка(и)`,
+    );
+  }
+}
+
 export async function closeApps(
   apps: readonly AppContext[],
 ): Promise<void> {
   const results = await Promise.allSettled(
-    apps.map((app) => app.context.close()),
+    apps.map((app) => cleanupAndCloseApp(app)),
   );
 
   const failures = results
@@ -61,7 +85,7 @@ export async function closeApps(
   if (failures.length > 0) {
     throw new AggregateError(
       failures,
-      `Не удалось закрыть browser contexts: ${failures.length} из ${apps.length}`,
+      `Не удалось очистить и закрыть AppContext: ${failures.length} из ${apps.length}`,
     );
   }
 }
