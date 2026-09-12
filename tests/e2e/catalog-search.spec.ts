@@ -1,10 +1,16 @@
 import { expect, test } from "../fixtures/app-fixtures";
 import {
+  addFutureSlot,
   prepareCatalogParticipant,
   registerWithSkill,
 } from "../helpers/catalog";
 import { makeRunId } from "../helpers/test-data";
-import { makeUser, registerUser } from "../helpers/user";
+import {
+  deleteUserViaApi,
+  makeUser,
+  registerUser,
+  registerUserViaApi,
+} from "../helpers/user";
 
 const TEST_TIMEOUT = 120_000;
 const CATALOG_RESULT_TIMEOUT = 30_000;
@@ -15,6 +21,8 @@ test.describe("Поиск участников PomidorQA", () => {
   test(
     "гость находит участника по уникальному навыку",
     async ({ appFactory }) => {
+      test.setTimeout(90_000);
+
       const runId = makeRunId("guest-search");
       const skill = `SearchQA-${runId}`;
       const host = makeUser("host", runId);
@@ -22,33 +30,73 @@ test.describe("Поиск участников PomidorQA", () => {
       const hostApp = await appFactory();
       const guestApp = await appFactory();
 
-      await prepareCatalogParticipant(
-        hostApp,
-        host,
-        skill,
-      );
+      let hostRegistered = false;
 
-      await test.step(
-        "Гость: открывает каталог и ищет уникальный навык",
-        async () => {
-          await guestApp.bookingPage.goToCatalog();
-          await guestApp.bookingPage.searchCatalog(skill);
-        },
-      );
+      try {
+        await test.step(
+          "Хост: создаёт тестовый аккаунт через API",
+          async () => {
+            await registerUserViaApi(
+              hostApp.context.request,
+              host,
+            );
 
-      await test.step(
-        "В выдаче видна карточка подготовленного участника",
-        async () => {
-          const hostCard =
-            guestApp.bookingPage.personCard(host.name);
+            hostRegistered = true;
+          },
+        );
 
-          await expect(hostCard).toBeVisible({
-            timeout: CATALOG_RESULT_TIMEOUT,
-          });
+        await test.step(
+          "Хост: добавляет уникальный навык",
+          async () => {
+            await hostApp.profilePage.goto();
+            await hostApp.profilePage.addSkill(
+              skill,
+              "can_help",
+            );
+          },
+        );
 
-          await expect(hostCard).toHaveCount(1);
-        },
-      );
+        await addFutureSlot(
+          hostApp,
+          host.name,
+        );
+
+        await test.step(
+          "Гость: открывает каталог и ищет уникальный навык",
+          async () => {
+            await guestApp.bookingPage.goToCatalog();
+            await guestApp.bookingPage.searchCatalog(skill);
+
+            await guestApp.bookingPage.waitForPersonInCatalog(
+              host.name,
+              skill,
+              CATALOG_RESULT_TIMEOUT,
+            );
+          },
+        );
+
+        await test.step(
+          "В выдаче видна карточка подготовленного участника",
+          async () => {
+            const hostCard =
+              guestApp.bookingPage.personCard(host.name);
+
+            await expect(hostCard).toBeVisible();
+            await expect(hostCard).toHaveCount(1);
+          },
+        );
+      } finally {
+        if (hostRegistered) {
+          await test.step(
+            "Cleanup: удаляет тестовый аккаунт через API",
+            async () => {
+              await deleteUserViaApi(
+                hostApp.context.request,
+              );
+            },
+          );
+        }
+      }
     },
   );
 
