@@ -1,11 +1,24 @@
-import { expect, test, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Page,
+} from "@playwright/test";
 import { ROUTES } from "./routes";
 import { makeUniqueToken } from "./test-data";
+
+const TEST_ACCOUNTS_ROUTE = "/api/pomidorqa/test/accounts";
 
 export type TestUser = {
   name: string;
   email: string;
   password: string;
+};
+
+export type RegisteredParticipant = {
+  id: string;
+  name: string;
+  email: string;
 };
 
 export function makeUser(
@@ -17,6 +30,68 @@ export function makeUser(
     email: `${role}-${runId}@example.com`,
     password: "testpass123",
   };
+}
+
+function isRegisteredParticipant(
+  value: unknown,
+): value is RegisteredParticipant {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as Record<string, unknown>).id === "string" &&
+    (value as Record<string, unknown>).id !== "" &&
+    typeof (value as Record<string, unknown>).name === "string" &&
+    typeof (value as Record<string, unknown>).email === "string"
+  );
+}
+
+export async function registerUserViaApi(
+  request: APIRequestContext,
+  user: TestUser,
+): Promise<RegisteredParticipant> {
+  const response = await request.post(TEST_ACCOUNTS_ROUTE, {
+    data: user,
+  });
+
+  if (response.status() !== 201) {
+    throw new Error(
+      `Регистрация ${user.email} не удалась: ` +
+        `${response.status()} ${await response.text()}`,
+    );
+  }
+
+  let body: unknown;
+
+  try {
+    body = await response.json();
+  } catch (error) {
+    throw new Error(
+      `Ответ регистрации ${user.email} не является валидным JSON: ` +
+        `${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+
+  if (!isRegisteredParticipant(body)) {
+    throw new Error(
+      `Ответ регистрации ${user.email} не соответствует контракту ` +
+        `RegisteredParticipant (id/name/email): ${JSON.stringify(body)}`,
+    );
+  }
+
+  return body;
+}
+
+export async function deleteUserViaApi(
+  request: APIRequestContext,
+): Promise<void> {
+  const response = await request.delete(TEST_ACCOUNTS_ROUTE);
+
+  if (response.status() !== 200) {
+    throw new Error(
+      `Удаление аккаунта не удалось: ` +
+        `${response.status()} ${await response.text()}`,
+    );
+  }
 }
 
 export async function registerUser(
