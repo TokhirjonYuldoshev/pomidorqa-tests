@@ -1,8 +1,10 @@
 name: Playwright Stability Check
+run-name: "Playwright Stability Check • ${{ inputs.scenario || 'booking-flow' }} • ${{ github.actor }}"
 
 on:
   schedule:
     - cron: "17 4 * * 0"
+
   workflow_dispatch:
     inputs:
       scenario:
@@ -13,6 +15,7 @@ on:
         options:
           - booking-flow
           - all-e2e
+
       repeat_each:
         description: Number of repetitions
         required: true
@@ -21,6 +24,7 @@ on:
         options:
           - "5"
           - "10"
+
       workers:
         description: Number of workers
         required: true
@@ -47,6 +51,7 @@ jobs:
     name: E2E stability / ${{ inputs.scenario || 'booking-flow' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -63,7 +68,10 @@ jobs:
       - name: Resolve Playwright version
         id: playwright_version
         run: |
-          PLAYWRIGHT_VERSION=$(node -p "require('@playwright/test/package.json').version")
+          PLAYWRIGHT_VERSION="$(
+            node -p "require('@playwright/test/package.json').version"
+          )"
+
           echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browser
@@ -102,7 +110,9 @@ jobs:
         env:
           CI: true
         run: >-
-          npx playwright test --project=e2e "${{ steps.target.outputs.path }}"
+          npx playwright test
+          --project=e2e
+          "${{ steps.target.outputs.path }}"
           --repeat-each="$STABILITY_REPEAT_EACH"
           --workers="$STABILITY_WORKERS"
           --retries=0
@@ -144,24 +154,191 @@ jobs:
           OUTCOME: ${{ steps.stability_run.outcome }}
           CACHE_HIT: ${{ steps.browser_cache.outputs.cache-hit }}
         run: |
-          if [ "$OUTCOME" = "success" ]; then
-            RESULT="✅ stable in this run"
+          if [[ "$OUTCOME" == "success" ]]; then
+            RESULT="✅ Стабильно в этом запуске"
           else
-            RESULT="❌ flake/failure detected"
+            RESULT="❌ Обнаружена ошибка или нестабильность"
           fi
 
           {
-            echo "## 🔁 Playwright stability check"
+            echo "## 🔁 Playwright Stability Check"
             echo
-            echo "- Scenario: \`$STABILITY_SCENARIO\`"
-            echo "- Repeat each: \`$STABILITY_REPEAT_EACH\`"
+            echo "- Сценарий: \`$STABILITY_SCENARIO\`"
+            echo "- Повторений: \`$STABILITY_REPEAT_EACH\`"
             echo "- Workers: \`$STABILITY_WORKERS\`"
-            echo "- Retries: \`0\` (failures are not masked)"
+            echo "- Retries: \`0\` — ошибки не маскируются"
             echo "- Browser cache hit: \`${CACHE_HIT:-n/a}\`"
-            echo "- Allure report: uploaded as a workflow artifact"
-            echo "- Result: ${RESULT}"
+            echo "- Allure report: загружен как workflow artifact"
+            echo "- Результат: ${RESULT}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail workflow when stability check failed
         if: ${{ steps.stability_run.outcome == 'failure' }}
-        run: exit 1
+        run: |
+          echo "Stability check detected a failure or flaky behavior." >&2
+          exit 1
+
+  notify:
+    name: Telegram Notification
+    if: ${{ always() }}
+    needs:
+      - stability
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Send Stability result to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+          STABILITY_RESULT: ${{ needs.stability.result }}
+          SCENARIO: ${{ inputs.scenario || 'booking-flow' }}
+          REPEAT_EACH: ${{ inputs.repeat_each || '5' }}
+          WORKERS: ${{ inputs.workers || '1' }}
+
+        run: |
+          if [[ -z "$TELEGRAM_BOT_TOKEN" || -z "$TELEGRAM_CHAT_ID" ]]; then
+            echo "::notice::Telegram secrets не настроены; уведомление пропущено."
+
+            {
+              echo "## ✈️ Telegram"
+              echo
+              echo "ℹ️ Stability notification пропущено: TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID недоступны."
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            exit 0
+          fi
+
+          result_label() {
+            case "$1" in
+              success) echo "✅ Успешно" ;;
+              failure) echo "❌ Ошибка" ;;
+              cancelled) echo "⏹️ Отменено" ;;
+              skipped) echo "⏭️ Пропущено" ;;
+              *) echo "❔ ${1:-unknown}" ;;
+            esac
+          }
+
+          event_label() {
+            case "$1" in
+              workflow_dispatch) echo "Ручной stability-запуск" ;;
+              schedule) echo "Плановая stability-проверка" ;;
+              *) echo "$1" ;;
+            esac
+          }
+
+          escape_html() {
+            local text="$1"
+
+            text="${text//&/&amp;}"
+            text="${text//</&lt;}"
+            text="${text//>/&gt;}"
+
+            printf '%s' "$text"
+          }
+
+          if [[ "$STABILITY_RESULT" == "success" ]]; then
+            OVERALL_ICON="✅"
+            OVERALL_TITLE="STABILITY CHECK ПРОЙДЕН"
+            OVERALL_SUBTITLE="Повторные E2E-прогоны завершились без обнаруженной нестабильности"
+
+          elif [[ "$STABILITY_RESULT" == "failure" ]]; then
+            OVERALL_ICON="❌"
+            OVERALL_TITLE="ОБНАРУЖЕНА НЕСТАБИЛЬНОСТЬ"
+            OVERALL_SUBTITLE="Stability run обнаружил failure или потенциальный flaky-сценарий"
+
+          elif [[ "$STABILITY_RESULT" == "cancelled" ]]; then
+            OVERALL_ICON="⏹️"
+            OVERALL_TITLE="STABILITY CHECK ОТМЕНЁН"
+            OVERALL_SUBTITLE="Выполнение stability-проверки было остановлено"
+
+          else
+            OVERALL_ICON="⚠️"
+            OVERALL_TITLE="STABILITY CHECK НЕ ЗАВЕРШЁН"
+            OVERALL_SUBTITLE="Проверка завершилась без полного результата"
+          fi
+
+          BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          REPOSITORY_HTML="$(escape_html "$GITHUB_REPOSITORY")"
+          BRANCH_HTML="$(escape_html "$BRANCH")"
+          ACTOR_HTML="$(escape_html "$GITHUB_ACTOR")"
+          EVENT_HTML="$(escape_html "$(event_label "$GITHUB_EVENT_NAME")")"
+
+          SCENARIO_HTML="$(escape_html "$SCENARIO")"
+          REPEAT_HTML="$(escape_html "$REPEAT_EACH")"
+          WORKERS_HTML="$(escape_html "$WORKERS")"
+
+          MESSAGE=$(cat <<EOF
+          <b>PomidorQA • Playwright Stability Check</b>
+          <i>Повторные E2E-прогоны без retries</i>
+
+          ━━━━━━━━━━━━━━
+          ${OVERALL_ICON} <b>${OVERALL_TITLE}</b>
+          <i>${OVERALL_SUBTITLE}</i>
+          ━━━━━━━━━━━━━━
+
+          📦 <b>Репозиторий</b>
+          <code>${REPOSITORY_HTML}</code>
+
+          🌿 <b>Ветка</b>
+          <code>${BRANCH_HTML}</code>
+
+          ⚡ <b>Событие:</b> ${EVENT_HTML}
+          👤 <b>Автор:</b> ${ACTOR_HTML}
+
+          🔁 <b>Параметры stability-проверки</b>
+          <blockquote>$(result_label "$STABILITY_RESULT")  Stability result
+          🎯 Сценарий: ${SCENARIO_HTML}
+          🔂 Повторений: ${REPEAT_HTML}
+          ⚙️ Workers: ${WORKERS_HTML}
+          ♻️ Retries: 0</blockquote>
+
+          📊 <b>Reports:</b> Allure + Playwright HTML
+
+          🔗 <a href="${RUN_URL}"><b>Открыть Stability run в GitHub Actions</b></a>
+          <i>Запуск #${GITHUB_RUN_NUMBER}</i>
+          EOF
+          )
+
+          HTTP_CODE="$(
+            curl \
+              --silent \
+              --show-error \
+              --retry 2 \
+              --retry-all-errors \
+              --connect-timeout 10 \
+              --max-time 20 \
+              --output /tmp/telegram-response.json \
+              --write-out '%{http_code}' \
+              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+              --data-urlencode "text=${MESSAGE}" \
+              --data-urlencode "parse_mode=HTML" \
+              --data-urlencode "disable_web_page_preview=true" \
+              "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              || true
+          )"
+
+          if [[ "$HTTP_CODE" != "200" ]] ||
+             ! jq -e '.ok == true' /tmp/telegram-response.json >/dev/null 2>&1; then
+
+            echo "::warning::Telegram не подтвердил доставку Stability notification (HTTP ${HTTP_CODE:-transport-error})."
+
+            {
+              echo "## ✈️ Telegram"
+              echo
+              echo "⚠️ Stability result сохранён, но Telegram не подтвердил доставку."
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            exit 0
+          fi
+
+          {
+            echo "## ✈️ Telegram"
+            echo
+            echo "✅ Stability result отправлен в Telegram."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "Telegram stability notification sent."
