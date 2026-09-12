@@ -386,7 +386,7 @@ test.describe("Каталог: расширенные правила поиск�
   );
 
   test(
-    "навык хочу изучить не участвует в выдаче могу помочь",
+    "участник находится по навыкам обоих типов",
     async ({ appFactory }) => {
       const runId = makeRunId("skill-type");
       const canHelpSkill = `CanHelp-${runId}`;
@@ -422,20 +422,24 @@ test.describe("Каталог: расширенные правила поиск�
       );
 
       await test.step(
-        "Контроль: по навыку могу помочь участник находится",
+        "По навыку могу помочь участник находится",
         async () => {
           await findParticipant(
             guestApp,
             host.name,
             canHelpSkill,
           );
+
+          await expect(
+            guestApp.bookingPage.personCard(host.name),
+          ).toHaveCount(1);
         },
       );
 
       await test.step(
-        "По навыку хочу изучить карточка участника не появляется",
+        "По навыку хочу изучить участник также находится",
         async () => {
-          await expectParticipantAbsentEventually(
+          await findParticipant(
             guestApp,
             host.name,
             wantToLearnSkill,
@@ -443,7 +447,7 @@ test.describe("Каталог: расширенные правила поиск�
 
           await expect(
             guestApp.bookingPage.personCard(host.name),
-          ).toHaveCount(0);
+          ).toHaveCount(1);
         },
       );
     },
