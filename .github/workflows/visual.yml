@@ -1,4 +1,5 @@
 name: Visual Regression
+run-name: "Visual Regression • ${{ github.head_ref || github.ref_name }} • ${{ github.actor }}"
 
 on:
   pull_request:
@@ -7,14 +8,17 @@ on:
       - ".github/workflows/visual.yml"
       - "playwright.visual.config.ts"
       - "tests/visual/**"
+
   push:
     branches: [main]
     paths:
       - ".github/workflows/visual.yml"
       - "playwright.visual.config.ts"
       - "tests/visual/**"
+
   schedule:
     - cron: "30 3 * * 4"
+
   workflow_dispatch:
 
 permissions:
@@ -33,6 +37,7 @@ jobs:
     name: Visual / Chromium baseline
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -49,7 +54,10 @@ jobs:
       - name: Resolve Playwright version
         id: playwright_version
         run: |
-          PLAYWRIGHT_VERSION=$(node -p "require('@playwright/test/package.json').version")
+          PLAYWRIGHT_VERSION="$(
+            node -p "require('@playwright/test/package.json').version"
+          )"
+
           echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Cache Chromium
@@ -75,14 +83,19 @@ jobs:
 
       - name: Bootstrap visual baseline
         if: steps.visual_cache.outputs.cache-hit != 'true'
-        run: npx playwright test --config=playwright.visual.config.ts --update-snapshots
+        run: >-
+          npx playwright test
+          --config=playwright.visual.config.ts
+          --update-snapshots
         env:
           CI: true
           POMIDORQA_BASE_URL: https://aiqa.su
 
       - name: Compare against visual baseline
         if: steps.visual_cache.outputs.cache-hit == 'true'
-        run: npx playwright test --config=playwright.visual.config.ts
+        run: >-
+          npx playwright test
+          --config=playwright.visual.config.ts
         env:
           CI: true
           POMIDORQA_BASE_URL: https://aiqa.su
@@ -128,3 +141,164 @@ jobs:
           path: test-results/
           if-no-files-found: warn
           retention-days: 14
+
+  notify:
+    name: Telegram Notification
+    if: ${{ always() }}
+    needs:
+      - visual
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Send Visual Regression result to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+          VISUAL_RESULT: ${{ needs.visual.result }}
+
+        run: |
+          if [[ -z "$TELEGRAM_BOT_TOKEN" || -z "$TELEGRAM_CHAT_ID" ]]; then
+            echo "::notice::Telegram secrets не настроены; уведомление пропущено."
+
+            {
+              echo "## ✈️ Telegram"
+              echo
+              echo "ℹ️ Visual Regression notification пропущено: TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID недоступны."
+              echo
+              echo "Для Pull Request из fork GitHub repository secrets намеренно недоступны."
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            exit 0
+          fi
+
+          result_label() {
+            case "$1" in
+              success) echo "✅ Успешно" ;;
+              failure) echo "❌ Ошибка" ;;
+              cancelled) echo "⏹️ Отменено" ;;
+              skipped) echo "⏭️ Пропущено" ;;
+              *) echo "❔ ${1:-unknown}" ;;
+            esac
+          }
+
+          event_label() {
+            case "$1" in
+              pull_request) echo "Pull Request" ;;
+              push) echo "Push в репозиторий" ;;
+              workflow_dispatch) echo "Ручной Visual Regression запуск" ;;
+              schedule) echo "Плановая visual-проверка" ;;
+              *) echo "$1" ;;
+            esac
+          }
+
+          escape_html() {
+            local text="$1"
+
+            text="${text//&/&amp;}"
+            text="${text//</&lt;}"
+            text="${text//>/&gt;}"
+
+            printf '%s' "$text"
+          }
+
+          if [[ "$VISUAL_RESULT" == "success" ]]; then
+            OVERALL_ICON="✅"
+            OVERALL_TITLE="VISUAL REGRESSION ПРОЙДЕН"
+            OVERALL_SUBTITLE="Visual baseline / comparison завершены успешно"
+
+          elif [[ "$VISUAL_RESULT" == "failure" ]]; then
+            OVERALL_ICON="❌"
+            OVERALL_TITLE="VISUAL REGRESSION ТРЕБУЕТ ВНИМАНИЯ"
+            OVERALL_SUBTITLE="Обнаружено отличие screenshots или произошла ошибка visual-проверки"
+
+          elif [[ "$VISUAL_RESULT" == "cancelled" ]]; then
+            OVERALL_ICON="⏹️"
+            OVERALL_TITLE="VISUAL REGRESSION ОТМЕНЁН"
+            OVERALL_SUBTITLE="Выполнение visual-проверки было остановлено"
+
+          else
+            OVERALL_ICON="⚠️"
+            OVERALL_TITLE="VISUAL REGRESSION НЕ ЗАВЕРШЁН"
+            OVERALL_SUBTITLE="Проверка завершилась без полного результата"
+          fi
+
+          BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          REPOSITORY_HTML="$(escape_html "$GITHUB_REPOSITORY")"
+          BRANCH_HTML="$(escape_html "$BRANCH")"
+          ACTOR_HTML="$(escape_html "$GITHUB_ACTOR")"
+          EVENT_HTML="$(escape_html "$(event_label "$GITHUB_EVENT_NAME")")"
+
+          MESSAGE=$(cat <<EOF
+          <b>PomidorQA • Visual Regression</b>
+          <i>Playwright screenshot comparison • Chromium</i>
+
+          ━━━━━━━━━━━━━━
+          ${OVERALL_ICON} <b>${OVERALL_TITLE}</b>
+          <i>${OVERALL_SUBTITLE}</i>
+          ━━━━━━━━━━━━━━
+
+          📦 <b>Репозиторий</b>
+          <code>${REPOSITORY_HTML}</code>
+
+          🌿 <b>Ветка</b>
+          <code>${BRANCH_HTML}</code>
+
+          ⚡ <b>Событие:</b> ${EVENT_HTML}
+          👤 <b>Автор:</b> ${ACTOR_HTML}
+
+          🖼️ <b>Visual Regression</b>
+          <blockquote>$(result_label "$VISUAL_RESULT")  Visual result
+          🌐 Pages: login + register
+          🌍 Browser: Chromium
+          🎯 maxDiffPixelRatio: 0.01
+          📸 Baseline/current snapshots: 30 days
+          🔎 Failure diff diagnostics: 14 days</blockquote>
+
+          🔗 <a href="${RUN_URL}"><b>Открыть Visual Regression run в GitHub Actions</b></a>
+          <i>Запуск #${GITHUB_RUN_NUMBER}</i>
+          EOF
+          )
+
+          HTTP_CODE="$(
+            curl \
+              --silent \
+              --show-error \
+              --retry 2 \
+              --retry-all-errors \
+              --connect-timeout 10 \
+              --max-time 20 \
+              --output /tmp/telegram-response.json \
+              --write-out '%{http_code}' \
+              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+              --data-urlencode "text=${MESSAGE}" \
+              --data-urlencode "parse_mode=HTML" \
+              --data-urlencode "disable_web_page_preview=true" \
+              "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              || true
+          )"
+
+          if [[ "$HTTP_CODE" != "200" ]] ||
+             ! jq -e '.ok == true' /tmp/telegram-response.json >/dev/null 2>&1; then
+
+            echo "::warning::Telegram не подтвердил доставку Visual Regression notification (HTTP ${HTTP_CODE:-transport-error})."
+
+            {
+              echo "## ✈️ Telegram"
+              echo
+              echo "⚠️ Visual Regression result сохранён, но Telegram не подтвердил доставку."
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            exit 0
+          fi
+
+          {
+            echo "## ✈️ Telegram"
+            echo
+            echo "✅ Visual Regression result отправлен в Telegram."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "Telegram visual notification sent."

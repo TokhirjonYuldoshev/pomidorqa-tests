@@ -1,4 +1,5 @@
 name: Accessibility Audit
+run-name: "Accessibility Audit • ${{ github.head_ref || github.ref_name }} • ${{ github.actor }}"
 
 on:
   pull_request:
@@ -6,13 +7,16 @@ on:
     paths:
       - ".github/workflows/accessibility.yml"
       - "scripts/accessibility-audit.mjs"
+
   push:
     branches: [main]
     paths:
       - ".github/workflows/accessibility.yml"
       - "scripts/accessibility-audit.mjs"
+
   schedule:
     - cron: "15 3 * * 3"
+
   workflow_dispatch:
     inputs:
       enforce:
@@ -37,6 +41,7 @@ jobs:
     name: Accessibility / WCAG audit
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -53,7 +58,10 @@ jobs:
       - name: Resolve Playwright version
         id: playwright_version
         run: |
-          PLAYWRIGHT_VERSION=$(node -p "require('@playwright/test/package.json').version")
+          PLAYWRIGHT_VERSION="$(
+            node -p "require('@playwright/test/package.json').version"
+          )"
+
           echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Cache Chromium
@@ -73,7 +81,12 @@ jobs:
       - name: Download pinned axe-core
         run: |
           mkdir -p .qa-artifacts
-          curl --fail --silent --show-error --location \
+
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --location \
             --retry 3 \
             "https://cdn.jsdelivr.net/npm/axe-core@4.13.0/axe.min.js" \
             --output .qa-artifacts/axe.min.js
@@ -94,3 +107,173 @@ jobs:
           path: .qa-artifacts/accessibility/
           if-no-files-found: error
           retention-days: 14
+
+  notify:
+    name: Telegram Notification
+    if: ${{ always() }}
+    needs:
+      - accessibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Send Accessibility result to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+          ACCESSIBILITY_RESULT: ${{ needs.accessibility.result }}
+          ENFORCE_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.enforce || false }}
+
+        run: |
+          if [[ -z "$TELEGRAM_BOT_TOKEN" || -z "$TELEGRAM_CHAT_ID" ]]; then
+            echo "::notice::Telegram secrets не настроены; уведомление пропущено."
+
+            {
+              echo "## ✈️ Telegram"
+              echo
+              echo "ℹ️ Accessibility notification пропущено: TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID недоступны."
+              echo
+              echo "Для Pull Request из fork GitHub repository secrets намеренно недоступны."
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            exit 0
+          fi
+
+          result_label() {
+            case "$1" in
+              success) echo "✅ Успешно" ;;
+              failure) echo "❌ Ошибка" ;;
+              cancelled) echo "⏹️ Отменено" ;;
+              skipped) echo "⏭️ Пропущено" ;;
+              *) echo "❔ ${1:-unknown}" ;;
+            esac
+          }
+
+          event_label() {
+            case "$1" in
+              pull_request) echo "Pull Request" ;;
+              push) echo "Push в репозиторий" ;;
+              workflow_dispatch) echo "Ручной accessibility-запуск" ;;
+              schedule) echo "Плановый WCAG audit" ;;
+              *) echo "$1" ;;
+            esac
+          }
+
+          enforce_label() {
+            case "$1" in
+              true) echo "🔒 Enforce включён" ;;
+              false) echo "👀 Audit-only режим" ;;
+              *) echo "❔ $1" ;;
+            esac
+          }
+
+          escape_html() {
+            local text="$1"
+
+            text="${text//&/&amp;}"
+            text="${text//</&lt;}"
+            text="${text//>/&gt;}"
+
+            printf '%s' "$text"
+          }
+
+          if [[ "$ACCESSIBILITY_RESULT" == "success" ]]; then
+            OVERALL_ICON="✅"
+            OVERALL_TITLE="ACCESSIBILITY AUDIT ПРОЙДЕН"
+            OVERALL_SUBTITLE="WCAG-проверка завершилась успешно"
+
+          elif [[ "$ACCESSIBILITY_RESULT" == "failure" ]]; then
+            OVERALL_ICON="❌"
+            OVERALL_TITLE="ACCESSIBILITY ТРЕБУЕТ ВНИМАНИЯ"
+            OVERALL_SUBTITLE="WCAG audit завершился с ошибкой или обнаружил blocking violations"
+
+          elif [[ "$ACCESSIBILITY_RESULT" == "cancelled" ]]; then
+            OVERALL_ICON="⏹️"
+            OVERALL_TITLE="ACCESSIBILITY AUDIT ОТМЕНЁН"
+            OVERALL_SUBTITLE="Выполнение accessibility-проверки было остановлено"
+
+          else
+            OVERALL_ICON="⚠️"
+            OVERALL_TITLE="ACCESSIBILITY AUDIT НЕ ЗАВЕРШЁН"
+            OVERALL_SUBTITLE="Проверка завершилась без полного результата"
+          fi
+
+          BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          REPOSITORY_HTML="$(escape_html "$GITHUB_REPOSITORY")"
+          BRANCH_HTML="$(escape_html "$BRANCH")"
+          ACTOR_HTML="$(escape_html "$GITHUB_ACTOR")"
+          EVENT_HTML="$(escape_html "$(event_label "$GITHUB_EVENT_NAME")")"
+          ENFORCE_HTML="$(escape_html "$(enforce_label "$ENFORCE_MODE")")"
+
+          MESSAGE=$(cat <<EOF
+          <b>PomidorQA • Accessibility Audit</b>
+          <i>WCAG-аудит с Playwright и axe-core</i>
+
+          ━━━━━━━━━━━━━━
+          ${OVERALL_ICON} <b>${OVERALL_TITLE}</b>
+          <i>${OVERALL_SUBTITLE}</i>
+          ━━━━━━━━━━━━━━
+
+          📦 <b>Репозиторий</b>
+          <code>${REPOSITORY_HTML}</code>
+
+          🌿 <b>Ветка</b>
+          <code>${BRANCH_HTML}</code>
+
+          ⚡ <b>Событие:</b> ${EVENT_HTML}
+          👤 <b>Автор:</b> ${ACTOR_HTML}
+
+          ♿ <b>Accessibility</b>
+          <blockquote>$(result_label "$ACCESSIBILITY_RESULT")  WCAG accessibility audit
+          🧰 axe-core 4.13.0
+          🌐 Target: https://aiqa.su
+          ${ENFORCE_HTML}
+          📦 Report artifact: accessibility-audit</blockquote>
+
+          🔗 <a href="${RUN_URL}"><b>Открыть Accessibility run в GitHub Actions</b></a>
+          <i>Запуск #${GITHUB_RUN_NUMBER}</i>
+          EOF
+          )
+
+          HTTP_CODE="$(
+            curl \
+              --silent \
+              --show-error \
+              --retry 2 \
+              --retry-all-errors \
+              --connect-timeout 10 \
+              --max-time 20 \
+              --output /tmp/telegram-response.json \
+              --write-out '%{http_code}' \
+              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+              --data-urlencode "text=${MESSAGE}" \
+              --data-urlencode "parse_mode=HTML" \
+              --data-urlencode "disable_web_page_preview=true" \
+              "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              || true
+          )"
+
+          if [[ "$HTTP_CODE" != "200" ]] ||
+             ! jq -e '.ok == true' /tmp/telegram-response.json >/dev/null 2>&1; then
+
+            echo "::warning::Telegram не подтвердил доставку Accessibility notification (HTTP ${HTTP_CODE:-transport-error})."
+
+            {
+              echo "## ✈️ Telegram"
+              echo
+              echo "⚠️ Accessibility result сохранён, но Telegram не подтвердил доставку."
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            exit 0
+          fi
+
+          {
+            echo "## ✈️ Telegram"
+            echo
+            echo "✅ Accessibility Audit result отправлен в Telegram."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "Telegram accessibility notification sent."

@@ -1,4 +1,5 @@
 name: Performance Smoke / Lighthouse
+run-name: "Performance Smoke / Lighthouse • ${{ github.head_ref || github.ref_name }} • ${{ github.actor }}"
 
 on:
   pull_request:
@@ -6,13 +7,16 @@ on:
     paths:
       - ".github/workflows/performance.yml"
       - "scripts/lighthouse-summary.mjs"
+
   push:
     branches: [main]
     paths:
       - ".github/workflows/performance.yml"
       - "scripts/lighthouse-summary.mjs"
+
   schedule:
     - cron: "45 3 * * 2"
+
   workflow_dispatch:
     inputs:
       enforce:
@@ -37,6 +41,7 @@ jobs:
     name: Lighthouse / public pages
     runs-on: ubuntu-latest
     timeout-minutes: 20
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -53,7 +58,10 @@ jobs:
       - name: Resolve Playwright version
         id: playwright_version
         run: |
-          PLAYWRIGHT_VERSION=$(node -p "require('@playwright/test/package.json').version")
+          PLAYWRIGHT_VERSION="$(
+            node -p "require('@playwright/test/package.json').version"
+          )"
+
           echo "version=$PLAYWRIGHT_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Cache Chromium
@@ -72,8 +80,12 @@ jobs:
 
       - name: Resolve Chromium executable
         run: |
-          CHROME_PATH=$(node -p "require('@playwright/test').chromium.executablePath()")
+          CHROME_PATH="$(
+            node -p "require('@playwright/test').chromium.executablePath()"
+          )"
+
           test -x "$CHROME_PATH"
+
           echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
 
       - name: Run Lighthouse smoke audits
@@ -85,6 +97,7 @@ jobs:
           run_lighthouse() {
             local name="$1"
             local route="$2"
+
             npx --yes lighthouse@13.4.1 "${BASE_URL}${route}" \
               --quiet \
               --preset=desktop \
@@ -111,3 +124,175 @@ jobs:
           path: .qa-artifacts/lighthouse/
           if-no-files-found: error
           retention-days: 14
+
+  notify:
+    name: Telegram Notification
+    if: ${{ always() }}
+    needs:
+      - lighthouse
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Send Lighthouse result to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+          LIGHTHOUSE_RESULT: ${{ needs.lighthouse.result }}
+          ENFORCE_MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.enforce || false }}
+
+        run: |
+          if [[ -z "$TELEGRAM_BOT_TOKEN" || -z "$TELEGRAM_CHAT_ID" ]]; then
+            echo "::notice::Telegram secrets не настроены; уведомление пропущено."
+
+            {
+              echo "## ✈️ Telegram"
+              echo
+              echo "ℹ️ Lighthouse notification пропущено: TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID недоступны."
+              echo
+              echo "Для Pull Request из fork GitHub repository secrets намеренно недоступны."
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            exit 0
+          fi
+
+          result_label() {
+            case "$1" in
+              success) echo "✅ Успешно" ;;
+              failure) echo "❌ Ошибка" ;;
+              cancelled) echo "⏹️ Отменено" ;;
+              skipped) echo "⏭️ Пропущено" ;;
+              *) echo "❔ ${1:-unknown}" ;;
+            esac
+          }
+
+          event_label() {
+            case "$1" in
+              pull_request) echo "Pull Request" ;;
+              push) echo "Push в репозиторий" ;;
+              workflow_dispatch) echo "Ручной Lighthouse-запуск" ;;
+              schedule) echo "Плановая performance-проверка" ;;
+              *) echo "$1" ;;
+            esac
+          }
+
+          enforce_label() {
+            case "$1" in
+              true) echo "🔒 Performance budgets enforced" ;;
+              false) echo "👀 Smoke / audit-only режим" ;;
+              *) echo "❔ $1" ;;
+            esac
+          }
+
+          escape_html() {
+            local text="$1"
+
+            text="${text//&/&amp;}"
+            text="${text//</&lt;}"
+            text="${text//>/&gt;}"
+
+            printf '%s' "$text"
+          }
+
+          if [[ "$LIGHTHOUSE_RESULT" == "success" ]]; then
+            OVERALL_ICON="✅"
+            OVERALL_TITLE="LIGHTHOUSE SMOKE ПРОЙДЕН"
+            OVERALL_SUBTITLE="Performance, Accessibility, Best Practices и SEO audit завершены успешно"
+
+          elif [[ "$LIGHTHOUSE_RESULT" == "failure" ]]; then
+            OVERALL_ICON="❌"
+            OVERALL_TITLE="LIGHTHOUSE ТРЕБУЕТ ВНИМАНИЯ"
+            OVERALL_SUBTITLE="Performance smoke завершился с ошибкой или не прошёл заданные budgets"
+
+          elif [[ "$LIGHTHOUSE_RESULT" == "cancelled" ]]; then
+            OVERALL_ICON="⏹️"
+            OVERALL_TITLE="LIGHTHOUSE ЗАПУСК ОТМЕНЁН"
+            OVERALL_SUBTITLE="Выполнение performance-проверки было остановлено"
+
+          else
+            OVERALL_ICON="⚠️"
+            OVERALL_TITLE="LIGHTHOUSE НЕ ЗАВЕРШЁН"
+            OVERALL_SUBTITLE="Проверка завершилась без полного результата"
+          fi
+
+          BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          REPOSITORY_HTML="$(escape_html "$GITHUB_REPOSITORY")"
+          BRANCH_HTML="$(escape_html "$BRANCH")"
+          ACTOR_HTML="$(escape_html "$GITHUB_ACTOR")"
+          EVENT_HTML="$(escape_html "$(event_label "$GITHUB_EVENT_NAME")")"
+          ENFORCE_HTML="$(escape_html "$(enforce_label "$ENFORCE_MODE")")"
+
+          MESSAGE=$(cat <<EOF
+          <b>PomidorQA • Performance Smoke / Lighthouse</b>
+          <i>Performance • Accessibility • Best Practices • SEO</i>
+
+          ━━━━━━━━━━━━━━
+          ${OVERALL_ICON} <b>${OVERALL_TITLE}</b>
+          <i>${OVERALL_SUBTITLE}</i>
+          ━━━━━━━━━━━━━━
+
+          📦 <b>Репозиторий</b>
+          <code>${REPOSITORY_HTML}</code>
+
+          🌿 <b>Ветка</b>
+          <code>${BRANCH_HTML}</code>
+
+          ⚡ <b>Событие:</b> ${EVENT_HTML}
+          👤 <b>Автор:</b> ${ACTOR_HTML}
+
+          🚀 <b>Lighthouse smoke</b>
+          <blockquote>$(result_label "$LIGHTHOUSE_RESULT")  Lighthouse result
+          🖥️ Preset: desktop
+          🌐 Catalog: /pomidorqa
+          🔐 Login: /pomidorqa/auth/login
+          📝 Register: /pomidorqa/auth/register
+          ${ENFORCE_HTML}
+          📦 JSON reports retained for 14 days</blockquote>
+
+          🔗 <a href="${RUN_URL}"><b>Открыть Lighthouse run в GitHub Actions</b></a>
+          <i>Запуск #${GITHUB_RUN_NUMBER}</i>
+          EOF
+          )
+
+          HTTP_CODE="$(
+            curl \
+              --silent \
+              --show-error \
+              --retry 2 \
+              --retry-all-errors \
+              --connect-timeout 10 \
+              --max-time 20 \
+              --output /tmp/telegram-response.json \
+              --write-out '%{http_code}' \
+              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+              --data-urlencode "text=${MESSAGE}" \
+              --data-urlencode "parse_mode=HTML" \
+              --data-urlencode "disable_web_page_preview=true" \
+              "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              || true
+          )"
+
+          if [[ "$HTTP_CODE" != "200" ]] ||
+             ! jq -e '.ok == true' /tmp/telegram-response.json >/dev/null 2>&1; then
+
+            echo "::warning::Telegram не подтвердил доставку Lighthouse notification (HTTP ${HTTP_CODE:-transport-error})."
+
+            {
+              echo "## ✈️ Telegram"
+              echo
+              echo "⚠️ Lighthouse result сохранён, но Telegram не подтвердил доставку."
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            exit 0
+          fi
+
+          {
+            echo "## ✈️ Telegram"
+            echo
+            echo "✅ Lighthouse result отправлен в Telegram."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "Telegram Lighthouse notification sent."
