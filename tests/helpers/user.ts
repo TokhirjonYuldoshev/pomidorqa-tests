@@ -60,36 +60,64 @@ export async function registerUserViaApi(
     );
   }
 
-  let body: unknown;
-
   try {
-    body = await response.json();
-  } catch (error) {
+    const body: unknown = await response.json();
+
+    if (!isRegisteredParticipant(body)) {
+      throw new Error(
+        `Ответ регистрации ${user.email} не соответствует контракту ` +
+          `RegisteredParticipant (id/name/email): ${JSON.stringify(body)}`,
+      );
+    }
+
+    return body;
+  } catch (setupError) {
+    try {
+      await deleteUserViaApi(request);
+    } catch (cleanupError) {
+      throw new AggregateError(
+        [setupError, cleanupError],
+        `Регистрация ${user.email} создала аккаунт, но проверка ответа и cleanup завершились ошибкой`,
+      );
+    }
+
+    if (setupError instanceof Error) {
+      throw setupError;
+    }
+
     throw new Error(
-      `Ответ регистрации ${user.email} не является валидным JSON: ` +
-        `${error instanceof Error ? error.message : String(error)}`,
+      `Ответ регистрации ${user.email} не удалось обработать: ${String(setupError)}`,
     );
   }
+}
 
-  if (!isRegisteredParticipant(body)) {
-    throw new Error(
-      `Ответ регистрации ${user.email} не соответствует контракту ` +
-        `RegisteredParticipant (id/name/email): ${JSON.stringify(body)}`,
-    );
+export async function deleteCurrentTestUser(
+  request: APIRequestContext,
+): Promise<"deleted" | "missing"> {
+  const response = await request.delete(TEST_ACCOUNTS_ROUTE);
+
+  if (response.status() === 200) {
+    return "deleted";
   }
 
-  return body;
+  if (response.status() === 401 || response.status() === 404) {
+    return "missing";
+  }
+
+  throw new Error(
+    `Cleanup тестового аккаунта не удался: ` +
+      `${response.status()} ${await response.text()}`,
+  );
 }
 
 export async function deleteUserViaApi(
   request: APIRequestContext,
 ): Promise<void> {
-  const response = await request.delete(TEST_ACCOUNTS_ROUTE);
+  const result = await deleteCurrentTestUser(request);
 
-  if (response.status() !== 200) {
+  if (result !== "deleted") {
     throw new Error(
-      `Удаление аккаунта не удалось: ` +
-        `${response.status()} ${await response.text()}`,
+      "Удаление аккаунта ожидало авторизованного тестового пользователя, но текущий аккаунт отсутствует",
     );
   }
 }
