@@ -59,6 +59,73 @@ export class BookingPage {
     await this.catalogFilterButton.click();
   }
 
+  async waitForPersonInCatalog(
+    name: string,
+    skillTag: string,
+    timeoutMs = 30_000,
+  ): Promise<void> {
+    const deadline = Date.now() + timeoutMs;
+    const personCard = this.personCard(name);
+    let reloadCount = 0;
+
+    while (Date.now() < deadline) {
+      const remainingMs = deadline - Date.now();
+
+      try {
+        await personCard.waitFor({
+          state: "visible",
+          timeout: Math.max(1, Math.min(2_000, remainingMs)),
+        });
+
+        return;
+      } catch (error) {
+        if (!(error instanceof errors.TimeoutError)) {
+          throw error;
+        }
+
+        if (Date.now() >= deadline) {
+          break;
+        }
+      }
+
+      reloadCount += 1;
+
+      const reloadTimeout = Math.max(
+        1,
+        Math.min(15_000, deadline - Date.now()),
+      );
+
+      try {
+        await this.page.reload({
+          waitUntil: "domcontentloaded",
+          timeout: reloadTimeout,
+        });
+      } catch (error) {
+        if (!(error instanceof errors.TimeoutError)) {
+          throw error;
+        }
+
+        if (Date.now() >= deadline) {
+          break;
+        }
+
+        continue;
+      }
+
+      if (Date.now() >= deadline) {
+        break;
+      }
+
+      await this.searchCatalog(skillTag);
+    }
+
+    throw new Error(
+      `Участник ${name} не появился в каталоге по навыку "${skillTag}" ` +
+        `за ${timeoutMs} мс после ${reloadCount} reload. ` +
+        `URL: ${this.page.url()}`,
+    );
+  }
+
   personCard(name: string): Locator {
     return this.personCards.filter({ hasText: name });
   }
