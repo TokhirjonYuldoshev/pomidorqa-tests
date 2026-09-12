@@ -20,6 +20,7 @@ jobs:
     name: Security / npm audit
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -51,18 +52,26 @@ jobs:
         run: |
           node <<'NODE'
           const fs = require('node:fs');
+
           const summaryPath = process.env.GITHUB_STEP_SUMMARY;
           const auditOutcome = process.env.AUDIT_OUTCOME ?? 'not-run';
           const sbomOutcome = process.env.SBOM_OUTCOME ?? 'not-run';
 
           if (!fs.existsSync('npm-audit.json')) {
-            fs.appendFileSync(summaryPath, `## npm security evidence\n\nAudit JSON was not produced.\n\n- Audit step: **${auditOutcome}**\n- CycloneDX SBOM: **${sbomOutcome}**\n`);
+            fs.appendFileSync(
+              summaryPath,
+              `## npm security evidence\n\nAudit JSON was not produced.\n\n- Audit step: **${auditOutcome}**\n- CycloneDX SBOM: **${sbomOutcome}**\n`,
+            );
             process.exit(0);
           }
 
-          const report = JSON.parse(fs.readFileSync('npm-audit.json', 'utf8'));
+          const report = JSON.parse(
+            fs.readFileSync('npm-audit.json', 'utf8'),
+          );
+
           const counts = report.metadata?.vulnerabilities ?? {};
           const total = counts.total ?? 0;
+
           const lines = [
             '## npm security evidence',
             '',
@@ -82,7 +91,11 @@ jobs:
             '- Enforcement threshold: **high / critical**. Lower-severity findings remain visible in the evidence instead of being hidden.',
             '',
           ];
-          fs.appendFileSync(summaryPath, `${lines.join('\n')}\n`);
+
+          fs.appendFileSync(
+            summaryPath,
+            `${lines.join('\n')}\n`,
+          );
           NODE
 
       - name: Upload npm audit evidence
@@ -110,10 +123,12 @@ jobs:
           SBOM_OUTCOME: ${{ steps.sbom.outcome }}
         run: |
           set -euo pipefail
+
           if [[ "$AUDIT_OUTCOME" != 'success' ]]; then
             echo "npm audit finished with outcome: $AUDIT_OUTCOME" >&2
             exit 1
           fi
+
           if [[ "$SBOM_OUTCOME" != 'success' ]]; then
             echo "npm CycloneDX SBOM generation finished with outcome: $SBOM_OUTCOME" >&2
             exit 1
@@ -124,6 +139,7 @@ jobs:
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
     steps:
       - name: Checkout repository history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -136,7 +152,13 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          CHANGED_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- package.json package-lock.json)
+          CHANGED_FILES="$(
+            git diff \
+              --name-only \
+              "$BASE_SHA" \
+              "$HEAD_SHA" \
+              -- package.json package-lock.json
+          )"
 
           if [[ -z "$CHANGED_FILES" ]]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -166,6 +188,7 @@ jobs:
     name: Security / code quality
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -188,9 +211,13 @@ jobs:
   summary:
     name: Security Summary
     if: ${{ always() }}
-    needs: [npm-audit, dependency-review, quality]
+    needs:
+      - npm-audit
+      - dependency-review
+      - quality
     runs-on: ubuntu-latest
     timeout-minutes: 5
+
     steps:
       - name: Publish security summary
         env:
@@ -217,3 +244,177 @@ jobs:
           | Dependency change review | $(status_label "$DEPENDENCIES") |
           | ESLint + TypeScript | $(status_label "$QUALITY") |
           EOF
+
+  notify:
+    name: Telegram Notification
+    if: ${{ always() }}
+    needs:
+      - npm-audit
+      - dependency-review
+      - quality
+      - summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Send Security result to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+          AUDIT_RESULT: ${{ needs.npm-audit.result }}
+          DEPENDENCY_RESULT: ${{ needs.dependency-review.result }}
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          SUMMARY_RESULT: ${{ needs.summary.result }}
+
+        run: |
+          if [[ -z "$TELEGRAM_BOT_TOKEN" || -z "$TELEGRAM_CHAT_ID" ]]; then
+            echo "::notice::Telegram secrets не настроены; уведомление пропущено."
+
+            {
+              echo "## ✈️ Telegram"
+              echo
+              echo "ℹ️ Security notification пропущено: TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID недоступны."
+              echo
+              echo "Для Pull Request из fork GitHub repository secrets намеренно недоступны."
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            exit 0
+          fi
+
+          result_label() {
+            case "$1" in
+              success) echo "✅ Успешно" ;;
+              failure) echo "❌ Ошибка" ;;
+              cancelled) echo "⏹️ Отменено" ;;
+              skipped) echo "⏭️ Пропущено" ;;
+              *) echo "❔ ${1:-unknown}" ;;
+            esac
+          }
+
+          event_label() {
+            case "$1" in
+              pull_request) echo "Pull Request" ;;
+              push) echo "Push в репозиторий" ;;
+              workflow_dispatch) echo "Ручной запуск" ;;
+              *) echo "$1" ;;
+            esac
+          }
+
+          escape_html() {
+            local text="$1"
+            text="${text//&/&amp;}"
+            text="${text//</&lt;}"
+            text="${text//>/&gt;}"
+            printf '%s' "$text"
+          }
+
+          if [[ "$AUDIT_RESULT" == "failure" ||
+                "$DEPENDENCY_RESULT" == "failure" ||
+                "$QUALITY_RESULT" == "failure" ]]; then
+
+            OVERALL_ICON="❌"
+            OVERALL_TITLE="SECURITY ТРЕБУЕТ ВНИМАНИЯ"
+            OVERALL_SUBTITLE="Один или несколько security / quality gates завершились с ошибкой"
+
+          elif [[ "$AUDIT_RESULT" == "cancelled" ||
+                  "$DEPENDENCY_RESULT" == "cancelled" ||
+                  "$QUALITY_RESULT" == "cancelled" ]]; then
+
+            OVERALL_ICON="⏹️"
+            OVERALL_TITLE="SECURITY-ПРОВЕРКА ОТМЕНЕНА"
+            OVERALL_SUBTITLE="Выполнение Security & Quality Gates было остановлено"
+
+          elif [[ "$AUDIT_RESULT" == "success" &&
+                  "$QUALITY_RESULT" == "success" &&
+                  ( "$DEPENDENCY_RESULT" == "success" ||
+                    "$DEPENDENCY_RESULT" == "skipped" ) ]]; then
+
+            OVERALL_ICON="✅"
+            OVERALL_TITLE="SECURITY & QUALITY GATES ПРОЙДЕНЫ"
+            OVERALL_SUBTITLE="Dependencies, SBOM, ESLint и TypeScript проверки подтверждены"
+
+          else
+
+            OVERALL_ICON="⚠️"
+            OVERALL_TITLE="SECURITY-ПРОВЕРКА ЗАВЕРШЕНА НЕ ПОЛНОСТЬЮ"
+            OVERALL_SUBTITLE="Часть security-сигналов не дала полного результата"
+
+          fi
+
+          BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          REPOSITORY_HTML="$(escape_html "$GITHUB_REPOSITORY")"
+          BRANCH_HTML="$(escape_html "$BRANCH")"
+          ACTOR_HTML="$(escape_html "$GITHUB_ACTOR")"
+          EVENT_HTML="$(escape_html "$(event_label "$GITHUB_EVENT_NAME")")"
+
+          MESSAGE=$(cat <<EOF
+          <b>PomidorQA • Security &amp; Quality Gates</b>
+          <i>Dependency security, SBOM и статический контроль качества</i>
+
+          ━━━━━━━━━━━━━━
+          ${OVERALL_ICON} <b>${OVERALL_TITLE}</b>
+          <i>${OVERALL_SUBTITLE}</i>
+          ━━━━━━━━━━━━━━
+
+          📦 <b>Репозиторий</b>
+          <code>${REPOSITORY_HTML}</code>
+
+          🌿 <b>Ветка</b>
+          <code>${BRANCH_HTML}</code>
+
+          ⚡ <b>Событие:</b> ${EVENT_HTML}
+          👤 <b>Автор:</b> ${ACTOR_HTML}
+
+          🛡️ <b>Результаты проверок</b>
+          <blockquote>$(result_label "$AUDIT_RESULT")  npm audit + CycloneDX SBOM
+          $(result_label "$DEPENDENCY_RESULT")  Dependency change review
+          $(result_label "$QUALITY_RESULT")  ESLint + TypeScript
+          $(result_label "$SUMMARY_RESULT")  Security Summary</blockquote>
+
+          🔗 <a href="${RUN_URL}"><b>Открыть Security run в GitHub Actions</b></a>
+          <i>Запуск #${GITHUB_RUN_NUMBER}</i>
+          EOF
+          )
+
+          HTTP_CODE="$(
+            curl \
+              --silent \
+              --show-error \
+              --retry 2 \
+              --retry-all-errors \
+              --connect-timeout 10 \
+              --max-time 20 \
+              --output /tmp/telegram-response.json \
+              --write-out '%{http_code}' \
+              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+              --data-urlencode "text=${MESSAGE}" \
+              --data-urlencode "parse_mode=HTML" \
+              --data-urlencode "disable_web_page_preview=true" \
+              "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              || true
+          )"
+
+          if [[ "$HTTP_CODE" != "200" ]] ||
+             ! jq -e '.ok == true' /tmp/telegram-response.json >/dev/null 2>&1; then
+
+            echo "::warning::Telegram не подтвердил доставку Security notification (HTTP ${HTTP_CODE:-transport-error})."
+
+            {
+              echo "## ✈️ Telegram"
+              echo
+              echo "⚠️ Security result сохранён, но Telegram не подтвердил доставку."
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            exit 0
+          fi
+
+          {
+            echo "## ✈️ Telegram"
+            echo
+            echo "✅ Security & Quality Gates result отправлен в Telegram."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          echo "Telegram security notification sent."
