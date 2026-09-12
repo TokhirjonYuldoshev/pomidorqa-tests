@@ -308,6 +308,10 @@ test.describe("Каталог: расширенные правила поиск�
             host.name,
             skill,
           );
+
+          await expect(
+            guestApp.bookingPage.personCard(host.name),
+          ).toHaveCount(0);
         },
       );
     },
@@ -436,6 +440,10 @@ test.describe("Каталог: расширенные правила поиск�
             host.name,
             wantToLearnSkill,
           );
+
+          await expect(
+            guestApp.bookingPage.personCard(host.name),
+          ).toHaveCount(0);
         },
       );
     },
@@ -523,6 +531,10 @@ test.describe("Каталог: расширенные правила поиск�
             host.name,
             skill,
           );
+
+          await expect(
+            guestApp.bookingPage.personCard(host.name),
+          ).toHaveCount(0);
         },
       );
     },
