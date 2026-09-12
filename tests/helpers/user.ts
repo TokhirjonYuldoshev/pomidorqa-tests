@@ -8,6 +8,7 @@ import { ROUTES } from "./routes";
 import { makeUniqueToken } from "./test-data";
 
 const TEST_ACCOUNTS_ROUTE = "/api/pomidorqa/test/accounts";
+const registeredTestContexts = new WeakSet<APIRequestContext>();
 
 export type TestUser = {
   name: string;
@@ -60,6 +61,8 @@ export async function registerUserViaApi(
     );
   }
 
+  registeredTestContexts.add(request);
+
   try {
     const body: unknown = await response.json();
 
@@ -94,20 +97,22 @@ export async function registerUserViaApi(
 export async function deleteCurrentTestUser(
   request: APIRequestContext,
 ): Promise<"deleted" | "missing"> {
-  const response = await request.delete(TEST_ACCOUNTS_ROUTE);
-
-  if (response.status() === 200) {
-    return "deleted";
-  }
-
-  if (response.status() === 401 || response.status() === 404) {
+  if (!registeredTestContexts.has(request)) {
     return "missing";
   }
 
-  throw new Error(
-    `Cleanup тестового аккаунта не удался: ` +
-      `${response.status()} ${await response.text()}`,
-  );
+  const response = await request.delete(TEST_ACCOUNTS_ROUTE);
+
+  if (response.status() !== 200) {
+    throw new Error(
+      `Cleanup тестового аккаунта не удался: ` +
+        `${response.status()} ${await response.text()}`,
+    );
+  }
+
+  registeredTestContexts.delete(request);
+
+  return "deleted";
 }
 
 export async function deleteUserViaApi(
@@ -117,7 +122,7 @@ export async function deleteUserViaApi(
 
   if (result !== "deleted") {
     throw new Error(
-      "Удаление аккаунта ожидало авторизованного тестового пользователя, но текущий аккаунт отсутствует",
+      "Удаление аккаунта ожидало зарегистрированный тестовый context, но он не найден",
     );
   }
 }
@@ -178,6 +183,8 @@ export async function registerUser(
           `URL: ${registrationResponse.url()}`,
       );
     }
+
+    registeredTestContexts.add(page.context().request);
 
     await expect(
       page,
