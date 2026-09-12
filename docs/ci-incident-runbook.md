@@ -1,145 +1,90 @@
-# QA Automation CI Incident Runbook
+# Runbook по CI incidents
 
-This runbook defines how failures are triaged across Unit, API, live E2E, reporting, non-functional workflows and security gates. The objective is to keep independent quality signals explicit and to avoid making CI green by weakening the test strategy.
+Этот документ фиксирует порядок разбора failures в Unit, API, live E2E, non-functional workflows и CI. Цель — определить owning layer, сохранить evidence и не ослаблять проверки ради зелёного результата.
 
-## Signal ownership
+## Ownership сигналов
 
-| Signal | Source of truth | Blocking context | First triage action |
-| --- | --- | --- | --- |
-| Lint / TypeScript | `Quality / lint + typecheck` | PR / main | Fix static/type contract before browser analysis |
-| Unit tests | `Unit tests` | PR / main | Inspect isolated business-logic assertion |
-| API tests | `API tests` | PR / main | Inspect mock HTTP contract and assertion |
-| Chromium / Firefox / WebKit | corresponding E2E job | PR / main | Separate test-code regression from live-environment failure |
-| Security | Security workflow | PR / main according to gate policy | Identify audit/dependency/code-quality owner |
-| Accessibility / Lighthouse / Visual | dedicated workflow | According to enforcement mode | Inspect dedicated report; do not mix with functional E2E |
-| Nightly regression | scheduled browser matrix | Operational regression signal | Compare against recent main/PR evidence and live-site health |
-| Registration Contract Smoke | manual workflow | Diagnostic, not PR gate | Validate exact POST/303/redirect chain |
-| Telegram | notification/diagnostic workflow | Non-blocking observability | Diagnose transport separately from test result |
+| Сигнал | Source of truth | Первое действие |
+| --- | --- | --- |
+| Lint / TypeScript | `Quality / lint + typecheck` | проверить static/type failure |
+| Unit | `Unit tests` | проверить isolated assertion |
+| API | `API tests` | проверить mock HTTP contract |
+| Chromium / Firefox / WebKit | соответствующий E2E job | отделить test-code regression от live-environment failure |
+| Accessibility / Lighthouse / Visual | отдельный workflow | открыть dedicated report |
+| Nightly | scheduled browser matrix | сравнить с recent main/PR evidence |
+| Registration Contract Smoke | manual workflow | проверить `POST → 303 → /pomidorqa` |
+| Telegram | notification workflow | разбирать transport отдельно от test result |
 
-## Core triage sequence
+## Порядок triage
 
-1. Identify the **first owning signal** that is red; do not start from the final notification.
-2. Preserve the original run, artifacts, trace, screenshots, video, Allure and Playwright HTML evidence.
-3. Classify the failure as test-code regression, application regression, live-environment/data propagation issue, browser-specific behavior, CI infrastructure, security finding, or observability transport.
-4. Reproduce the **smallest relevant scope**. Unit/API failures should not trigger a full browser rerun for diagnosis.
-5. Fix the owning layer and validate through the normal PR gates.
-6. Keep `retries=0` for the live browser matrix so the first real failure remains visible.
+1. Найти первый красный owning signal, а не начинать с финального notification.
+2. Сохранить исходный run, artifacts, trace, screenshots/video и reports.
+3. Определить слой: test code, application behavior, browser/runtime, external environment или CI infrastructure.
+4. Воспроизводить минимальный scope.
+5. Исправлять owning layer и проверять через обычные PR gates.
+6. Для live browser matrix сохранять `retries=0`.
 
-## Unit and API failures
+## Unit и API
 
-Unit tests are isolated from the live site. A red Unit job is treated as a deterministic code/test contract failure until evidence proves otherwise.
+Unit и mocked API считаются детерминированными. Их failure не требует полного E2E rerun для первичной диагностики.
 
-API tests use the local mock contract and are also expected to be deterministic. Investigate route/method/status/payload assertions before considering external infrastructure.
+## Live E2E
 
-Do not rerun deterministic failures simply to seek a green result.
+Browser matrix работает с `workers=1` и `retries=0`.
 
-## Live E2E failures
+При падении нужно:
 
-The browser matrix intentionally uses `workers=1` and `retries=0`.
+- проверить exact test step и browser;
+- изучить trace, screenshot/video и network/navigation evidence;
+- сравнить Chromium, Firefox и WebKit;
+- проверить test data и shared state;
+- отличить application behavior от проблем live environment.
 
-When E2E fails:
-
-- inspect the exact failed test step and browser;
-- inspect trace, screenshot/video and network/navigation evidence;
-- compare Chromium, Firefox and WebKit outcomes;
-- determine whether unique test data was successfully created and became observable on the live site;
-- distinguish application behavior from delayed/failed catalog indexing or other live-state propagation;
-- check whether a recent scheduled Nightly run on the same main revision supports or contradicts an environment hypothesis.
-
-### External/live-environment policy
-
-A rerun is not a substitute for diagnosis. One targeted diagnostic rerun is allowed only after there is concrete evidence that an external condition recovered or when independent evidence strongly indicates the failure was outside the changed code path.
-
-If that rerun fails again, stop rerunning and investigate the owning failure. Do not add `waitForTimeout`, arbitrary sleeps, blanket retries, or inflated timeouts to hide live-site slowness.
+Один targeted rerun допустим только когда есть конкретное evidence внешнего временного сбоя. Повторные reruns до случайного green не являются triage.
 
 ## Cross-browser interpretation
 
-- **One browser fails, others pass:** investigate browser-specific DOM/event/rendering behavior and Playwright engine compatibility.
-- **All browsers fail at the same product state:** prioritize shared test data, application behavior, backend/live-state propagation, or common helper logic.
-- **Quality/Unit/API fail before E2E:** fix those deterministic gates first; browser failures are secondary evidence.
+- Один browser красный — проверить engine-specific behavior.
+- Все browsers падают одинаково — проверить shared data, application/backend и common helpers.
+- Quality/Unit/API уже красные — сначала исправить их.
 
-The browser matrix uses `fail-fast: false` so one engine does not suppress evidence from the others.
+`fail-fast: false` сохраняет evidence по всем browser engines.
 
-## Registration failures
+## Registration
 
-Registration E2E synchronizes with the exact registration mutation response. The valid observed contract is:
+Ожидаемый контракт:
 
 ```text
 POST /pomidorqa/auth/register -> 303 See Other -> /pomidorqa
 ```
 
-Do not replace the exact mutation filter with broad network matching such as `/api/track`, and do not require `response.ok()` for the valid 303 response.
+Для узкой диагностики используется manual-only Registration Contract Smoke. Точный mutation filter не заменяется широким network matching.
 
-For uncertain live registration behavior, use the manual-only Registration Contract Smoke rather than weakening normal E2E assertions.
+## Non-functional workflows
 
-## Security failure
+Accessibility, Lighthouse и Visual Regression разбираются по своим dedicated reports. Visual baseline обновляется только после подтверждения, что изменение UI действительно ожидаемое.
 
-Classify the failing gate:
+## Nightly
 
-- `npm audit` / vulnerability exposure;
-- dependency-change review;
-- code-quality/static-analysis signal.
-
-A dependency or security failure is not resolved by skipping the gate. Document scope and risk when a finding cannot be immediately remediated, and keep enforcement aligned with the documented policy.
-
-## Non-functional failure
-
-Accessibility, Lighthouse and Visual Regression are deliberately separate from functional assertions.
-
-- Accessibility: inspect axe rule, impacted nodes and enforcement mode.
-- Lighthouse: identify category/budget regression and compare the affected page only.
-- Visual: inspect baseline/current/diff evidence before accepting a baseline change.
-
-Never update a visual baseline solely because the comparison is red; first verify the UI change is intended.
-
-## Nightly failure
-
-Nightly is an operational regression signal, not a reason to make PR checks more tolerant.
-
-Triage:
-
-1. identify browser/test cluster;
-2. compare with latest successful main and PR evidence;
-3. inspect live-state or application change evidence;
-4. preserve artifacts;
-5. open/fix the owning regression without pausing Nightly unless the workflow itself is proven defective.
+Nightly — operational regression signal. Нужно определить browser/test cluster, сравнить с recent main/PR evidence и сохранить artifacts. Nightly failure не является поводом делать PR checks мягче.
 
 ## Telegram-only failure
 
-Telegram is observability, not test truth. If required CI is green but Telegram delivery fails:
+Если required CI зелёный, а Telegram delivery упал, test result остаётся зелёным. Notification integration диагностируется отдельно.
 
-- preserve the green CI result;
-- use the manual Telegram diagnostic (`getMe` -> `getChat` -> `sendMessage`);
-- fix secret/configuration/API transport independently;
-- do not fail functional QA because notification delivery is unavailable.
+## Severity
 
-## Severity model
+| Severity | Ориентир |
+| --- | --- |
+| SEV-1 | критичная подтверждённая live-regression core flow |
+| SEV-2 | required gate сломан на `main` |
+| SEV-3 | Nightly/non-functional regression при здоровых core PR gates |
+| SEV-4 | reporting/notification issue без functional regression |
 
-| Severity | Example | Response |
-| --- | --- | --- |
-| SEV-1 | Confirmed critical user-path regression on live site across browsers | Stop merge/release confidence and investigate immediately |
-| SEV-2 | Required Quality/Unit/API/E2E/Security gate broken on main | Restore owning gate before further portfolio/framework changes |
-| SEV-3 | Nightly/non-functional regression with core PR gates healthy | Triage promptly using dedicated evidence and policy |
-| SEV-4 | Reporting/Telegram presentation or transport issue only | Repair observability without falsifying test health |
+## Incident закрыт, когда
 
-## Resolution criteria
-
-An incident is resolved only when:
-
-- the owning signal passes on the corrected revision or the external incident is independently evidenced as recovered;
-- required gates still enforce the documented behavior;
-- failure diagnostics remain available for the original failure;
-- no sleep/retry/timeout workaround masks root cause;
-- test documentation or strategy is updated if the incident exposed a missing rule.
+Owning signal проходит на исправленной revision или внешнее восстановление подтверждено evidence, required gates не ослаблены, исходные diagnostics сохранены и root cause не замаскирован retries/sleeps/timeouts.
 
 ## Anti-patterns
 
-Do not:
-
-- enable retries to turn intermittent live failures green;
-- use `waitForTimeout`, `force`, `.only`, `skip` or `page.pause()` as CI fixes;
-- repeatedly rerun a red browser matrix until it randomly passes;
-- merge a code change while a related required deterministic gate is red;
-- broaden response/network matching when an exact mutation contract is known;
-- accept visual baselines without verifying the intended UI change;
-- let notification/reporting failures overwrite the real product/test result.
+Не используются `waitForTimeout`, `force`, `.only`, `skip`, `page.pause()`, blanket retries и многократные reruns без диагностики. Нельзя мержить изменение при красном связанном required gate.
