@@ -100,9 +100,13 @@ scripts/
 └── registration-contract-smoke.mjs
 
 docs/
+├── README.md
 ├── architecture.md
+├── ci-incident-runbook.md
 ├── interview-guide.md
-└── registration-contract-smoke.md
+├── quality-gates.md
+├── registration-contract-smoke.md
+└── test-strategy.md
 
 .github/workflows/
 ├── playwright.yml
@@ -435,7 +439,11 @@ npm run test:e2e
 - [CONTRIBUTING.md](CONTRIBUTING.md) — workflow разработки;
 - [CODEX.md](CODEX.md) — правила построения автотестов;
 - [REVIEW.md](REVIEW.md) — review checklist;
+- [docs/README.md](docs/README.md) — карта инженерной документации и рекомендуемый порядок чтения;
+- [docs/test-strategy.md](docs/test-strategy.md) — risk-based test strategy, ownership boundaries и quality metrics;
+- [docs/quality-gates.md](docs/quality-gates.md) — merge-blocking signals, diagnostics и evidence expectations;
 - [docs/architecture.md](docs/architecture.md) — архитектура, CI, reporting и non-functional QA;
+- [docs/ci-incident-runbook.md](docs/ci-incident-runbook.md) — signal ownership, severity и evidence-preserving triage;
 - [docs/interview-guide.md](docs/interview-guide.md) — готовые объяснения решений для собеседования;
 - [docs/registration-contract-smoke.md](docs/registration-contract-smoke.md) — manual-only проверка registration HTTP contract.
 
