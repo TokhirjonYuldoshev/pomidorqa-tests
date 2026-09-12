@@ -1,19 +1,24 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "../fixtures/app-fixtures";
+import type { AppContext } from "../helpers/booking";
 import { makeUniqueToken } from "../helpers/test-data";
 import { makeUser, registerUser } from "../helpers/user";
 import { ProfilePage } from "../pages/profile-page";
 
 test.describe("Профиль: действия с полями", () => {
+  let profileApp: AppContext;
   let profilePage: ProfilePage;
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ appFactory }) => {
     const user = makeUser("profile");
-    profilePage = new ProfilePage(page);
-    await registerUser(page, user);
+
+    profileApp = await appFactory();
+    profilePage = profileApp.profilePage;
+
+    await registerUser(profileApp.page, user);
     await profilePage.goto();
   });
 
-  test("имя сохраняется после перезагрузки", async ({ page }) => {
+  test("имя сохраняется после перезагрузки", async () => {
     const unique = makeUniqueToken();
     const newName = `Тимур Тестович ${unique}`;
 
@@ -22,7 +27,7 @@ test.describe("Профиль: действия с полями", () => {
     });
 
     await test.step("Перезагружаем профиль", async () => {
-      await page.reload();
+      await profileApp.page.reload();
     });
 
     await test.step("Имя загружено с сервера", async () => {
@@ -30,7 +35,7 @@ test.describe("Профиль: действия с полями", () => {
     });
   });
 
-  test("часовой пояс сохраняется после перезагрузки", async ({ page }) => {
+  test("часовой пояс сохраняется после перезагрузки", async () => {
     const timezone = "Asia/Yekaterinburg";
 
     await test.step("Выбираем и сохраняем другой часовой пояс", async () => {
@@ -38,7 +43,7 @@ test.describe("Профиль: действия с полями", () => {
     });
 
     await test.step("Перезагружаем профиль", async () => {
-      await page.reload();
+      await profileApp.page.reload();
     });
 
     await test.step("Выбранный пояс загружен с сервера", async () => {
@@ -46,7 +51,7 @@ test.describe("Профиль: действия с полями", () => {
     });
   });
 
-  test("telegram сохраняется после перезагрузки", async ({ page }) => {
+  test("telegram сохраняется после перезагрузки", async () => {
     const unique = makeUniqueToken();
     const telegram = `@qa_timur_${unique}`;
 
@@ -55,7 +60,7 @@ test.describe("Профиль: действия с полями", () => {
     });
 
     await test.step("Перезагружаем профиль", async () => {
-      await page.reload();
+      await profileApp.page.reload();
     });
 
     await test.step("Telegram загружен с сервера", async () => {
@@ -63,7 +68,7 @@ test.describe("Профиль: действия с полями", () => {
     });
   });
 
-  test("о себе сохраняется после перезагрузки", async ({ page }) => {
+  test("о себе сохраняется после перезагрузки", async () => {
     const unique = makeUniqueToken();
     const bio = `QA-инженер, прогон ${unique}. Проверяю Playwright.`;
 
@@ -72,7 +77,7 @@ test.describe("Профиль: действия с полями", () => {
     });
 
     await test.step("Перезагружаем профиль", async () => {
-      await page.reload();
+      await profileApp.page.reload();
     });
 
     await test.step("Текст загружен с сервера", async () => {
@@ -123,7 +128,7 @@ test.describe("Профиль: действия с полями", () => {
     });
   });
 
-  test("имя, telegram и о себе сохраняются одной отправкой", async ({ page }) => {
+  test("имя, telegram и о себе сохраняются одной отправкой", async () => {
     const runId = makeUniqueToken();
     const name = `Тимур Тестовый ${runId}`;
     const telegram = `@qa_timur_${runId}`;
@@ -135,7 +140,7 @@ test.describe("Профиль: действия с полями", () => {
     });
 
     await test.step("Перезагружаем профиль", async () => {
-      await page.reload();
+      await profileApp.page.reload();
     });
 
     await test.step("Все значения загружены с сервера", async () => {
