@@ -69,6 +69,12 @@ export class ProfilePage {
     await this.runProfileMutation("Сохранение профиля", async () => {
       await this.saveButton.click();
     });
+
+    await this.goto();
+    await this.nameInput.waitFor({
+      state: "visible",
+      timeout: 10_000,
+    });
   }
 
   async addSkill(name: string, type: SkillType): Promise<void> {
