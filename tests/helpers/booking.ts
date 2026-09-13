@@ -3,6 +3,7 @@ import {
   type BrowserContext,
   type Page,
 } from "@playwright/test";
+import { AuthPage } from "../pages/auth-page";
 import { BookingPage } from "../pages/booking-page";
 import { ProfilePage } from "../pages/profile-page";
 import { SlotsPage } from "../pages/slots-page";
@@ -11,6 +12,7 @@ import { deleteCurrentTestUser } from "./user";
 export type AppContext = {
   context: BrowserContext;
   page: Page;
+  authPage: AuthPage;
   bookingPage: BookingPage;
   profilePage: ProfilePage;
   slotsPage: SlotsPage;
@@ -27,6 +29,7 @@ export async function createApp(
     return {
       context,
       page,
+      authPage: new AuthPage(page),
       bookingPage: new BookingPage(page),
       profilePage: new ProfilePage(page),
       slotsPage: new SlotsPage(page),
