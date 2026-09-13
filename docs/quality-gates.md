@@ -1,81 +1,91 @@
-# Политика QA Quality Gates
+# Обязательные проверки качества
 
-Документ фиксирует, какие сигналы блокируют merge, какие остаются диагностическими и как разбирать красный CI без ослабления проверок.
+Документ фиксирует правила защиты `main` и различие между блокирующими и диагностическими сигналами.
 
 ## Защита `main`
 
-`main` защищён активным ruleset **Protect main**. Изменения проходят через Pull Request, review threads должны быть разрешены, linear history обязательна, deletion и non-fast-forward updates запрещены. Разрешён только **squash merge**.
+Активный ruleset: `Protect main`.
 
-Обязательные checks:
+Он запрещает удаление и non-fast-forward обновление защищённой ветки, требует Pull Request, разрешение обсуждений, линейную историю и только **squash merge**.
 
-| Check | Что подтверждает |
+Проверки выполняются в строгом режиме относительно актуального `main`.
+
+## Обязательные проверки
+
+| Проверка GitHub | Что подтверждает |
 | --- | --- |
-| `Quality / lint + typecheck` | ESLint + TypeScript |
-| `Unit tests` | изолированную бизнес-логику |
-| `API tests` | локальные HTTP contracts |
-| `E2E / Chromium` | live user flows в Chromium |
-| `E2E / Firefox` | live user flows в Firefox |
-| `E2E / WebKit` | live user flows в WebKit |
-| `Security / npm audit` | high/critical dependency gate |
-| `Security / dependency change review` | consistency manifest/lockfile и dependency review |
-| `Security / code quality` | независимый ESLint + TypeScript signal |
+| `Quality / lint + typecheck` | ESLint и TypeScript |
+| `Unit tests` | чистую бизнес-логику |
+| `API tests` | локальные HTTP-контракты |
+| `E2E / Chromium` | пользовательские сценарии в Chromium |
+| `E2E / Firefox` | пользовательские сценарии в Firefox |
+| `E2E / WebKit` | пользовательские сценарии в WebKit |
+| `Security / npm audit` | отсутствие блокирующих npm-уязвимостей |
+| `Security / dependency change review` | согласованность изменений зависимостей и lockfile |
+| `Security / code quality` | независимую статическую проверку кода |
 
-Required checks работают в strict-режиме: перед merge PR проверяется относительно актуального base.
+Если одна из этих проверок красная, связанное изменение не готово к слиянию.
 
-## Blocking и diagnostic signals
+## Диагностические проверки
 
-В merge gate входят lint/typecheck, Unit, API, browser matrix и три security checks. Остальные workflows дают отдельное evidence:
-
-| Signal | Роль |
+| Сигнал | Назначение |
 | --- | --- |
-| Accessibility | informational по умолчанию, ручной `enforce=true` может сделать violations blocking |
-| Lighthouse | performance-quality smoke, ручной enforcement доступен отдельно |
-| Visual Regression | отдельный сигнал layout changes |
-| Nightly E2E | operational regression signal вне конкретного PR |
-| Stability | повторные запуски с `retries=0` для поиска нестабильности |
-| Registration Contract Smoke | manual-only проверка `POST → 303 → /pomidorqa` |
-| Telegram diagnostics | проверка notification/configuration, не источник test truth |
+| Accessibility Audit | WCAG/axe-core; обычный режим информационный |
+| Performance Smoke / Lighthouse | показатели публичных страниц |
+| Visual Regression | изменения внешнего вида |
+| Nightly E2E Regression | регрессии внешнего стенда вне конкретного PR |
+| Stability Check | повторные прогоны с `retries=0` |
+| Registration Contract Smoke | ручная проверка контракта регистрации |
+| Telegram Notification Test | ручная диагностика уведомлений |
 
-## Triage красного CI
+Диагностический сигнал не подменяет обязательную проверку.
 
-Сначала определяется первый owning signal, а уже потом причина:
+## Детерминированность
 
-1. product/contract failure;
-2. test/framework defect;
-3. environment/external dependency;
-4. security/dependency failure;
-5. observability failure.
+Для live E2E, Nightly и Stability сохраняется `retries=0`.
 
-Не допускается делать CI зелёным за счёт `waitForTimeout`, произвольных sleeps, forced actions, `.only`, `skip`, blanket retries или необоснованного увеличения timeout.
+Нельзя получать зелёный результат за счёт `waitForTimeout`, произвольных пауз, `force`, `.only`, `skip`, постоянного увеличения таймаутов или многократного повторного запуска без диагностики.
 
-## Детерминизм
+## Данные для разбора
 
-Для live E2E, Nightly и Stability сохраняется `retries=0`. State-changing сценарии синхронизируются по точным mutation responses, navigation/URL transitions, UI state changes и Playwright auto-waiting. Ограниченный polling допустим только при подтверждённой eventual consistency.
+В зависимости от проверки сохраняются:
 
-## Evidence
+- Playwright HTML;
+- Allure;
+- trace, screenshots, video;
+- `test-results`;
+- результаты `npm audit`;
+- CycloneDX SBOM;
+- отчёты accessibility/Lighthouse;
+- визуальные различия;
+- итог Registration Contract Smoke;
+- GitHub Actions Summary.
 
-В зависимости от workflow сохраняются Playwright HTML, Allure, trace/screenshots/video, test-results, npm audit JSON, accessibility/Lighthouse reports, visual diffs, Registration Contract summary и GitHub Actions Summary.
+Artifacts нужны для расследования и не меняют фактический pass/fail.
 
-Artifacts помогают диагностике, но не переписывают pass/fail semantics. Сбой Telegram не меняет известный результат тестов.
+## Изменения зависимостей
 
-## Dependency changes
+Dependabot проходит те же правила. Major-обновление не должно сливаться только потому, что его предложил автоматический бот: требуется проверка совместимости и обычный CI.
 
-Dependabot PR проходят тот же набор обязательных gates. Minor/patch updates могут группироваться, major updates остаются отдельными для явного compatibility review.
+## Минимум по типу изменения
 
-## Минимальное evidence по типу изменения
-
-| Изменение | Минимум |
+| Тип изменения | Минимальный сигнал |
 | --- | --- |
-| docs/metadata | consistency документации и отсутствие ложных claims |
-| Unit/API | Quality + затронутый test layer |
-| E2E/POM/helper/fixture | Quality + prerequisites + browser matrix |
-| dependency/runtime | audit + Quality + Unit/API + browser matrix |
-| workflow | проверка изменённого path и сохранение required check names |
-| registration contract | E2E registration + manual smoke при диагностике |
-| non-functional | соответствующий workflow и functional CI, если меняется behavior code |
+| документация | отсутствие ложных утверждений и зелёные обязательные checks |
+| Unit/API | Quality + затронутый уровень + обязательные checks |
+| E2E/Page Object/helper/fixture | Quality + три браузерных E2E |
+| зависимость/runtime | security + Quality + Unit/API + три браузера |
+| workflow | сохранение обязательных имён checks и проверка изменённой логики |
+| нефункциональная проверка | соответствующий workflow плюс функциональный CI при изменении поведения кода |
 
-## Merge decision
+## Решение о слиянии
 
-PR готов к merge, когда required checks зелёные, review threads разрешены, failure visibility не ослаблена, документация соответствует реализации и в изменение не добавлены unrelated workarounds.
+PR готов, когда:
 
-Главный принцип: **нужны независимые и объяснимые QA-сигналы, а не просто зелёный badge**.
+- обязательные проверки зелёные на текущем head;
+- обсуждения разрешены;
+- причина предыдущих сбоев не скрыта;
+- документация соответствует реализации;
+- в PR нет несвязанного обходного решения.
+
+Главный принцип: независимые и объяснимые сигналы важнее одного зелёного значка.

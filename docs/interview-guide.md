@@ -1,395 +1,121 @@
-# QA Automation Interview Guide
+# Подготовка к техническому собеседованию
 
-Этот документ связывает архитектурные решения проекта с вопросами, которые могут возникнуть на техническом собеседовании. Ответы ниже описывают решения, которые действительно реализованы в репозитории.
+Документ помогает объяснять решения, которые реально реализованы в репозитории. Не нужно заучивать ответы дословно: важнее понимать причину выбора.
 
-Главное правило: сначала дать короткий ответ, затем раскрывать детали только если интервьюер спрашивает глубже.
+## Как коротко представить проект
 
-## Почему Playwright?
+> Это портфельный проект по автоматизации тестирования PomidorQA на Playwright и TypeScript. В нём есть Unit, API и E2E уровни, Page Objects, fixtures, подготовка тестовых аккаунтов через API и централизованная очистка данных. E2E проходят в Chromium, Firefox и WebKit с `retries=0`. Отдельно настроены проверки безопасности, доступности, Lighthouse, визуальных изменений, Nightly, Stability, Allure/Playwright отчёты и Telegram-уведомления. Основной акцент — честный тестовый сигнал, изоляция данных и возможность быстро определить причину сбоя.
 
-### Короткий ответ
+## Почему Playwright
 
-Я выбрал Playwright, потому что он поддерживает Chromium, Firefox и WebKit, имеет auto-waiting, browser contexts, trace/screenshot/video diagnostics, fixtures и удобную TypeScript/CI-интеграцию.
+Коротко: Playwright даёт единый API для Chromium, Firefox и WebKit, auto-waiting, независимые браузерные контексты, сетевые ожидания, fixtures и хорошую диагностику через trace/screenshots/video.
 
-### Если попросят подробнее
+В этом проекте особенно важны независимые контексты для многопользовательских сценариев и точная синхронизация без `sleep`.
 
-Для проекта особенно важны:
+## Почему Page Object Model
 
-- auto-waiting вместо ручных sleep;
-- изолированные browser contexts;
-- единый API для трёх браузерных движков;
-- network/navigation signals;
-- trace, screenshot и video для CI diagnostics;
-- fixtures и projects в test runner.
+Page Object отделяет детали интерфейса от бизнес-сценария.
 
-Playwright выбран не просто потому, что он современный, а потому что его модель синхронизации и контекстов хорошо подходит для многопользовательских booking-сценариев.
+- spec — шаги и проверки;
+- Page Object — локаторы и действия экрана;
+- helper — подготовка данных;
+- fixture — создание и очистка ресурсов.
 
-## Почему Fixtures?
+Это уменьшает дублирование и не прячет бизнес-проверки внутри страницы.
 
-### Короткий ответ
+## Зачем fixtures
 
-Fixtures управляют lifecycle тестового окружения. Они централизованно создают и закрывают browser contexts, поэтому spec отвечает за бизнес-сценарий, а не за setup/teardown.
+Fixtures владеют жизненным циклом `BrowserContext`. `appFactory` создаёт нужное количество независимых пользователей, а teardown удаляет созданные тестовые аккаунты и закрывает контексты.
 
-### Если попросят подробнее
+Так тест не обязан вручную поддерживать cleanup в каждом сценарии.
 
-В проекте есть role fixtures (`hostApp`, `guestApp`, `guest2App`) и `appFactory` для произвольного количества независимых пользователей.
+## Зачем подготовка через API
 
-Плюсы:
+Если проверяется поиск, профиль, слот или бронирование, UI-регистрация — лишняя зависимость. Поэтому тестовый аккаунт создаётся через API, а UI используется только для поведения, которое действительно проверяется.
 
-1. единое ownership ресурсов;
-2. меньше дублирования;
-3. централизованный cleanup;
-4. меньше риска browser-context leaks.
+Если предмет теста — сама регистрация, она выполняется через UI.
 
-## Почему retries отключены?
+## Почему `retries=0`
 
-### Короткий ответ
+Повторная попытка может скрыть первый реальный сбой. В этом проекте важнее видеть нестабильность, чем получить зелёный результат любой ценой.
 
-Для E2E используется `retries=0`, потому что автоматический retry может скрыть нестабильность и превратить реальный первый failure в зелёный результат.
+Для исследования стабильности есть отдельный workflow с `repeat-each`, но и там сохраняется `retries=0`.
 
-### Если попросят подробнее
+## Как снижается нестабильность
 
-Я не считаю retries плохими всегда, но в этом portfolio-проекте нужен честный сигнал.
+- уникальные данные;
+- отдельные `BrowserContext`;
+- точные локаторы;
+- ожидание конкретного HTTP-ответа или URL;
+- Playwright auto-waiting;
+- ограниченный polling только для подтверждённой eventual consistency;
+- централизованная очистка данных;
+- отсутствие `waitForTimeout` и `force`.
 
-- E2E: `retries=0`;
-- Stability workflow: `repeat-each`, но тоже `retries=0`;
-- Nightly: `retries=0`.
+## Как устроен CI
 
-Если тест нестабилен, сначала исследую locator, test data, synchronization, shared state, external environment или eventual consistency.
+Сначала независимо выполняются Quality, Unit и API. После них один E2E-набор проходит Chromium, Firefox и WebKit. Отчёты и диагностика сохраняются отдельно по браузерам.
 
-## Как боролись с flaky tests?
+`main` защищён ruleset и принимает только squash merge после обязательных проверок.
 
-### Короткий ответ
+## Почему три браузера
 
-Не через `waitForTimeout`, `force` или скрытые retries. Используются наблюдаемые сигналы приложения, уникальные данные и изолированные browser contexts.
+Один движок не показывает браузерные различия. Если ломается только WebKit, это другой класс проблемы, чем одинаковый сбой всех трёх браузеров.
 
-### Если попросят подробнее
+`fail-fast: false` позволяет получить полный результат матрицы за один запуск.
 
-В проекте применяются:
+## Зачем Unit, API и E2E вместе
 
-- уникальный `runId`;
-- точные locators;
-- browser-context isolation;
-- ожидание конкретного mutation response;
-- URL/UI state synchronization;
-- централизованный teardown;
-- `retries=0`;
-- отдельные stability runs с repeat 5/10 и workers 1/2.
+Они отвечают на разные вопросы:
 
-## Как устроен CI?
+- Unit — корректна ли чистая логика;
+- API — соблюдается ли HTTP-контракт без UI;
+- E2E — работает ли реальный пользовательский путь на внешнем сервисе.
 
-### Короткий ответ
+Самый дорогой E2E используется только там, где без интегрированного сценария нельзя проверить риск.
 
-CI разделён по слоям: Quality, Unit и API дают быстрый сигнал, E2E использует browser matrix Chromium/Firefox/WebKit, а результаты дополняются Allure/Playwright reporting, Security workflow, Nightly и Telegram notifications.
+## Что интересного в каталоге
 
-### Если попросят подробнее
+Каталог проверяется не только happy path. Есть сценарии регистра/пробелов/частичного совпадения, специальных символов и кириллицы, одинаковых имён и навыков, self-exclusion, обоих типов навыков, изменения профиля, удаления аккаунтов, появления/исчезновения свободных слотов и каскадных изменений после бронирования.
 
-Концептуальная схема:
+Так покрывается согласованность данных, а не только наличие карточки.
 
-```text
-Pull Request / main
-        |
-        +--> Quality: ESLint + TypeScript
-        +--> Unit tests
-        +--> API tests
-                 |
-                 v
-             E2E Matrix
-        +--------+--------+
-        |        |        |
-    Chromium  Firefox   WebKit
-        |        |        |
-        +---- Reports ----+
-                 |
-        Summary + Telegram
-```
+## Что интересного в бронировании
 
-Отдельными workflows работают:
+Есть гонка двух пользователей за один слот: один успешно бронирует, второй получает отказ. Отдельно проверяются отмена, восстановление доступности и повторное бронирование освобождённого слота другим пользователем.
 
-- Security & Quality Gates;
-- Nightly E2E Regression;
-- Stability Check;
-- Accessibility Audit;
-- Performance Smoke / Lighthouse;
-- Visual Regression;
-- Telegram Notification Test;
-- Registration Contract Smoke.
+Это показывает работу с состоянием и конкурирующими действиями.
 
-## Почему POM?
+## Что проверяется в авторизации
 
-### Короткий ответ
+Помимо входа/выхода проверяются защищённые страницы, сохранение сессии после reload, восстановление после неверного пароля и независимость нескольких браузерных контекстов.
 
-Page Object Model отделяет UI-детали от бизнес-сценария. Locators и UI actions находятся в Page Objects, а assertions бизнес-результата — в spec.
+## Зачем Allure
 
-### Если попросят подробнее
+Playwright HTML удобен для просмотра конкретного запуска, а Allure даёт второй формат отчётности и историю шагов/результатов. В CI отчёты сохраняются как artifacts, а trace/screenshots/video помогают восстановить технический контекст ошибки.
 
-Разделение ответственности:
+## Зачем отдельные нефункциональные workflows
 
-- spec — бизнес-шаги и assertions;
-- Page Object — locators, UI actions и техническая синхронизация;
-- helper — domain preparation;
-- fixture — lifecycle;
-- test-data factory — уникальные данные.
+Accessibility, Lighthouse и Visual Regression измеряют другие свойства системы. Их нельзя смешивать с бизнес-assertions E2E, иначе причина красного CI становится менее понятной.
 
-## Как генерируются тестовые данные?
+## Зачем Nightly
 
-### Короткий ответ
+PR CI отвечает на вопрос «безопасно ли сливать это изменение». Nightly отвечает на другой вопрос: «не изменился ли внешний live-стенд уже после merge».
 
-Каждый сценарий получает уникальный `runId`. Связанные сущности используют один run id, но разные роли — host, guest, guest2.
+## Зачем Stability
 
-### Если попросят подробнее
+Stability повторяет выбранный сценарий несколько раз без retry. Это позволяет увидеть нестабильность как статистический сигнал, а не скрыть её.
 
-```text
-runId = booking-flow-<unique>
+## Зачем Telegram
 
-host  + runId
-guest + runId
-guest2 + runId
-skill + runId
-```
+Telegram — канал доставки результата. Он не решает, зелёный тест или красный. Если транспорт уведомления упал, исходный статус теста не меняется.
 
-Это предотвращает конфликты между CI-runs и упрощает расследование по логам.
+## Как разбирать красный E2E
 
-## Для чего используется Allure?
+Сначала определить масштаб: один браузер или все. Потом открыть Playwright/Allure, trace, screenshots/video и сетевые данные. После этого классифицировать причину: код теста, продукт, браузер, данные, внешний стенд или CI.
 
-### Короткий ответ
+Повторный запуск — не первое средство исправления.
 
-Allure — штатная часть проекта. Reporter подключён в Playwright локально и в CI, а Allure Report дополняет встроенный Playwright HTML report для анализа результатов и failures.
+## Что показывает этот проект работодателю
 
-### Если попросят подробнее
-
-`allure-playwright` и Allure 3 CLI зафиксированы в `devDependencies`, поэтому обычного `npm ci` достаточно. Unit, API и E2E запуски формируют `allure-results/`, после чего локально можно выполнить:
-
-```bash
-npm run allure:generate
-npm run allure:open
-```
-
-В основном E2E CI, Nightly и Stability статический Allure Report генерируется автоматически и сохраняется artifact.
-
-```text
-Test Execution
-      |
-      +--> Playwright HTML
-      |
-      v
-Allure Results
-      |
-      v
-Allure Report
-      |
-      v
-GitHub Actions Artifact
-```
-
-Для каждого browser job сохраняются отдельные reports, а trace/screenshots/video дают дополнительный технический контекст.
-
-## Зачем Browser Matrix?
-
-### Короткий ответ
-
-Один и тот же E2E-suite поддерживает Chromium, Firefox и WebKit, чтобы выявлять browser-specific поведение, а не проверять только одну реализацию браузера.
-
-### Если попросят подробнее
-
-Browser выбирается через `E2E_BROWSER`. `fail-fast: false` позволяет получить сигнал по всем движкам, даже если один из них падает.
-
-## Зачем Nightly Regression, если есть CI на PR?
-
-### Короткий ответ
-
-PR CI проверяет конкретное изменение перед merge. Nightly отвечает на другой вопрос: не появилась ли регрессия на live-стенде после merge или из-за внешних изменений.
-
-### Если попросят подробнее
-
-Nightly запускается по cron `0 23 * * *`: **23:00 UTC = 02:00 локального времени UTC+3 следующего дня**.
-
-Используются:
-
-- Chromium, Firefox, WebKit;
-- 1 worker на браузер;
-- `retries=0`;
-- Allure и Playwright reports;
-- failure diagnostics.
-
-## Какие Security & Quality Gates есть в проекте?
-
-### Короткий ответ
-
-Есть отдельный security workflow: `npm audit`, dependency-change review и отдельный ESLint + TypeScript signal.
-
-### Если попросят подробнее
-
-При изменении `package.json` / `package-lock.json` выполняются `npm ci` и `npm audit --audit-level=high`. High/critical vulnerability делает security check красным.
-
-Решение не зависит от GitHub Dependency Graph и переносимо между репозиториями.
-
-## Зачем Accessibility Audit?
-
-### Короткий ответ
-
-Accessibility Audit нужен, чтобы автоматически находить WCAG/ARIA-проблемы, которые функциональные E2E-тесты обычно не замечают. В проекте используется axe-core в отдельном GitHub Actions workflow.
-
-### Если попросят подробнее
-
-`.github/workflows/accessibility.yml` использует pinned `axe-core@4.13.0` и Chromium.
-
-Архитектурно важно, что accessibility — отдельный сигнал:
-
-- результаты сохраняются artifact;
-- обычный режим информационный;
-- при ручном запуске можно включить `enforce=true`;
-- serious/critical violations тогда становятся blocking failure.
-
-Так можно сначала собрать baseline, устранить существующий долг, а уже потом вводить строгий gate.
-
-## Зачем Lighthouse, если есть E2E?
-
-### Короткий ответ
-
-E2E проверяет бизнес-поведение, а Lighthouse измеряет другой класс качества: Performance, Accessibility, Best Practices и SEO. Поэтому это отдельный performance smoke, а не замена E2E.
-
-### Если попросят подробнее
-
-В проекте Lighthouse запускается для catalog, login и register через pinned `lighthouse@13.4.1`.
-
-Результат публикуется таблицей и сохраняется JSON artifact. Budgets по умолчанию информационные, а в ручном режиме можно включить enforcement.
-
-Последний подтверждённый прогон:
-
-| Page | Performance | Accessibility | Best Practices | SEO |
-| --- | ---: | ---: | ---: | ---: |
-| catalog | 95 | 96 | 77 | 100 |
-| login | 97 | 96 | 77 | 90 |
-| register | 97 | 92 | 77 | 90 |
-
-Я бы объяснил это так: performance smoke показывает тренд и быстрые технические риски, но на shared live-стенде не стоит бездумно превращать каждый показатель в жёсткий release gate.
-
-## Зачем Visual Regression?
-
-### Короткий ответ
-
-Visual Regression ловит изменения внешнего вида, которые могут не нарушить DOM/assertions функционального теста. Например, элемент существует и кликается, но визуально уехал или перекрылся.
-
-### Если попросят подробнее
-
-В проекте есть отдельный Playwright visual config:
-
-- Chromium;
-- login/register;
-- screenshot baseline;
-- baseline cache ключуется по версии Playwright;
-- `maxDiffPixelRatio = 0.01`;
-- snapshots и failure diff сохраняются artifacts.
-
-Первый run без совместимого baseline его создаёт, последующие сравнивают текущий UI с baseline.
-
-## Зачем отдельный Telegram Notification Test?
-
-### Короткий ответ
-
-Основной CI отправляет Telegram notification, а отдельный diagnostic workflow нужен, чтобы быстро понять, где именно сломалась интеграция: secrets, bot token, chat ID или `sendMessage`.
-
-### Если попросят подробнее
-
-Проверка идёт по этапам:
-
-```text
-Repository secrets
-      |
-      v
-getMe
-      |
-      v
-getChat
-      |
-      v
-sendMessage
-```
-
-Так диагностика не зависит от полного E2E-run. Значения `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` в лог не выводятся.
-
-## Зачем Registration Contract Smoke?
-
-### Короткий ответ
-
-Это отдельная manual-only проверка HTTP-контракта регистрации. Она нужна, чтобы быстро понять, изменился ли сам registration endpoint, не запуская для этого всю E2E matrix.
-
-### Если попросят подробнее
-
-Workflow проверяет реальную цепочку:
-
-```text
-POST /pomidorqa/auth/register
-          |
-          v
-HTTP 303
-          |
-          v
-/pomidorqa
-```
-
-Проверка запускается в Chromium, использует уникального пользователя и точный method + pathname, поэтому служебный `POST /api/track` не принимается за registration mutation. Результат сохраняется JSON artifact.
-
-Она intentionally manual-only: каждый запуск создаёт пользователя на live-стенде, а сама проверка нужна для диагностики контракта, а не как ещё один постоянный PR gate.
-
-## Почему один worker в E2E?
-
-### Короткий ответ
-
-E2E работают с общим live-стендом, поэтому один worker на браузер уменьшает инфраструктурный шум и делает failure signal более детерминированным.
-
-Параллельное поведение отдельно исследуется в Stability workflow с workers 1 и 2.
-
-## Почему нельзя просто использовать `.first()`?
-
-### Короткий ответ
-
-`.first()` опасен, если нужно найти конкретную бизнес-сущность: тест может выбрать не того пользователя, слот или карточку и дать ложный результат.
-
-Поэтому используются уникальные данные и точная идентификация. Если сценарий ожидает единственный слот, Page Object сначала проверяет precondition «слот действительно один».
-
-## Unit, API и E2E — зачем все три уровня?
-
-### Короткий ответ
-
-Они дают разные сигналы. Unit быстро проверяют чистую логику, API — HTTP-поведение без UI, E2E — реальный пользовательский flow.
-
-Non-functional workflows затем добавляют ещё три независимых измерения: accessibility, performance и visual integrity.
-
-## Как бы вы расследовали красный E2E в CI?
-
-### Короткий ответ
-
-Сначала определил бы масштаб: один браузер или все. Затем посмотрел бы assertion/error, Allure/Playwright report, trace, screenshot/video и network context.
-
-После этого разделил бы причины на:
-
-- product defect;
-- test-data problem;
-- locator/synchronization issue;
-- browser-specific behavior;
-- external/live-stand instability.
-
-Retry не использовал бы как первое «исправление».
-
-## Как рассказать о non-functional QA в одном ответе?
-
-### Короткий ответ
-
-Помимо Unit/API/E2E я добавил отдельные проверки accessibility, performance и visual regression. Они специально вынесены в независимые workflows, потому что отвечают на разные вопросы качества и создают разные artifacts.
-
-### Если попросят подробнее
-
-- axe-core — WCAG violations;
-- Lighthouse — Performance / Accessibility / Best Practices / SEO;
-- Playwright screenshots — visual diff.
-
-Отдельно от non-functional QA есть operational diagnostics: Telegram Notification Test и Registration Contract Smoke. Это показывает, что тестовая стратегия не ограничивается только функциональным happy path и умеет локализовать инфраструктурные проблемы.
-
-## Как коротко рассказать об этом проекте
-
-Пример ответа примерно на 45–60 секунд:
-
-> Это standalone portfolio-проект по QA Automation на Playwright и TypeScript. В нём есть Unit, API и E2E уровни, Page Objects, fixtures, helpers и генерация уникальных тестовых данных. E2E автоматически проходит в Chromium, Firefox и WebKit с `retries=0`, а Playwright HTML и Allure используются локально и в CI вместе с trace, screenshots и video diagnostics. Отдельно я настроил Nightly Regression, Stability Check, Security & Quality Gates, Accessibility Audit через axe-core, Lighthouse Performance Smoke и Visual Regression. Для CI-уведомлений используется Telegram Bot API, а ручные диагностические workflows отдельно проверяют Telegram-интеграцию и HTTP-контракт регистрации. Основной акцент проекта — качество тестового сигнала, детерминированность и возможность быстро локализовать причину failure.
-
-Не нужно заучивать формулировку дословно. Важно понимать, зачем существует каждый слой и какую проблему он решает.
+Проект демонстрирует не только умение писать Playwright-тесты, но и работу с архитектурой тестов, тестовыми данными, CI/CD, защитой ветки, безопасностью зависимостей, диагностикой, отчётностью и нефункциональными рисками.

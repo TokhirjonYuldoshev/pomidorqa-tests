@@ -1,55 +1,48 @@
-# Registration Contract Smoke
+# Ручная проверка контракта регистрации
 
-`Registration Contract Smoke` — отдельная ручная проверка HTTP-контракта регистрации PomidorQA.
+`Registration Contract Smoke` — узкая ручная проверка HTTP-контракта регистрации PomidorQA.
 
-Workflow находится в `.github/workflows/registration-contract-smoke.yml` и запускается **только через `workflow_dispatch`**. Он не входит в required PR checks, не запускается по `push`, `pull_request` или cron и поэтому не добавляет постоянную нагрузку на live-стенд.
+Workflow: `.github/workflows/registration-contract-smoke.yml`.
+
+Он запускается только через `workflow_dispatch`, не входит в обязательные проверки Pull Request и не запускается по расписанию.
 
 ## Что проверяется
 
-Проверка открывает реальную страницу регистрации в Chromium, создаёт уникального тестового пользователя и валидирует цепочку:
-
 ```text
 GET /pomidorqa/auth/register
-          |
-          v
-fill registration form
-          |
-          v
+        |
+        v
+заполнение формы
+        |
+        v
 POST /pomidorqa/auth/register
-          |
-          v
+        |
+        v
 HTTP 303 See Other
-          |
-          v
+        |
+        v
 /pomidorqa
 ```
 
-Контракт считается успешным, если:
+Проверка успешна, если:
 
-1. страница регистрации открывается без HTTP `4xx/5xx`;
-2. после submit действительно наблюдается `POST /pomidorqa/auth/register`;
-3. ответ mutation request имеет статус `303`;
-4. браузер переходит на `/pomidorqa`.
+1. страница регистрации открылась без HTTP 4xx/5xx;
+2. после отправки формы наблюдается точный `POST /pomidorqa/auth/register`;
+3. ответ имеет статус `303`;
+4. браузер перешёл на `/pomidorqa`.
 
-Workflow намеренно фильтрует точный method + pathname, чтобы не перепутать регистрацию с другими POST-запросами страницы, например telemetry/track request.
+Точный method + pathname нужен, чтобы не принять за регистрацию другой POST-запрос страницы.
 
-## Зачем это отдельно от E2E
+## Почему это отдельная проверка
 
-Обычные E2E проверяют бизнес-сценарий регистрации и дальнейшее пользовательское поведение. Contract Smoke нужен для быстрой ручной диагностики, когда важно ответить на более узкий вопрос: **изменился ли сетевой контракт регистрации**.
+Обычный E2E проверяет пользовательский сценарий. Эта проверка отвечает на более узкий вопрос: **не изменился ли сетевой контракт регистрации**.
 
-Это полезно при:
+Она полезна при расследовании таймаута после отправки формы, изменении redirect/status или подозрении на проблему именно в endpoint регистрации.
 
-- расследовании timeout после submit;
-- изменении backend redirect/status semantics;
-- подозрении на regression именно в registration endpoint;
-- проверке стенда до более широкого E2E-прогона.
+## Результат
 
-## Артефакт
-
-После запуска workflow сохраняет `.qa-artifacts/registration-contract/summary.json` как GitHub Actions artifact на 14 дней. Summary содержит ожидаемый и фактический method/path/status, финальный URL и текст ошибки при failure.
-
-Пароль тестового пользователя в artifact не сохраняется.
+Workflow сохраняет `.qa-artifacts/registration-contract/summary.json` как GitHub Actions artifact. В итог попадают ожидаемый и фактический method/path/status, финальный URL и текст ошибки. Пароль не сохраняется.
 
 ## Ограничение
 
-Каждый ручной запуск создаёт уникального пользователя на live-стенде. Поэтому workflow оставлен manual-only и не используется как scheduled или PR gate.
+Каждый ручной запуск создаёт уникального пользователя на внешнем стенде. Поэтому проверка намеренно не является постоянным PR или scheduled gate.

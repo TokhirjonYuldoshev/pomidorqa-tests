@@ -1,89 +1,80 @@
-# Security and Responsible Testing Policy
+# Политика безопасности и ответственного тестирования
 
-This repository is a public QA Automation portfolio project. It contains test code, CI workflows and documentation; it does not own the PomidorQA production service that the E2E suite exercises.
+Это публичный репозиторий тестовой автоматизации. Он содержит тестовый код, GitHub Actions и документацию, но не владеет внешним сервисом PomidorQA, на котором выполняются E2E.
 
-## Supported scope
+## Граница ответственности
 
-Security-sensitive changes in this repository include:
+К безопасности этого репозитория относятся:
 
-- GitHub Actions workflows and permissions;
-- dependency and lockfile changes;
-- test helpers that create or submit live test data;
-- scripts that call external services;
-- handling of CI artifacts, logs and repository secrets.
+- права и логика GitHub Actions;
+- зависимости и `package-lock.json`;
+- helpers, создающие тестовые данные на внешнем стенде;
+- scripts, обращающиеся к внешним сервисам;
+- логи, отчёты и artifacts;
+- использование GitHub Secrets.
 
-Product vulnerabilities in the external PomidorQA application are outside this repository's ownership boundary and should be reported to the application's maintainer through their appropriate channel.
+Уязвимости самого внешнего приложения PomidorQA находятся вне зоны владения этого репозитория и должны передаваться владельцу приложения по его каналу связи.
 
-## Responsible testing rules
+## Ответственное тестирование внешнего стенда
 
-The automated suite is intentionally conservative when interacting with the live service:
+Автоматизация намеренно ограничивает нагрузку и риск:
 
-- no destructive load, stress or denial-of-service testing;
-- no credential stuffing, brute force or privilege-escalation attempts;
-- no secret extraction or broad vulnerability scanning;
-- no retry loops intended to hide instability or amplify traffic;
-- E2E browser jobs run with `workers=1` and `retries=0`;
-- temporary test accounts/data are created only when required by a scenario;
-- operational diagnostics are kept narrow and purpose-specific.
+- нет нагрузочных атак, DoS и разрушительных проверок;
+- нет перебора паролей, credential stuffing и попыток повышения привилегий;
+- нет извлечения секретов и широкого сканирования внешнего сервиса;
+- E2E работают с `workers=1` и `retries=0`;
+- тестовые аккаунты создаются только при необходимости сценария;
+- обычные E2E удаляют созданные тестовые аккаунты через централизованный teardown;
+- узкие проверки, создающие отдельное состояние, запускаются вручную, если это предусмотрено их назначением.
 
-Manual-only checks that create live state, such as the Registration Contract Smoke, remain opt-in by design.
+## Секреты
 
-## Secrets
+Секреты нельзя хранить в репозитории или выводить в лог.
 
-Secrets must never be committed to the repository or printed to workflow logs.
+GitHub Secrets используются только через контекст `secrets`. Диагностика может сообщать о наличии или ошибке настройки, но не о значении секрета.
 
-Repository secrets are consumed only through GitHub Actions secret contexts. Diagnostic workflows must report configuration state without exposing secret values.
+Если секрет был раскрыт:
 
-If a secret is exposed accidentally:
+1. немедленно отозвать или заменить его;
+2. при необходимости удалить значение из истории Git;
+3. проверить логи и artifacts на дополнительную утечку;
+4. зафиксировать причину и исправление без повторной публикации секрета.
 
-1. revoke or rotate it immediately;
-2. remove it from the repository history if necessary;
-3. review workflow logs and artifacts for secondary exposure;
-4. document the incident and corrective action without republishing the secret.
+## Зависимости и цепочка поставки
 
-## Dependency and supply-chain policy
+Обновления Dependabot проходят те же проверки качества, что и обычный код. Автоматическое происхождение PR не считается доказательством безопасности.
 
-Dependency updates are proposed through Dependabot and are not trusted solely because they are automated.
+Workflow безопасности сохраняет независимые данные:
 
-Before merge, changes must pass the repository's existing quality gates, including lint/typecheck, Unit, API, cross-browser E2E and security checks where applicable. Major-version updates require explicit compatibility review.
+- результат `npm audit`;
+- CycloneDX SBOM, построенный из состояния после `npm ci`.
 
-The npm security workflow retains two independent evidence types for 14 days:
+Блокирующий порог `npm audit` — high/critical. Менее серьёзная находка не скрывается ручной правкой lockfile или ослаблением порога: она должна оставаться видимой и иметь понятное решение или условие повторной оценки.
 
-- `npm audit` JSON for vulnerability findings;
-- a CycloneDX SBOM generated from the exact `npm ci` dependency state.
+## Изменение правил безопасности
 
-The blocking threshold is **high / critical**. Lower-severity findings are not hidden: they remain visible in retained evidence and, when no safe upstream remediation is currently available, are tracked explicitly as owned risk instead of being suppressed by lockfile edits, blanket ignores, unsafe downgrades or ad-hoc threshold changes.
+Нельзя получать зелёный CI за счёт:
 
-A lower-severity dependency risk is considered responsibly handled only when its owner, advisory, current dependency state and remediation trigger are visible. For the currently observed `adm-zip` moderate advisory, see issue #55.
+- отключения связанной проверки;
+- необоснованного снижения порога;
+- blanket ignore;
+- небезопасного отката зависимости;
+- скрытия находки повторным запуском.
 
-## Security risk decisions
+Если безопасное исправление доступно, оно оформляется отдельным изменением и проходит обязательные Quality, Unit, API, Chromium, Firefox, WebKit и security checks.
 
-A dependency finding may remain below the blocking threshold only when all of the following are true:
+## Сообщение о проблеме безопасности репозитория
 
-1. the severity and realistic exploit conditions are understood;
-2. the finding is visible in retained CI evidence;
-3. a supported remediation path has been checked rather than assumed;
-4. the repository does not weaken unrelated gates to obtain a green build;
-5. the finding has an explicit re-evaluation trigger, such as an upstream patched release or owning-parent dependency update.
+Если проблема относится к этому репозиторию, предпочтителен приватный Security Advisory GitHub. Если приватный канал недоступен, свяжитесь с владельцем репозитория без публикации токенов, паролей, рабочего exploit payload или других чувствительных деталей.
 
-When a supported remediation exists, it must enter through a normal focused dependency change and pass the same Quality, Unit, API, Chromium, Firefox, WebKit and security gates as other changes.
+Полезное сообщение содержит:
 
-## Reporting a repository security issue
+- затронутый файл/workflow и commit SHA;
+- влияние и реалистичный сценарий злоупотребления;
+- минимальные шаги воспроизведения;
+- логи без секретов;
+- возможное исправление, если оно известно.
 
-For a vulnerability in this repository itself, open a minimal private security report through GitHub's security reporting capability when available. If private reporting is unavailable, contact the repository owner without publishing credentials, exploit payloads or sensitive details in a public issue.
+## Принцип разбора
 
-A useful report includes:
-
-- affected file/workflow and commit SHA;
-- impact and realistic abuse scenario;
-- minimal reproduction steps;
-- relevant logs with secrets redacted;
-- suggested mitigation when known.
-
-## Triage principles
-
-Security findings are classified by impact, exploitability and ownership boundary. A failing security gate is investigated as a real signal first; it is not bypassed by retries, blanket ignores or weakened thresholds without documented evidence.
-
----
-
-**Portfolio repository — Tokhirjon Yuldoshev**
+Красная security-проверка сначала рассматривается как реальный сигнал. Она не обходится повторными запусками или ослаблением правил без подтверждённых оснований.

@@ -1,4 +1,4 @@
-# PomidorQA QA Automation
+# PomidorQA — автоматизация тестирования
 
 [![Playwright QA Automation CI](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/playwright.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/playwright.yml)
 [![Nightly E2E Regression](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/nightly.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/nightly.yml)
@@ -7,463 +7,190 @@
 [![Accessibility Audit](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/accessibility.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/accessibility.yml)
 [![Performance Smoke / Lighthouse](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/performance.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/performance.yml)
 [![Visual Regression](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/visual.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/visual.yml)
-[![Registration Contract Smoke](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/registration-contract-smoke.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/registration-contract-smoke.yml)
 
-Личный standalone-проект по **QA Automation на Playwright + TypeScript**. Репозиторий вырос из учебного PomidorQA-проекта и используется как отдельная площадка для практики Unit, API, E2E, Page Object Model, fixtures, test-data factories, cross-browser testing, Allure reporting, accessibility, performance smoke, visual regression, security gates, nightly regression, manual contract smoke и анализа flaky-поведения.
+Портфельный проект по автоматизации тестирования на **Playwright + TypeScript**. Он вырос из учебного PomidorQA и развивается как самостоятельная тестовая система: функциональные проверки, CI/CD, диагностика, безопасность, доступность, производительность и визуальные проверки.
 
-Исходный учебный проект: [lebed52/pomidorqa-course-tests](https://github.com/lebed52/pomidorqa-course-tests).
+Исходный учебный репозиторий: [lebed52/pomidorqa-course-tests](https://github.com/lebed52/pomidorqa-course-tests).
 
-## Что демонстрирует проект
+## Что реализовано
 
 | Область | Реализация |
 | --- | --- |
-| Unit | чистые проверки password validation, slots и timezone logic |
-| API | изолированный HTTP mock для booking/participants API |
+| Unit | проверки чистой бизнес-логики без браузера |
+| API | локальные HTTP-контракты без зависимости от внешнего стенда |
 | E2E | реальные пользовательские сценарии PomidorQA |
-| Browser Matrix | Chromium / Firefox / WebKit через Playwright projects и `E2E_BROWSER` |
-| POM | локаторы и UI actions в `tests/pages` |
-| Fixtures | централизованный lifecycle browser contexts |
-| Test data | уникальные run id и тестовые пользователи |
-| Helpers | регистрация, catalog setup, app factory, маршруты |
-| Reporting | Playwright HTML + Allure Report локально и в CI |
-| Diagnostics | trace, screenshot, video и failure artifacts |
-| Accessibility | axe-core WCAG audit с optional enforcement |
-| Performance | Lighthouse smoke: Performance / Accessibility / Best Practices / SEO |
-| Visual Regression | Chromium screenshot baseline для login/register |
-| Registration Contract | manual-only smoke для `POST /pomidorqa/auth/register → 303 → /pomidorqa` |
-| Nightly | ежедневная полная E2E-регрессия в Chromium / Firefox / WebKit |
-| Security | `npm audit`, dependency-change review, ESLint + TypeScript |
-| Stability | `repeat-each`, workers 1/2 и `retries=0` |
-| Notifications | Telegram CI notification + отдельный diagnostic workflow |
+| Браузеры | Chromium, Firefox и WebKit |
+| Архитектура | Page Object Model, fixtures, helpers, уникальные тестовые данные |
+| Подготовка данных | создание тестовых аккаунтов через API там, где UI-регистрация не является предметом проверки |
+| Очистка данных | централизованное удаление созданных тестовых аккаунтов перед закрытием `BrowserContext` |
+| Отчёты | Playwright HTML, Allure, trace, screenshots, video |
+| Доступность | axe-core / WCAG |
+| Производительность | Lighthouse |
+| Визуальные проверки | сравнение скриншотов в Chromium |
+| Безопасность | `npm audit`, проверка изменений зависимостей, CycloneDX SBOM |
+| Стабильность | повторные прогоны с `retries=0` |
+| Плановые проверки | Nightly E2E |
+| Уведомления | Telegram как вспомогательный канал, не источник результата тестов |
 
-## Testing Strategy
+## Функциональное покрытие
 
-```text
-Testing Strategy
+### Авторизация и сессии
 
-├── Unit Tests
-├── API Tests
-├── E2E Tests
-├── Non-functional QA
-│   ├── Accessibility
-│   ├── Performance Smoke
-│   └── Visual Regression
-└── CI / Security / Nightly Validation
-```
+Проверяются успешный и ошибочный вход, восстановление после неверного пароля, сохранение сессии после перезагрузки, выход, защита страниц профиля/встреч/слотов, независимость нескольких браузерных контекстов и отсутствие влияния выхода одного пользователя на сессию другого.
 
-- **Unit Tests** проверяют изолированную бизнес-логику без браузера и внешнего стенда.
-- **API Tests** проверяют HTTP-контракты booking/participants на локальном mock API.
-- **E2E Tests** проверяют пользовательские сценарии через Playwright на live PomidorQA UI.
-- **Non-functional QA** даёт отдельный сигнал по accessibility, performance и визуальным изменениям.
-- **CI / Security / Nightly** разделяют merge-validation, dependency/code-quality проверки и плановую regression-проверку live-стенда.
-- **Registration Contract Smoke** запускается вручную как узкая диагностика сетевого контракта регистрации и не является PR gate.
+### Профиль
 
-## Test Coverage
+Проверяются имя, Telegram, описание, часовой пояс, оба типа навыков, сохранение после перезагрузки, удаление навыков, несколько навыков, независимость полей, последнее сохранённое значение и изоляция состояния разных аккаунтов.
 
-Covered scenarios:
+### Свободные слоты
 
-- ✓ Registration
-- ✓ Authentication
-- ✓ Profile management
-- ✓ Catalog search
-- ✓ Booking creation
-- ✓ Booking cancellation
+Проверяются пустое начальное состояние, создание и сохранение слотов, несколько времён в один день, несколько дат, видимость доступных времён гостю и изоляция слотов разных аккаунтов.
 
-Дополнительно E2E-набор проверяет:
+### Каталог и поиск
 
-- гонку двух пользователей за один слот;
-- правила видимости карточек участников;
-- обязательное наличие будущего свободного слота;
-- повторный поиск без reload;
-- консистентность состояния после отмены встречи.
+Покрыты положительные и отрицательные сценарии поиска, точное и частичное совпадение, регистр, пробелы, Enter, кириллица и специальные символы, многословные навыки, одинаковые имена/навыки, оба типа навыков, скрытие собственной карточки, обновление выдачи после изменения профиля, удаления аккаунта, появления/исчезновения слотов и каскадных изменений связанных сущностей.
 
-## Архитектура тестов
+### Бронирование и отмена
+
+Проверяются основной путь бронирования, гонка двух пользователей за один слот, отображение встречи у обеих сторон, отмена, сохранение отменённого состояния после перезагрузки, исчезновение хоста при занятии последнего слота, восстановление доступности после отмены и повторное бронирование освобождённого слота другим пользователем.
+
+## Архитектура
 
 ```text
-src/pyramid/
-├── auth.ts
-├── slots.ts
-└── mock-booking-api.ts
+src/pyramid/              чистая логика и локальный mock API
 
 tests/
-├── unit/
-├── api/
-├── e2e/
-├── fixtures/
-├── helpers/
-├── pages/
-└── visual/
+├── unit/                 модульные проверки
+├── api/                  HTTP-проверки
+├── e2e/                  пользовательские сценарии
+├── fixtures/             управление контекстами
+├── helpers/              данные и подготовка состояния
+├── pages/                Page Objects
+└── visual/               визуальные проверки
 
-scripts/
-├── accessibility-audit.mjs
-├── lighthouse-summary.mjs
-└── registration-contract-smoke.mjs
-
-docs/
-├── README.md
-├── architecture.md
-├── ci-incident-runbook.md
-├── interview-guide.md
-├── quality-gates.md
-├── registration-contract-smoke.md
-└── test-strategy.md
-
-.github/workflows/
-├── playwright.yml
-├── nightly.yml
-├── security.yml
-├── stability.yml
-├── accessibility.yml
-├── performance.yml
-├── visual.yml
-├── telegram-test.yml
-└── registration-contract-smoke.yml
+scripts/                  вспомогательные проверки
+docs/                     инженерная документация
+.github/workflows/         CI и отдельные проверки качества
 ```
 
-Главный принцип архитектуры:
-
-**spec описывает сценарий и assertions → Page Object выполняет действия экрана → helper/fixture отвечает за повторяемую подготовку, данные и lifecycle контекста.**
+Главное разделение ответственности:
 
-## Поток E2E-теста
+**сценарий и проверки — в spec → действия экрана — в Page Object → подготовка данных и повторяемые действия — в helpers → создание и очистка контекстов — в fixtures**.
 
-```mermaid
-flowchart LR
-    T[Test spec] --> F[Playwright fixture]
-    F --> A[AppContext]
-    A --> P[Page Objects]
-    T --> H[Helpers / factories]
-    H --> D[Unique test data]
-    P --> UI[PomidorQA live UI]
-    T --> E[Assertions]
-    F --> C[Centralized context cleanup]
-```
+## Работа с тестовыми данными
 
-Fixtures владеют browser contexts и закрывают их централизованно после теста. `appFactory` используется, когда сценарию требуется произвольное количество изолированных пользователей; role fixtures (`hostApp`, `guestApp`, `guest2App`) делают booking-сценарии читаемыми.
+Каждый сценарий использует уникальные данные. Многопользовательские проверки работают в отдельных `BrowserContext`.
 
-## Детерминированность и flaky policy
+Когда регистрация не является предметом теста, аккаунт создаётся через тестовый API. Контекст, в котором создан тестовый аккаунт, помечается для очистки; teardown удаляет аккаунт и затем закрывает браузерный контекст. Удаление аккаунта каскадно очищает связанные тестовые навыки, слоты и бронирования.
 
-В проекте не используются `waitForTimeout`, `force: true`, `.only`, `skip` или `page.pause()` как способ маскировать проблемы.
+Это снижает нагрузку на общий стенд и не оставляет новые тестовые данные после обычных E2E-прогонов.
 
-Для state-changing действий используются наблюдаемые сигналы:
+## Синхронизация и стабильность
 
-- HTTP response нужного mutation request;
-- URL/navigation transition;
-- появление или исчезновение конкретного UI-состояния;
-- Playwright auto-waiting;
-- polling/reload только там, где подтверждена реальная eventual consistency.
+Не используются как способ «починить» тест:
 
-Основные E2E и stability/nightly проверки работают с `retries=0`: первый реальный failure остаётся видимым сигналом.
+- `waitForTimeout` и произвольные паузы;
+- `force: true`;
+- `.only` и `skip`;
+- `page.pause()`;
+- автоматические повторные попытки, скрывающие первый сбой.
 
-## CI pipeline
+Основные E2E, Nightly и Stability сохраняют `retries=0`.
 
-```mermaid
-flowchart LR
-    A[PR / push main / manual] --> Q[Quality\nESLint + TypeScript]
-    A --> U[Unit]
-    A --> P[API]
-    Q --> E[E2E Matrix]
-    U --> E
-    P --> E
-    E --> C[Chromium]
-    E --> F[Firefox]
-    E --> W[WebKit]
-    C --> R[Playwright HTML + Allure]
-    F --> R
-    W --> R
-    E --> S[GitHub Actions Summary]
-    E -. result .-> T[Telegram]
-```
+Изменяющие состояние действия подтверждаются наблюдаемыми сигналами: HTTP-ответом нужного запроса, переходом по URL, появлением/исчезновением состояния интерфейса или ограниченным повторным опросом там, где подтверждена eventual consistency.
 
-`Quality`, `Unit` и `API` выполняются независимо. После них один и тот же E2E-suite проходит browser matrix в Chromium, Firefox и WebKit. Для browser jobs используются `workers=1`, `retries=0`, `fail-fast: false`, отдельные Playwright HTML / Allure artifacts, Summary и Telegram notification.
+## CI и защита `main`
 
-## Browser Matrix
+`main` защищён ruleset `Protect main`. Разрешено только слияние через Pull Request и **squash merge**. Обязательны разрешённые обсуждения и актуальные проверки относительно последнего `main`.
 
-Playwright config использует `E2E_BROWSER` для выбора движка:
+Обязательные проверки:
 
-- `chromium` — Desktop Chrome;
-- `firefox` — Desktop Firefox;
-- `webkit` — Desktop Safari.
+- `Quality / lint + typecheck`;
+- `Unit tests`;
+- `API tests`;
+- `E2E / Chromium`;
+- `E2E / Firefox`;
+- `E2E / WebKit`;
+- `Security / npm audit`;
+- `Security / dependency change review`;
+- `Security / code quality`.
 
-Если `E2E_BROWSER` не задан, локальный E2E запускается в Chromium.
+Для браузерных E2E используются `workers=1`, `retries=0` и `fail-fast: false`, чтобы сохранить полный сигнал по Chromium, Firefox и WebKit.
 
-Полную matrix можно запустить через GitHub Actions или локально после установки всех трёх движков:
+## Отдельные проверки качества
 
-```bash
-npx playwright install chromium firefox webkit
-E2E_BROWSER=firefox npm run test:e2e
-E2E_BROWSER=webkit npm run test:e2e
-```
+- **Accessibility Audit** — axe-core и WCAG;
+- **Performance Smoke / Lighthouse** — производительность и технические показатели публичных страниц;
+- **Visual Regression** — визуальные изменения login/register;
+- **Nightly E2E Regression** — плановая проверка внешнего стенда;
+- **Stability Check** — повторные запуски без retries;
+- **Registration Contract Smoke** — ручная проверка `POST /pomidorqa/auth/register → 303 → /pomidorqa`;
+- **Telegram Notification Test** — ручная диагностика интеграции Telegram.
 
-## Allure Reporting
+Эти сигналы отделены от функционального E2E, чтобы причина сбоя оставалась понятной.
 
-**Allure является обычной частью проекта, а не CI-only зависимостью.** `allure-playwright` и Allure 3 CLI зафиксированы в `devDependencies`, поэтому обычного `npm ci` достаточно и для локальных запусков, и для GitHub Actions.
+## Отчёты и диагностика
 
-Playwright по умолчанию пишет результаты одновременно в Playwright HTML и `allure-results/`:
+Playwright формирует HTML-отчёт и данные Allure. При ошибках сохраняются trace, screenshots, video и `test-results`. В GitHub Actions отчёты разделены по браузерам и доступны как artifacts.
 
-```text
-Test Execution
-      |
-      +--> Playwright HTML
-      |
-      v
-Allure Results
-      |
-      v
-Allure Report
-```
-
-После любого локального запуска через Playwright можно собрать и открыть Allure Report:
-
-```bash
-npm run test:unit
-npm run allure:generate
-npm run allure:open
-```
-
-Аналогично это работает после API или E2E запуска. В CI основной E2E workflow, Nightly и Stability используют те же зависимости из `package-lock.json`, генерируют Allure Report и сохраняют его как GitHub Actions artifact. Отдельной `npm install --no-save` для Allure больше не требуется.
-
-## Accessibility Audit
-
-`.github/workflows/accessibility.yml` запускает WCAG-аудит через pinned `axe-core@4.13.0` в Chromium.
-
-Особенности:
-
-- отдельный `scripts/accessibility-audit.mjs`;
-- отчёты сохраняются как GitHub Actions artifacts на 14 дней;
-- обычный режим информационный;
-- ручной `workflow_dispatch` поддерживает `enforce=true`, чтобы serious/critical нарушения становились blocking failure;
-- есть отдельный weekly schedule.
-
-Accessibility вынесен в отдельный workflow, чтобы WCAG-сигнал не смешивался с функциональными assertions.
-
-## Performance Smoke / Lighthouse
-
-`.github/workflows/performance.yml` выполняет desktop Lighthouse smoke для:
-
-- `/pomidorqa` — catalog;
-- `/pomidorqa/auth/login` — login;
-- `/pomidorqa/auth/register` — register.
-
-Проверяются категории:
-
-- Performance;
-- Accessibility;
-- Best Practices;
-- SEO.
-
-Используется pinned `lighthouse@13.4.1`. JSON reports публикуются как artifacts. Budgets по умолчанию информационные, а ручной запуск позволяет включить enforcement.
-
-Последний подтверждённый прогон показал:
-
-| Page | Performance | Accessibility | Best Practices | SEO |
-| --- | ---: | ---: | ---: | ---: |
-| catalog | 95 | 96 | 77 | 100 |
-| login | 97 | 96 | 77 | 90 |
-| register | 97 | 92 | 77 | 90 |
-
-Три findings относятся к Best Practices (`77 < 80`) и в информационном режиме не делают workflow красным.
-
-## Visual Regression
-
-`.github/workflows/visual.yml` использует отдельный `playwright.visual.config.ts` и `tests/visual/public-pages.visual.spec.ts`.
-
-Текущая стратегия:
-
-- Chromium;
-- login и register;
-- baseline в GitHub Actions cache, ключуемый по версии Playwright;
-- первый совместимый run создаёт baseline, следующие сравнивают screenshots;
-- `maxDiffPixelRatio = 0.01`;
-- snapshots сохраняются как artifact на 30 дней;
-- failure diagnostics сохраняются отдельно.
-
-Это позволяет ловить визуальные изменения независимо от функциональных E2E assertions.
-
-## Telegram Notifications & Diagnostics
-
-Основной CI отправляет итог pipeline через Telegram Bot API.
-
-Для отдельной диагностики интеграции есть `.github/workflows/telegram-test.yml`, который запускается вручную и проверяет:
-
-```text
-TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID
-                |
-                v
-             getMe
-                |
-                v
-             getChat
-                |
-                v
-           sendMessage
-```
-
-Так можно отличить отсутствующий secret, неверный bot token, неправильный chat ID и реальную ошибку отправки. Значения secrets в лог не выводятся.
-
-## Registration Contract Smoke
-
-`.github/workflows/registration-contract-smoke.yml` — отдельная **manual-only** проверка контракта регистрации. Она не запускается на `pull_request`, `push` или cron и не является required gate.
-
-Проверяется реальная цепочка на live-стенде:
-
-```text
-GET /pomidorqa/auth/register
-          |
-          v
-POST /pomidorqa/auth/register
-          |
-          v
-HTTP 303
-          |
-          v
-/pomidorqa
-```
-
-Smoke запускает Chromium, создаёт уникального тестового пользователя, фильтрует точный `POST /pomidorqa/auth/register`, проверяет статус `303` и финальный redirect. Результат сохраняется в `.qa-artifacts/registration-contract/summary.json` и публикуется как artifact на 14 дней.
-
-Workflow оставлен ручным намеренно: каждый запуск создаёт тестового пользователя на live-стенде и нужен как узкая диагностика registration endpoint, а не как постоянный PR/scheduled gate. Подробнее: [docs/registration-contract-smoke.md](docs/registration-contract-smoke.md).
-
-## Nightly Regression
-
-`.github/workflows/nightly.yml` запускает полный E2E-suite:
-
-- ежедневно по cron `0 23 * * *` — **23:00 UTC = 02:00 локального времени (UTC+3) следующего дня**;
-- вручную через `workflow_dispatch`;
-- в Chromium, Firefox и WebKit;
-- с `workers=1` и `retries=0`;
-- с отдельными Allure / Playwright artifacts и failure diagnostics.
-
-Nightly отвечает за обнаружение регрессий live-стенда или внешних изменений, появившихся уже после merge.
-
-## Security & Quality Gates
-
-`.github/workflows/security.yml` работает независимо от основного тестового pipeline.
-
-Gates:
-
-- `npm audit --audit-level=high`;
-- dependency-change review для `package.json` / `package-lock.json`;
-- `npm ci` для lockfile consistency при изменении dependencies;
-- ESLint + TypeScript как отдельный code-quality signal.
-
-Dependency-change review не зависит от включённого GitHub Dependency Graph, поэтому workflow остаётся переносимым между репозиториями.
-
-## Stability Check
-
-`.github/workflows/stability.yml` запускается еженедельно по cron `17 4 * * 0` и вручную через `workflow_dispatch`. Он предназначен для исследования flaky-поведения и не является PR merge gate.
-
-Плановый профиль фиксирован и консервативен: `booking-flow` ×5, `workers=1`, `retries=0`. Ручной запуск дополнительно поддерживает:
-
-- `booking-flow` или весь E2E-suite;
-- `repeat-each`: 5 или 10;
-- workers: 1 или 2;
-- `retries=0`;
-- Playwright HTML и Allure Report artifacts.
-
-Scheduled-default path проверен отдельным evidence-run без workflow inputs:
-
-| Проверка | Результат |
-| --- | --- |
-| `booking-flow` ×5, workers=1, retries=0 | ✅ passed |
-
-Evidence: [GitHub Actions #34651454560](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/runs/34651454560).
+Telegram используется только для доставки результата. Если отправка уведомления не удалась, это не меняет фактический статус тестов или проверки безопасности.
 
 ## Быстрый старт
 
-Требования:
-
-- Node.js 24;
-- npm;
-- Chromium для E2E по умолчанию.
+Требования: Node.js 24, npm и Chromium.
 
 ```bash
 git clone https://github.com/TokhirjonYuldoshev/pomidorqa-tests.git
 cd pomidorqa-tests
 npm ci
 npx playwright install chromium
+npm run verify:local
 ```
 
-## Команды
+Для E2E:
+
+```bash
+npm run test:e2e
+```
+
+Для другого браузера:
+
+```bash
+E2E_BROWSER=firefox npm run test:e2e
+E2E_BROWSER=webkit npm run test:e2e
+```
+
+## Основные команды
 
 | Команда | Назначение |
 | --- | --- |
-| `npm run lint` | ESLint для `src`, `tests`, `scripts` и Playwright configs |
-| `npm run typecheck` | TypeScript `tsc --noEmit` |
-| `npm run test:unit` | Unit tests + Allure results |
-| `npm run test:api` | API tests + Allure results |
-| `npm run test:e2e` | E2E в Chromium по умолчанию + Allure results; движок задаётся через `E2E_BROWSER` |
-| `npm test` | Unit + API + E2E с текущим `E2E_BROWSER` |
-| `npm run report` | открыть последний Playwright HTML report |
-| `npm run allure:generate` | собрать `allure-report/` из `allure-results/` |
-| `npm run allure:open` | открыть локально собранный Allure Report |
+| `npm run verify:local` | Node 24 + ESLint + TypeScript + Unit + API |
+| `npm run lint` | статический анализ ESLint |
+| `npm run typecheck` | проверка типов TypeScript |
+| `npm run test:unit` | Unit |
+| `npm run test:api` | API |
+| `npm run test:e2e` | E2E в выбранном браузере |
+| `npm test` | все проекты Playwright |
+| `npm run report` | открыть Playwright HTML report |
+| `npm run allure:generate` | собрать Allure report |
+| `npm run allure:open` | открыть Allure report |
 
-По умолчанию E2E используют `https://aiqa.su`. Base URL можно переопределить:
-
-```bash
-POMIDORQA_BASE_URL=http://localhost:3000 npm run test:e2e
-```
-
-На Windows PowerShell:
-
-```powershell
-$env:E2E_BROWSER="firefox"
-$env:POMIDORQA_BASE_URL="http://localhost:3000"
-npm run test:e2e
-```
-
-## Workflow разработки
-
-Для обычной работы используются отдельные ветки:
-
-```text
-feature/...
-fix/...
-refactor/...
-test/...
-docs/...
-chore/...
-```
-
-Перед PR:
-
-```bash
-npm run lint
-npm run typecheck
-npm run test:unit
-npm run test:api
-npm run test:e2e
-```
+По умолчанию используется `https://aiqa.su`. Адрес можно переопределить через `POMIDORQA_BASE_URL`.
 
 ## Документация
 
-- [CONTRIBUTING.md](CONTRIBUTING.md) — workflow разработки;
-- [CODEX.md](CODEX.md) — правила построения автотестов;
-- [REVIEW.md](REVIEW.md) — review checklist;
-- [docs/README.md](docs/README.md) — карта инженерной документации и рекомендуемый порядок чтения;
-- [docs/test-strategy.md](docs/test-strategy.md) — risk-based test strategy, ownership boundaries и quality metrics;
-- [docs/quality-gates.md](docs/quality-gates.md) — merge-blocking signals, diagnostics и evidence expectations;
-- [docs/architecture.md](docs/architecture.md) — архитектура, CI, reporting и non-functional QA;
-- [docs/ci-incident-runbook.md](docs/ci-incident-runbook.md) — signal ownership, severity и evidence-preserving triage;
-- [docs/interview-guide.md](docs/interview-guide.md) — готовые объяснения решений для собеседования;
-- [docs/registration-contract-smoke.md](docs/registration-contract-smoke.md) — manual-only проверка registration HTTP contract.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — правила внесения изменений;
+- [SECURITY.md](SECURITY.md) — безопасность и ответственное тестирование;
+- [CODEX.md](CODEX.md) — актуальные правила курса для автотестов;
+- [REVIEW.md](REVIEW.md) — чек-лист ревью курса;
+- [docs/README.md](docs/README.md) — карта инженерной документации;
+- [docs/test-strategy.md](docs/test-strategy.md) — стратегия тестирования;
+- [docs/architecture.md](docs/architecture.md) — архитектура;
+- [docs/quality-gates.md](docs/quality-gates.md) — обязательные проверки перед слиянием;
+- [docs/ci-incident-runbook.md](docs/ci-incident-runbook.md) — порядок разбора сбоев CI;
+- [docs/interview-guide.md](docs/interview-guide.md) — подготовка к техническому собеседованию;
+- [docs/registration-contract-smoke.md](docs/registration-contract-smoke.md) — ручная проверка контракта регистрации.
 
-## Что важно для code review
+## Цель проекта
 
-В review проверяется не только зелёный результат, но и качество сигнала теста:
-
-- assertion находится на правильном уровне;
-- locator идентифицирует нужную сущность;
-- action и verification не смешиваются без необходимости;
-- нет скрытых retry/sleep workaround;
-- browser contexts гарантированно завершают lifecycle;
-- test data независимы между запусками;
-- eventual consistency обрабатывается только там, где она реально существует;
-- CI не маскирует E2E failure retries.
-
-## Зачем этот репозиторий
-
-Цель проекта — показать не просто набор автотестов, а воспроизводимый QA Automation workflow:
-
-**изменение → review → quality/security gates → Unit/API → E2E → reporting/diagnostics → accessibility/performance/visual checks → nightly/stability analysis → summary/notification**.
-
-Репозиторий развивается отдельно от общего учебного `main`, поэтому архитектурные и инфраструктурные улучшения можно доводить до portfolio-level состояния, не расширяя scope учебных PR.
+Репозиторий показывает не количество тестов как самоцель, а управляемую систему качества: независимые уровни проверок, контролируемые тестовые данные, честный `retries=0`, диагностику, обязательные проверки перед слиянием и отдельные сигналы для нефункциональных рисков.
