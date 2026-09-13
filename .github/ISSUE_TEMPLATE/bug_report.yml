@@ -1,67 +1,67 @@
-name: Bug report
-description: Report a reproducible product, test, or CI defect with actionable evidence.
-title: "[BUG] "
+name: Отчёт о дефекте
+description: Зафиксировать воспроизводимый дефект продукта, тестов или CI с достаточными доказательствами.
+title: "[ДЕФЕКТ] "
 labels:
   - bug
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting a defect. Separate observed facts from assumptions and attach evidence where possible.
+        Отделяйте наблюдаемые факты от предположений. По возможности прикладывайте доказательства и не публикуйте секреты или персональные данные.
 
   - type: dropdown
     id: layer
     attributes:
-      label: Affected layer
-      description: Where was the failure observed?
+      label: Затронутый слой
+      description: Где наблюдается проблема?
       options:
-        - Live product / E2E behavior
-        - Test code / framework
-        - API / contract
+        - Внешний продукт / E2E
+        - Тестовый код / фреймворк
+        - API / контракт
         - CI / GitHub Actions
-        - Reporting / observability
-        - Security / dependency
-        - Non-functional (accessibility / performance / visual)
-        - Unknown / requires triage
+        - Отчётность / уведомления
+        - Безопасность / зависимости
+        - Нефункциональная проверка
+        - Не определено / нужен разбор
     validations:
       required: true
 
   - type: dropdown
     id: severity
     attributes:
-      label: Severity
-      description: Technical/business impact. Priority is tracked separately from severity.
+      label: Серьёзность
+      description: Техническое и пользовательское влияние. Приоритет оценивается отдельно.
       options:
-        - Blocker
-        - Critical
-        - Major
-        - Minor
-        - Trivial
-        - Not assessed
+        - Blocker — блокирующий
+        - Critical — критический
+        - Major — существенный
+        - Minor — ограниченный
+        - Trivial — косметический
+        - Не оценено
     validations:
       required: true
 
   - type: dropdown
     id: priority
     attributes:
-      label: Priority
+      label: Приоритет
       options:
-        - P0 - immediate
-        - P1 - high
-        - P2 - normal
-        - P3 - low
-        - Not assessed
+        - P0 — немедленно
+        - P1 — высокий
+        - P2 — обычный
+        - P3 — низкий
+        - Не оценено
     validations:
       required: true
 
   - type: textarea
     id: environment
     attributes:
-      label: Environment
-      description: Browser/engine, OS, branch/commit, workflow/run, target URL or other relevant context.
+      label: Окружение
+      description: Браузер/движок, ОС, ветка/commit, workflow/run, URL и другой важный контекст.
       placeholder: |
-        Browser: WebKit / Playwright 1.x
-        OS: GitHub-hosted Ubuntu
+        Браузер: WebKit / Playwright 1.x
+        ОС: GitHub-hosted Ubuntu
         Commit: <sha>
         Run: <GitHub Actions URL>
     validations:
@@ -70,59 +70,57 @@ body:
   - type: textarea
     id: preconditions
     attributes:
-      label: Preconditions and test data
-      description: Required state, role, account, unique data, or setup. Do not paste secrets or production credentials.
-      placeholder: Describe only the minimum state needed to reproduce.
+      label: Предусловия и тестовые данные
+      description: Укажите минимальное состояние, роль, аккаунт и уникальные данные. Не вставляйте секреты или рабочие учётные данные.
 
   - type: textarea
     id: steps
     attributes:
-      label: Steps to reproduce
-      description: Provide the shortest deterministic reproduction path.
+      label: Шаги воспроизведения
+      description: Укажите самый короткий детерминированный путь воспроизведения.
       placeholder: |
-        1. Open ...
-        2. Perform ...
-        3. Observe ...
+        1. Открыть ...
+        2. Выполнить ...
+        3. Наблюдать ...
     validations:
       required: true
 
   - type: textarea
     id: expected
     attributes:
-      label: Expected result
-      description: State the expected observable behavior or contract.
+      label: Ожидаемый результат
+      description: Опишите наблюдаемое ожидаемое поведение или контракт.
     validations:
       required: true
 
   - type: textarea
     id: actual
     attributes:
-      label: Actual result
-      description: State only what was observed. Keep hypotheses in the triage section below.
+      label: Фактический результат
+      description: Укажите только то, что наблюдалось. Предположения оставьте для раздела разбора.
     validations:
       required: true
 
   - type: textarea
     id: evidence
     attributes:
-      label: Evidence
-      description: Attach screenshots, trace/video, Allure/HTML report, response details, or workflow logs. Redact secrets and personal data.
-      placeholder: Links, artifact names, response status/body excerpts, screenshots, trace details.
+      label: Доказательства
+      description: Приложите screenshot, trace/video, Allure/HTML report, HTTP-ответ или логи workflow. Секреты и персональные данные должны быть скрыты.
 
   - type: textarea
     id: triage
     attributes:
-      label: Triage notes / hypothesis
-      description: Optional suspected cause or layer classification. Clearly distinguish hypothesis from confirmed fact.
+      label: Разбор / гипотеза
+      description: Необязательная предполагаемая причина. Явно отделяйте гипотезу от подтверждённого факта.
 
   - type: checkboxes
     id: checks
     attributes:
-      label: Reporter checklist
+      label: Проверка перед отправкой
       options:
-        - label: I checked that this is not an obvious duplicate.
+        - label: Я проверил, что это не очевидный дубликат.
           required: true
-        - label: I did not add retries, arbitrary sleeps, forced actions, or weakened assertions to hide the failure.
+        - label: Я не добавлял retries, произвольные паузы, force или ослабленные проверки для сокрытия проблемы.
           required: true
-        - label: I removed or redacted secrets, credentials, tokens and personal data from the report.
+        - label: Я удалил или скрыл секреты, токены, учётные данные и персональную информацию.
           required: true
