@@ -1,17 +1,17 @@
-name: QA CI incident
-description: Capture a deterministic gate, live E2E, security, non-functional, Nightly, platform, or observability incident with evidence and ownership.
-title: "[CI incident] "
+name: Сбой QA/CI
+description: Зафиксировать сбой обязательной проверки, E2E, безопасности, нефункционального workflow, Nightly, платформы или уведомлений.
+title: "[CI] "
 labels: []
 body:
   - type: markdown
     attributes:
       value: |
-        Use this form for CI/regression incidents. Start from the first owning signal. Preserve diagnostics and do not rerun until green, inflate timeouts, or add sleeps/retries to hide a live failure.
+        Начинайте с первой реально упавшей проверки. Сохраните диагностику и не перезапускайте до случайного зелёного результата, не увеличивайте таймауты и не добавляйте паузы/retries для сокрытия сбоя.
 
   - type: dropdown
     id: signal
     attributes:
-      label: Owning signal
+      label: Первичный сигнал
       options:
         - Quality / lint + typecheck
         - Unit tests
@@ -19,40 +19,42 @@ body:
         - E2E / Chromium
         - E2E / Firefox
         - E2E / WebKit
-        - Security gate
-        - Accessibility
-        - Lighthouse / performance
-        - Visual regression
-        - Nightly regression
+        - Security / npm audit
+        - Security / dependency change review
+        - Security / code quality
+        - Accessibility Audit
+        - Performance Smoke / Lighthouse
+        - Visual Regression
+        - Nightly E2E Regression
         - Registration Contract Smoke
-        - GitHub Actions runner/platform
-        - Telegram observability only
-        - Unknown / needs triage
+        - GitHub Actions runner / platform
+        - Только Telegram / уведомления
+        - Не определено / нужен разбор
     validations:
       required: true
 
   - type: dropdown
     id: severity
     attributes:
-      label: Severity
+      label: Уровень серьёзности
       options:
-        - SEV-1 — confirmed critical user-path regression on live site
-        - SEV-2 — required Quality/Unit/API/E2E/Security gate broken on main
-        - SEV-3 — Nightly/non-functional regression while core PR gates are healthy
-        - SEV-4 — reporting/Telegram presentation or transport issue
+        - SEV-1 — критичная подтверждённая регрессия основного пути на внешнем стенде
+        - SEV-2 — обязательная проверка main сломана
+        - SEV-3 — Nightly или нефункциональная регрессия при здоровом основном CI
+        - SEV-4 — ошибка отчётности или уведомления без функциональной регрессии
     validations:
       required: true
 
   - type: input
     id: run
     attributes:
-      label: GitHub Actions run
+      label: Запуск GitHub Actions
       placeholder: https://github.com/.../actions/runs/...
 
   - type: input
     id: revision
     attributes:
-      label: Revision / branch
+      label: Commit / ветка
       placeholder: main @ abc1234
     validations:
       required: true
@@ -60,75 +62,75 @@ body:
   - type: dropdown
     id: browser
     attributes:
-      label: Browser / execution layer
+      label: Браузер / слой выполнения
       options:
-        - Not applicable
+        - Не применимо
         - Chromium
         - Firefox
         - WebKit
-        - Multiple browsers
+        - Несколько браузеров
         - Unit
         - API
-        - Unknown
+        - Не определено
     validations:
       required: true
 
   - type: textarea
     id: observed
     attributes:
-      label: Observed behavior
-      description: Include exact failing step/assertion/status/locator or security/non-functional finding.
+      label: Наблюдаемое поведение
+      description: Укажите точный упавший шаг/assertion/status/locator или находку проверки безопасности/качества.
     validations:
       required: true
 
   - type: textarea
     id: expected
     attributes:
-      label: Expected behavior / contract
-      description: State the invariant that should hold. For registration, include the exact POST/303/redirect contract when relevant.
+      label: Ожидаемое поведение / контракт
+      description: Зафиксируйте инвариант, который должен выполняться.
     validations:
       required: true
 
   - type: textarea
     id: evidence
     attributes:
-      label: Evidence
-      description: Reference trace, screenshots, video, Playwright/Allure report, logs, network evidence, or security/non-functional report. Do not paste secrets.
+      label: Доказательства
+      description: Укажите trace, screenshots, video, Playwright/Allure report, логи, сетевые данные или отчёт проверки. Не вставляйте секреты.
     validations:
       required: true
 
   - type: dropdown
     id: reproducibility
     attributes:
-      label: Reproducibility
+      label: Воспроизводимость
       options:
-        - Consistent
-        - Intermittent
-        - One occurrence
-        - Unknown
+        - Постоянно
+        - Периодически
+        - Один случай
+        - Не определено
     validations:
       required: true
 
   - type: textarea
     id: scope
     attributes:
-      label: Impact and scope
-      description: Explain which confidence/user path is affected and which independent signals remain healthy.
+      label: Влияние и область
+      description: Какие пользовательские пути или уровни доверия затронуты и какие независимые сигналы остаются зелёными?
     validations:
       required: true
 
   - type: checkboxes
     id: discipline
     attributes:
-      label: Triage discipline
+      label: Дисциплина диагностики
       options:
-        - label: I identified the first owning signal rather than only the final notification/summary.
+        - label: Я начал с первой реально упавшей проверки, а не с итогового уведомления.
           required: true
-        - label: I preserved the original run and available diagnostics.
+        - label: Я сохранил исходный запуск и доступную диагностику.
           required: true
-        - label: I did not add waitForTimeout, arbitrary sleeps, force, skip/only, retry inflation, or blanket timeout increases as a workaround.
+        - label: Я не использовал waitForTimeout, произвольные паузы, force, skip/only, увеличение retries или таймаутов как обходное решение.
           required: true
-        - label: If I reran a live failure, it was at most one targeted diagnostic rerun after concrete external-recovery evidence.
+        - label: Если выполнялся повторный запуск внешнего E2E, он был целевым и основан на конкретном признаке восстановления окружения.
           required: true
-        - label: I did not include credentials, tokens, or other secrets.
+        - label: В сообщении нет учётных данных, токенов и других секретов.
           required: true

@@ -1,90 +1,84 @@
-# Runbook по CI incidents
+# Порядок разбора сбоев CI
 
-Этот документ фиксирует порядок разбора failures в Unit, API, live E2E, non-functional workflows и CI. Цель — определить owning layer, сохранить evidence и не ослаблять проверки ради зелёного результата.
+Цель — найти первичный источник ошибки, сохранить данные для расследования и не ослаблять проверки ради зелёного результата.
 
-## Ownership сигналов
+## Источник истины по сигналам
 
-| Сигнал | Source of truth | Первое действие |
-| --- | --- | --- |
-| Lint / TypeScript | `Quality / lint + typecheck` | проверить static/type failure |
-| Unit | `Unit tests` | проверить isolated assertion |
-| API | `API tests` | проверить mock HTTP contract |
-| Chromium / Firefox / WebKit | соответствующий E2E job | отделить test-code regression от live-environment failure |
-| Accessibility / Lighthouse / Visual | отдельный workflow | открыть dedicated report |
-| Nightly | scheduled browser matrix | сравнить с recent main/PR evidence |
-| Registration Contract Smoke | manual workflow | проверить `POST → 303 → /pomidorqa` |
-| Telegram | notification workflow | разбирать transport отдельно от test result |
+| Сигнал | Где смотреть первым |
+| --- | --- |
+| ESLint / TypeScript | `Quality / lint + typecheck` |
+| Unit | `Unit tests` |
+| API | `API tests` |
+| браузерный E2E | соответствующий `E2E / Chromium`, `Firefox` или `WebKit` |
+| безопасность | конкретный `Security / ...` check |
+| Accessibility / Lighthouse / Visual | отчёт соответствующего workflow |
+| Nightly | браузерная матрица планового запуска |
+| Registration Contract Smoke | ручной запуск и `summary.json` |
+| Telegram | отдельная job уведомления или диагностический workflow |
 
-## Порядок triage
+## Последовательность
 
-1. Найти первый красный owning signal, а не начинать с финального notification.
-2. Сохранить исходный run, artifacts, trace, screenshots/video и reports.
-3. Определить слой: test code, application behavior, browser/runtime, external environment или CI infrastructure.
-4. Воспроизводить минимальный scope.
-5. Исправлять owning layer и проверять через обычные PR gates.
-6. Для live browser matrix сохранять `retries=0`.
+1. Найти первую реально красную проверку.
+2. Сохранить исходный запуск и доступные artifacts.
+3. Зафиксировать точный шаг, assertion, HTTP-статус или сообщение ошибки.
+4. Определить слой: тестовый код, продукт, браузер/runtime, внешний стенд, зависимость или CI.
+5. Сравнить результаты Chromium, Firefox и WebKit, если ошибка браузерная.
+6. Воспроизвести минимально достаточную область.
+7. Исправить причину и проверить её обычным CI.
 
 ## Unit и API
 
-Unit и mocked API считаются детерминированными. Их failure не требует полного E2E rerun для первичной диагностики.
+Эти проверки не зависят от live-стенда и должны рассматриваться как детерминированные. Их сбой сначала разбирается на своём уровне, без полного E2E rerun.
 
-## Live E2E
+## E2E внешнего стенда
 
-Browser matrix работает с `workers=1` и `retries=0`.
+Для E2E используются `workers=1` и `retries=0`.
 
-При падении нужно:
+При сбое нужно проверить:
 
-- проверить exact test step и browser;
-- изучить trace, screenshot/video и network/navigation evidence;
-- сравнить Chromium, Firefox и WebKit;
-- проверить test data и shared state;
-- отличить application behavior от проблем live environment.
+- точный `test.step`;
+- браузер;
+- trace и скриншоты/video;
+- сетевой запрос и переход по URL;
+- уникальность тестовых данных;
+- результат очистки аккаунтов;
+- состояние соседних браузеров.
 
-Один targeted rerun допустим только когда есть конкретное evidence внешнего временного сбоя. Повторные reruns до случайного green не являются triage.
+Один целевой повторный запуск допустим только после конкретного признака внешнего временного сбоя. Повторять до случайного зелёного результата нельзя.
 
-## Cross-browser interpretation
+## Как читать браузерную матрицу
 
-- Один browser красный — проверить engine-specific behavior.
-- Все browsers падают одинаково — проверить shared data, application/backend и common helpers.
-- Quality/Unit/API уже красные — сначала исправить их.
+- один браузер красный — проверить специфичное поведение движка;
+- все браузеры падают одинаково — проверить общий helper, данные, backend или продукт;
+- Quality/Unit/API красные — сначала исправить их.
 
-`fail-fast: false` сохраняет evidence по всем browser engines.
+`fail-fast: false` сохраняет результаты всех трёх браузеров.
 
-## Registration
+## Нефункциональные проверки
 
-Ожидаемый контракт:
-
-```text
-POST /pomidorqa/auth/register -> 303 See Other -> /pomidorqa
-```
-
-Для узкой диагностики используется manual-only Registration Contract Smoke. Точный mutation filter не заменяется широким network matching.
-
-## Non-functional workflows
-
-Accessibility, Lighthouse и Visual Regression разбираются по своим dedicated reports. Visual baseline обновляется только после подтверждения, что изменение UI действительно ожидаемое.
+Accessibility, Lighthouse и Visual Regression разбираются по собственным отчётам. Визуальный эталон обновляется только после подтверждения, что изменение интерфейса ожидаемо.
 
 ## Nightly
 
-Nightly — operational regression signal. Нужно определить browser/test cluster, сравнить с recent main/PR evidence и сохранить artifacts. Nightly failure не является поводом делать PR checks мягче.
+Nightly ищет изменения, возникшие после слияния или на внешнем стенде. Красный Nightly не является основанием ослаблять проверки Pull Request.
 
-## Telegram-only failure
+## Ошибка только Telegram
 
-Если required CI зелёный, а Telegram delivery упал, test result остаётся зелёным. Notification integration диагностируется отдельно.
+Если обязательные проверки зелёные, а уведомление не отправилось, результат тестов остаётся неизменным. Диагностируется только транспорт уведомления.
 
-## Severity
+## Уровни серьёзности
 
-| Severity | Ориентир |
+| Уровень | Ориентир |
 | --- | --- |
-| SEV-1 | критичная подтверждённая live-regression core flow |
-| SEV-2 | required gate сломан на `main` |
-| SEV-3 | Nightly/non-functional regression при здоровых core PR gates |
-| SEV-4 | reporting/notification issue без functional regression |
+| SEV-1 | подтверждена критичная регрессия основного пользовательского пути на live-стенде |
+| SEV-2 | обязательная проверка `main` сломана |
+| SEV-3 | Nightly или нефункциональная регрессия при здоровом основном CI |
+| SEV-4 | ошибка отчётности/уведомления без функциональной регрессии |
 
-## Incident закрыт, когда
+## Инцидент закрыт, когда
 
-Owning signal проходит на исправленной revision или внешнее восстановление подтверждено evidence, required gates не ослаблены, исходные diagnostics сохранены и root cause не замаскирован retries/sleeps/timeouts.
-
-## Anti-patterns
-
-Не используются `waitForTimeout`, `force`, `.only`, `skip`, `page.pause()`, blanket retries и многократные reruns без диагностики. Нельзя мержить изменение при красном связанном required gate.
+- причина понятна;
+- исправленная версия проходит соответствующую проверку или внешнее восстановление подтверждено;
+- исходные данные для расследования сохранены;
+- обязательные правила не ослаблены;
+- проблема не замаскирована retries, pauses или завышенным timeout.
