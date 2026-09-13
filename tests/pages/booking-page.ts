@@ -12,13 +12,14 @@ export type BookingResult =
 export class BookingPage {
   private readonly catalogFilterInput: Locator;
   private readonly catalogFilterButton: Locator;
-  private readonly availableDayButtons: Locator;
   private readonly bookingsSection: Locator;
   private readonly upcomingBookings: Locator;
   private readonly pastMeetingsSection: Locator;
   private readonly pastBookings: Locator;
   private readonly confirmButton: Locator;
 
+  readonly availableDayButtons: Locator;
+  readonly availableTimeButtons: Locator;
   readonly personCards: Locator;
   readonly personName: Locator;
   readonly confirmDialog: Locator;
@@ -33,6 +34,10 @@ export class BookingPage {
 
     this.availableDayButtons = page
       .getByRole("group", { name: "Дни со слотами" })
+      .getByRole("button");
+
+    this.availableTimeButtons = page
+      .getByRole("group", { name: "Время слотов" })
       .getByRole("button");
 
     this.confirmDialog = page.getByRole("dialog");
@@ -158,13 +163,12 @@ export class BookingPage {
 
     await this.selectOnlyAvailableDay(retryTimeoutMs);
 
-    const timeButtons = this.page
-      .getByRole("group", { name: "Время слотов" })
-      .getByRole("button");
+    await this.availableTimeButtons.waitFor({
+      state: "visible",
+      timeout: 5_000,
+    });
 
-    await timeButtons.waitFor({ state: "visible", timeout: 5_000 });
-
-    const timeButtonCount = await timeButtons.count();
+    const timeButtonCount = await this.availableTimeButtons.count();
 
     if (timeButtonCount !== 1) {
       throw new Error(
@@ -173,7 +177,7 @@ export class BookingPage {
       );
     }
 
-    await timeButtons.click();
+    await this.availableTimeButtons.click();
   }
 
   async pickAvailableSlotByTime(
