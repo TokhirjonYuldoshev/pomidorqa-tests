@@ -25,16 +25,17 @@ test.describe("Каталог: восстановление доступност
   test.describe.configure({ timeout: TEST_TIMEOUT });
 
   test(
-    "после отмены бронирования единственный слот снова делает участника доступным",
+    "после отмены освобождённый слот успешно бронируется другим пользователем",
     async ({ appFactory }) => {
       const runId = makeRunId("cancel-restores-slot");
       const skill = `CancelRestore-${runId}`;
       const host = makeUser("cancel-restore-host", runId);
-      const booker = makeUser("cancel-restore-booker", runId);
+      const firstBooker = makeUser("first-booker", runId);
+      const secondBooker = makeUser("second-booker", runId);
 
       const hostApp = await appFactory();
-      const bookerApp = await appFactory();
-      const observerApp = await appFactory();
+      const firstBookerApp = await appFactory();
+      const secondBookerApp = await appFactory();
 
       await prepareCatalogParticipant(
         hostApp,
@@ -44,43 +45,48 @@ test.describe("Каталог: восстановление доступност
       );
 
       await registerUserViaApi(
-        bookerApp.context.request,
-        booker,
+        firstBookerApp.context.request,
+        firstBooker,
+      );
+
+      await registerUserViaApi(
+        secondBookerApp.context.request,
+        secondBooker,
       );
 
       await test.step(
-        "Гость: находит хоста и бронирует единственный слот",
+        "Первый пользователь: находит хоста и бронирует единственный слот",
         async () => {
-          await bookerApp.bookingPage.goToCatalog();
-          await bookerApp.bookingPage.searchCatalog(skill);
-          await bookerApp.bookingPage.waitForPersonInCatalog(
+          await firstBookerApp.bookingPage.goToCatalog();
+          await firstBookerApp.bookingPage.searchCatalog(skill);
+          await firstBookerApp.bookingPage.waitForPersonInCatalog(
             host.name,
             skill,
             CATALOG_RESULT_TIMEOUT,
           );
-          await bookerApp.bookingPage.openPerson(host.name);
-          await bookerApp.bookingPage.pickOnlyAvailableSlot();
-          await bookerApp.bookingPage.confirmBooking();
+          await firstBookerApp.bookingPage.openPerson(host.name);
+          await firstBookerApp.bookingPage.pickOnlyAvailableSlot();
+          await firstBookerApp.bookingPage.confirmBooking();
         },
       );
 
       await test.step(
-        "Бронирование единственного слота успешно",
+        "Первое бронирование единственного слота успешно",
         async () => {
           const result =
-            await bookerApp.bookingPage.waitForBookingResult();
+            await firstBookerApp.bookingPage.waitForBookingResult();
 
           expect(result.status).toBe("success");
         },
       );
 
       await test.step(
-        "После бронирования участник исчезает из каталога",
+        "После первого бронирования участник исчезает из каталога",
         async () => {
           await expect
             .poll(
               () => catalogCount(
-                observerApp,
+                secondBookerApp,
                 host.name,
                 skill,
               ),
@@ -94,17 +100,17 @@ test.describe("Каталог: восстановление доступност
       );
 
       await test.step(
-        "Гость: отменяет встречу с хостом",
+        "Первый пользователь: отменяет встречу с хостом",
         async () => {
-          await bookerApp.bookingPage.goToBookings();
+          await firstBookerApp.bookingPage.goToBookings();
 
           await expect(
-            bookerApp.bookingPage.upcomingBookingByParticipant(
+            firstBookerApp.bookingPage.upcomingBookingByParticipant(
               host.name,
             ),
           ).toBeVisible({ timeout: 10_000 });
 
-          await bookerApp.bookingPage.cancelBookingWith(
+          await firstBookerApp.bookingPage.cancelBookingWith(
             host.name,
           );
         },
@@ -113,17 +119,49 @@ test.describe("Каталог: восстановление доступност
       await test.step(
         "После отмены участник снова появляется в каталоге",
         async () => {
-          await observerApp.bookingPage.goToCatalog();
-          await observerApp.bookingPage.searchCatalog(skill);
-          await observerApp.bookingPage.waitForPersonInCatalog(
+          await secondBookerApp.bookingPage.goToCatalog();
+          await secondBookerApp.bookingPage.searchCatalog(skill);
+          await secondBookerApp.bookingPage.waitForPersonInCatalog(
             host.name,
             skill,
             CATALOG_RESULT_TIMEOUT,
           );
 
           await expect(
-            observerApp.bookingPage.personCard(host.name),
+            secondBookerApp.bookingPage.personCard(host.name),
           ).toHaveCount(1);
+        },
+      );
+
+      await test.step(
+        "Второй пользователь: открывает хоста и бронирует освобождённый слот",
+        async () => {
+          await secondBookerApp.bookingPage.openPerson(host.name);
+          await secondBookerApp.bookingPage.pickOnlyAvailableSlot();
+          await secondBookerApp.bookingPage.confirmBooking();
+        },
+      );
+
+      await test.step(
+        "Повторное бронирование освобождённого слота успешно",
+        async () => {
+          const result =
+            await secondBookerApp.bookingPage.waitForBookingResult();
+
+          expect(result.status).toBe("success");
+        },
+      );
+
+      await test.step(
+        "Второй пользователь видит новую встречу с тем же хостом",
+        async () => {
+          await secondBookerApp.bookingPage.goToBookings();
+
+          await expect(
+            secondBookerApp.bookingPage.upcomingBookingByParticipant(
+              host.name,
+            ),
+          ).toBeVisible({ timeout: 10_000 });
         },
       );
     },
