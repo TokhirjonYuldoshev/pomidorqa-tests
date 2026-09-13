@@ -59,6 +59,11 @@ export class BookingPage {
     await this.catalogFilterButton.click();
   }
 
+  async searchCatalogByEnter(skillTag: string): Promise<void> {
+    await this.catalogFilterInput.fill(skillTag);
+    await this.catalogFilterInput.press("Enter");
+  }
+
   async waitForPersonInCatalog(
     name: string,
     skillTag: string,
