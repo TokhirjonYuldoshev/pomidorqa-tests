@@ -263,6 +263,23 @@ test.describe("Профиль: действия с полями и навыка�
       await hostApp.profilePage.saveProfile();
     });
 
+    await test.step(
+      "Подтверждаем исходный набор полей с сервера",
+      async () => {
+        await hostApp.page.reload();
+
+        await expect.soft(
+          hostApp.profilePage.nameInput,
+        ).toHaveValue(initialName);
+        await expect.soft(
+          hostApp.profilePage.telegramInput,
+        ).toHaveValue(telegram);
+        await expect.soft(
+          hostApp.profilePage.bioInput,
+        ).toHaveValue(bio);
+      },
+    );
+
     await test.step("Меняем только имя", async () => {
       await hostApp.profilePage.saveName(updatedName);
     });
