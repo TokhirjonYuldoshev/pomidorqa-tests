@@ -22,7 +22,7 @@ export class ProfilePage {
     this.telegramInput = page.getByLabel("Telegram");
     this.bioInput = page.getByLabel("О себе");
     this.timezoneSelect = page.getByLabel("Часовой пояс");
-    this.skillInput = page.getByLabel("Навык");
+    this.skillInput = page.getByLabel("Навык", { exact: true });
     this.canHelpSkills = page.getByTestId("can-help-skills");
     this.wantToLearnSkills = page.locator('[data-skills="want_to_learn"]');
     this.skillItems = page.locator("[data-skill-tag]");
