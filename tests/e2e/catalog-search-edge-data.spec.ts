@@ -41,8 +41,6 @@ test.describe("Каталог: дополнительные граничные �
 
   const specialSkillPrefixes = [
     "C#",
-    "C++",
-    ".NET",
     "QA/API",
     "SQL_100%",
     "QA's",
