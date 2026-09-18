@@ -35,6 +35,7 @@
 | --- | --- |
 | `tests/e2e/login-error.spec.ts` | отрицательный сценарий входа и обработка ошибки |
 | `tests/e2e/auth-session.spec.ts` | сессия, logout, защищённые страницы и изоляция браузерных контекстов |
+| `tests/e2e/auth-session-consistency.spec.ts` | общая сессия между вкладками одного BrowserContext, распространение logout и смена пользователя |
 
 ### Профиль и свободные слоты
 
