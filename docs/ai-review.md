@@ -135,6 +135,8 @@ P1/P2/P3 относятся к конкретному finding, а не к авт
 
 Если тот же commit уже проверен, повторный вызов Gemini не выполняется. Если head PR изменился до или во время анализа, устаревший результат не публикуется.
 
+Каждый опубликованный review дополнительно фиксирует revision доверенного reviewer-кода из `main` и короткий SHA-256 fingerprint набора правил/контекста (`CODEX.md`, `REVIEW.md`, `requirements.md`, coverage matrix). Это позволяет понять не только какой PR commit проверен, но и какой именно набор reviewer-правил дал результат.
+
 ## Actions Summary
 
 Сводка показывает:
@@ -149,6 +151,8 @@ P1/P2/P3 относятся к конкретному finding, а не к авт
 - изменённые / проверенные / проигнорированные файлы;
 - связанные requirement ID;
 - upstream CI run;
+- trusted reviewer revision;
+- policy fingerprint по `CODEX.md` + `REVIEW.md` + `requirements.md` + coverage matrix;
 - token usage;
 - факт второго прохода;
 - security controls;
@@ -171,6 +175,8 @@ Telegram вынесен в отдельную job `Telegram Notification`, ко�
 - размер diff;
 - модель и token usage;
 - ссылку на upstream CI;
+- trusted reviewer revision;
+- policy fingerprint;
 - ссылку на опубликованный review, если она есть;
 - ссылку на текущий GitHub Actions run.
 
