@@ -4,8 +4,11 @@ import {
   annotatePatch,
   buildReviewConclusion,
   extractRuleNumbers,
+  findDeterministicFindings,
+  findImpactedRequirements,
   hasReviewForCommit,
   isReviewedPath,
+  mergeReviewFindings,
   parseStructuredReview,
   reviewMarker,
   toGitHubComments,
@@ -100,6 +103,11 @@ function buildAiStepSummary({
   p2 = "—",
   p3 = "—",
   reviewedFiles = "—",
+  changedFiles = "—",
+  ignoredFiles = "—",
+  deterministicFindings = "—",
+  impactedRequirements = "—",
+  upstreamRun = "—",
 }) {
   const runUrl =
     `${process.env.GITHUB_SERVER_URL || "https://github.com"}/` +
@@ -144,7 +152,12 @@ _Автоматическая проверка diff по \`CODEX.md\` и \`REVIE
 <tbody>
 <tr><td>Модель</td><td><code>${summaryCell(modelName)}</code></td></tr>
 <tr><td>Проверено изменений</td><td>${summaryCell(diffChars)}</td></tr>
+<tr><td>Файлов PR</td><td>${summaryCell(changedFiles)}</td></tr>
 <tr><td>Файлов в scope</td><td>${summaryCell(reviewedFiles)}</td></tr>
+<tr><td>Вне scope</td><td>${summaryCell(ignoredFiles)}</td></tr>
+<tr><td>Требования</td><td>${summaryCell(impactedRequirements)}</td></tr>
+<tr><td>Детерминированные findings</td><td>${summaryCell(deterministicFindings)}</td></tr>
+<tr><td>Upstream CI</td><td>${summaryCell(upstreamRun)}</td></tr>
 <tr><td>Правила</td><td><code>CODEX.md</code> + <code>REVIEW.md</code></td></tr>
 <tr><td>Повторная проверка</td><td>второй проход модели</td></tr>
 </tbody>
@@ -274,6 +287,10 @@ function publishReviewOutputs({
   reviewUrl = "",
   diffChars = 0,
   reviewedFiles = 0,
+  changedFiles = 0,
+  ignoredFiles = 0,
+  deterministicFindings = 0,
+  impactedRequirements = [],
   usage = null,
 }) {
   const counts = countPriorities(comments);
@@ -286,6 +303,13 @@ function publishReviewOutputs({
   writeStepOutput("review_url", reviewUrl);
   writeStepOutput("diff_chars", diffChars);
   writeStepOutput("reviewed_files", reviewedFiles);
+  writeStepOutput("changed_files", changedFiles);
+  writeStepOutput("ignored_files", ignoredFiles);
+  writeStepOutput("deterministic_findings", deterministicFindings);
+  writeStepOutput(
+    "requirements_impacted",
+    impactedRequirements.map((item) => item.id).join(","),
+  );
   writeStepOutput("model", model);
   writeStepOutput("tokens_total", usage?.totalTokens ?? 0);
 }
@@ -295,6 +319,15 @@ const codex =
 
 const checklist =
   readProjectFile("REVIEW.md");
+
+const requirementsSpec =
+  readProjectFile("requirements.md");
+
+const coverageMatrix =
+  readProjectFile("docs/coverage-matrix.md");
+
+const upstreamRunId =
+  process.env.AI_REVIEW_UPSTREAM_RUN_ID || "";
 
 const ruleNumbers =
   extractRuleNumbers(codex);
@@ -431,6 +464,10 @@ function prepareDiff(files) {
   return {
     diff,
     reviewedFiles: prepared.length,
+    changedFiles: files.length,
+    ignoredFiles: files.length - relevant.length,
+    reviewedPaths: prepared.map((file) => file.filename),
+    preparedFiles: prepared,
 
     addedLinesByPath:
       new Map(
@@ -460,7 +497,9 @@ function buildReviewPrompts({
 - не придумывай контекст вне переданных данных;
 - анализируй только добавленные строки, отмеченные +N;
 - CI уже завершился успешно: не утверждай, что тесты, typecheck или lint падают;
-- CODEX.md — закрытый список требований;
+- CODEX.md — закрытый список правил для inline-комментариев;
+- requirements.md и coverage matrix — контекст продукта и traceability, а не дополнительный список нарушений;
+- known defect / partial / out of scope из coverage matrix не являются сами по себе дефектом PR;
 - комментарий обязан ссылаться на реально существующий номер правила CODEX.md;
 - не превращай вкусовые предпочтения и улучшения "на будущее" в дефект;
 - не требуй архитектуру, которую CODEX.md не требует;
@@ -534,6 +573,26 @@ ${codex}
 ${checklist}
 
 </review_checklist>
+
+
+СПЕЦИФИКАЦИЯ ПРОДУКТА
+(контекст для понимания ожидаемого поведения, не отдельный источник inline-нарушений)
+
+<requirements>
+
+${requirementsSpec}
+
+</requirements>
+
+
+МАТРИЦА ПОКРЫТИЯ
+(контекст traceability и известных ограничений)
+
+<coverage_matrix>
+
+${coverageMatrix}
+
+</coverage_matrix>
 
 
 DIFF С НОМЕРАМИ НОВЫХ СТРОК
