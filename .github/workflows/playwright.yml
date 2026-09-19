@@ -49,6 +49,9 @@ jobs:
       - name: Validate AI review policy engine
         run: node scripts/ai-review-self-check.mjs
 
+      - name: Validate CI workflow policy
+        run: npm run ci:policy
+
   unit:
     name: Unit tests
     runs-on: ubuntu-latest
