@@ -71,6 +71,21 @@ function checkDeterministicPolicy() {
         finding.priority === "P2",
     ),
   );
+
+  const docsFindings =
+    findDeterministicFindings([
+      {
+        filename: "docs/ai-review.md",
+        addedEntries: [
+          {
+            line: 10,
+            text: "Документ упоминает waitForTimeout и force: true.",
+          },
+        ],
+      },
+    ]);
+
+  assert.equal(docsFindings.length, 0);
 }
 
 function checkRequirementTraceability() {
