@@ -1569,10 +1569,13 @@ async function main() {
 ## Общий вывод AI-reviewer
 
 ${buildReviewConclusion(
-  verified.comments,
+  finalFindings,
 )}
 
 Приоритеты: P1 — ${priorityCounts.p1}, P2 — ${priorityCounts.p2}, P3 — ${priorityCounts.p3}.
+Детерминированные проверки: ${deterministicFindings.length}.
+Traceability требований: ${impactedRequirementText}.
+Upstream CI: ${upstreamRunText}.
 
 ---
 Модель: \`${model}\`. ${usageText}`;
