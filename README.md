@@ -147,7 +147,7 @@ Quality job дополнительно запускает `npm run coverage:chec
 - `Security / dependency change review`;
 - `Security / code quality`.
 
-Для браузерных E2E в CI используются `workers=4`, `retries=0` и `fail-fast: false`. Три браузера запускаются параллельно отдельными jobs, поэтому суммарный параллелизм остаётся высоким без избыточной нагрузки на один runner и live-стенд.
+Для браузерных E2E в CI используются `workers=4`, `retries=0`, `fail-fast: false` и `max-parallel: 2` на browser matrix. Chromium, Firefox и WebKit остаются отдельными jobs, но одновременно выполняются максимум два браузера. Ограничение введено после повторяемых HTTP 502/timeout на live-стенде при трёх параллельных browser jobs; изолированный Chromium на тех же `workers=4` прошёл полностью. Это сохраняет внутрибраузерный параллелизм, но снижает пиковую нагрузку с 12 до 8 E2E workers.
 
 После browser matrix выполняется `Regression Gate`. Он не заменяет исходные checks и не скрывает их результат: job только агрегирует обязательные функциональные сигналы в один статус, после чего запускаются `CI Summary` и `Telegram Notification`.
 
