@@ -1,10 +1,11 @@
 name: AI Review
-run-name: "AI Review • PR #${{ inputs.pr_number || github.event.workflow_run.pull_requests[0].number || 'n/a' }} • ${{ github.actor }}"
+run-name: "AI Review • ${{ github.event_name == 'workflow_dispatch' && format('PR #{0}', inputs.pr_number) || github.event.workflow_run.pull_requests[0].number && format('PR #{0}', github.event.workflow_run.pull_requests[0].number) || 'non-PR CI' }} • ${{ github.actor }}"
 
 on:
   workflow_run:
     workflows: ["Playwright QA Automation CI"]
     types: [completed]
+    branches-ignore: [main]
 
   workflow_dispatch:
     inputs:

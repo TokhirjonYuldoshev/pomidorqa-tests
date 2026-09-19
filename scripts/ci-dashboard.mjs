@@ -38,7 +38,7 @@ function statusLabel(value) {
     case "skipped":
       return "⏭️ Пропущено";
     default:
-      return "❔ " + (value || "unknown");
+      return "❔ " + (value || "неизвестно");
   }
 }
 
@@ -51,22 +51,18 @@ function eventLabel(value) {
     case "workflow_dispatch":
       return "Ручной запуск";
     default:
-      return value || "unknown";
+      return value || "неизвестно";
   }
 }
 
-function formatSeconds(ms) {
-  return (Number(ms || 0) / 1000).toFixed(1) + " s";
-}
-
-function formatMinutes(ms) {
-  return (Number(ms || 0) / 60000).toFixed(1) + " min";
-}
-
 function formatDuration(ms) {
-  return Number(ms || 0) >= 120000
-    ? formatMinutes(ms)
-    : formatSeconds(ms);
+  const value = Number(ms || 0);
+
+  if (value >= 120_000) {
+    return (value / 60_000).toFixed(1) + " мин";
+  }
+
+  return (value / 1000).toFixed(1) + " с";
 }
 
 function collectTests(suite, project, out) {
@@ -77,6 +73,7 @@ function collectTests(suite, project, out) {
   for (const spec of suite.specs ?? []) {
     for (const currentTest of spec.tests ?? []) {
       const results = currentTest.results ?? [];
+
       out.push({
         title: spec.title,
         file: spec.file ?? "",
@@ -186,6 +183,7 @@ function browserFromPath(path) {
   const parent = basename(
     normalized.split("/test-results")[0],
   );
+
   return (
     parent.match(
       /machine-report-(chromium|firefox|webkit)-/,
@@ -211,6 +209,7 @@ function readBrowserMetrics(root) {
       const report = JSON.parse(
         readFileSync(path, "utf8"),
       );
+
       result.set(browser, summarizeReport(report));
     } catch (error) {
       console.warn(
@@ -261,7 +260,8 @@ function parsePortfolioMetrics() {
       [
         ...matrix.matchAll(
           new RegExp(
-            "\\|\\s*R\\d+\\.\\d+\\s*\\|[^\\n]*\\|\\s*(?:\\*\\*)?`" +
+            "\\|\\s*R\\d+\\.\\d+\\s*\\|[^\\n]*" +
+              "\\|\\s*(?:\\*\\*)?`" +
               status +
               "`(?:\\*\\*)?\\s*\\|",
             "g",
@@ -310,7 +310,7 @@ const e2e = process.env.E2E || "unknown";
 
 let overall = "⚠️ ПРОВЕРКИ ЗАВЕРШЕНЫ НЕ ПОЛНОСТЬЮ";
 let note =
-  "Часть сигналов отсутствует или была пропущена.";
+  "Часть проверок отсутствует или была пропущена.";
 
 if (
   quality === "success" &&
@@ -320,7 +320,7 @@ if (
 ) {
   overall = "✅ ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ";
   note =
-    "Quality gates, Unit, API и browser matrix завершились успешно.";
+    "Сборка завершена успешно, включая три браузера.";
 } else if (
   [quality, unit, api, e2e].includes("failure")
 ) {
@@ -332,12 +332,13 @@ if (
 ) {
   overall = "⏹️ ЗАПУСК ОТМЕНЁН";
   note =
-    "Выполнение pipeline было остановлено.";
+    "Выполнение автоматических проверок было остановлено.";
 }
 
-const server = process.env.GITHUB_SERVER_URL || "https://github.com";
+const server =
+  process.env.GITHUB_SERVER_URL || "https://github.com";
 const repository =
-  process.env.GITHUB_REPOSITORY || "unknown";
+  process.env.GITHUB_REPOSITORY || "неизвестно";
 const runId = process.env.GITHUB_RUN_ID || "";
 const runNumber =
   process.env.GITHUB_RUN_NUMBER || "";
@@ -351,11 +352,12 @@ const artifactsUrl = runUrl + "#artifacts";
 const branch =
   process.env.GITHUB_HEAD_REF ||
   process.env.GITHUB_REF_NAME ||
-  "unknown";
+  "неизвестно";
 const shortSha = String(
   process.env.GITHUB_SHA || "",
 ).slice(0, 7);
-const actor = process.env.GITHUB_ACTOR || "unknown";
+const actor =
+  process.env.GITHUB_ACTOR || "неизвестно";
 const event = eventLabel(
   process.env.GITHUB_EVENT_NAME,
 );
@@ -469,16 +471,16 @@ const e2eWithCleanup = e2eSpecFiles.filter((path) => {
   );
 });
 
-const htmlHeader = `
-# Playwright QA Automation CI
+const sections = [
+`# Сводка CI PomidorQA
 
-_Автоматические проверки проекта • расширенный GitHub Actions Dashboard_
+_Автоматические проверки проекта • GitHub Actions_
 
 ## ${overall}
 
 > ${note}
 
-[▶️ Открыть run](${runUrl}) ·
+[▶️ Открыть запуск](${runUrl}) ·
 [📊 Allure](${artifactsUrl}) ·
 [🎭 Playwright HTML](${artifactsUrl}) ·
 [🧾 JSON / JUnit](${artifactsUrl}) ·
@@ -489,81 +491,75 @@ _Автоматические проверки проекта • расшире
 <table>
 <tr>
 <td valign="top" width="50%">
-<h3>📋 Quality gates</h3>
+<h3>📋 1. Проверки качества</h3>
 <table>
 <thead><tr><th>Проверка</th><th>Статус</th></tr></thead>
 <tbody>
-<tr><td>ESLint + TypeScript + Coverage Matrix</td><td>${escapeHtml(statusLabel(quality))}</td></tr>
-<tr><td>Unit tests</td><td>${escapeHtml(statusLabel(unit))}</td></tr>
-<tr><td>API tests</td><td>${escapeHtml(statusLabel(api))}</td></tr>
-<tr><td>E2E / 3 browsers</td><td>${escapeHtml(statusLabel(e2e))}</td></tr>
+<tr><td>ESLint + TypeScript + матрица требований</td><td>${escapeHtml(statusLabel(quality))}</td></tr>
+<tr><td>Модульные тесты</td><td>${escapeHtml(statusLabel(unit))}</td></tr>
+<tr><td>API-тесты</td><td>${escapeHtml(statusLabel(api))}</td></tr>
+<tr><td>E2E · 3 браузера</td><td>${escapeHtml(statusLabel(e2e))}</td></tr>
 </tbody>
 </table>
 </td>
 <td valign="top" width="50%">
-<h3>🎯 HW16 coverage</h3>
+<h3>🎯 2. Покрытие требований</h3>
 <table>
-<thead><tr><th>Метрика</th><th>Значение</th></tr></thead>
+<thead><tr><th>Статус</th><th>Результат</th></tr></thead>
 <tbody>
-<tr><td>Audit completeness</td><td><strong>${coverageTotal} / ${portfolio.requirements}</strong></td></tr>
-<tr><td>automated</td><td><strong>${coverage.automated} / 50</strong></td></tr>
-<tr><td>partial</td><td>${coverage.partial} / 50</td></tr>
-<tr><td>known defect</td><td>${coverage["known defect"]} / 50</td></tr>
-<tr><td>out of scope</td><td>${coverage["out of scope"]} / 50</td></tr>
+<tr><td>Полнота аудита</td><td><strong>${coverageTotal} / ${portfolio.requirements} · 100%</strong></td></tr>
+<tr><td>Автоматизировано</td><td><strong>${coverage.automated} / 50 · 90%</strong></td></tr>
+<tr><td>Частично</td><td>${coverage.partial} / 50 · 4%</td></tr>
+<tr><td>Известный дефект</td><td>${coverage["known defect"]} / 50 · 2%</td></tr>
+<tr><td>Вне объёма</td><td>${coverage["out of scope"]} / 50 · 4%</td></tr>
 </tbody>
 </table>
 </td>
 </tr>
 <tr>
 <td valign="top" width="50%">
-<h3>🧪 Test inventory</h3>
+<h3>🧪 3. Тесты и окружение</h3>
 <table>
-<thead><tr><th>Уровень</th><th>Проверок</th></tr></thead>
+<thead><tr><th>Параметр</th><th>Значение</th></tr></thead>
 <tbody>
-<tr><td>Unit</td><td>${portfolio.unit ?? "—"}</td></tr>
+<tr><td>Модульные</td><td>${portfolio.unit ?? "—"}</td></tr>
 <tr><td>API</td><td>${portfolio.api ?? "—"}</td></tr>
-<tr><td>E2E scenarios</td><td>${portfolio.e2e ?? "—"}</td></tr>
-<tr><td><strong>Total</strong></td><td><strong>${portfolio.total ?? "—"}</strong></td></tr>
+<tr><td>E2E</td><td>${portfolio.e2e ?? "—"}</td></tr>
+<tr><td>Всего проверок</td><td><strong>${portfolio.total ?? "—"}</strong></td></tr>
+<tr><td>Браузеры</td><td>Chromium · Firefox · WebKit</td></tr>
+<tr><td>Параллельность</td><td><strong>4 процесса на браузер</strong></td></tr>
+<tr><td>Повторы</td><td><strong>0</strong></td></tr>
 </tbody>
 </table>
 </td>
 <td valign="top" width="50%">
-<h3>⚙️ Execution</h3>
+<h3>🚀 4. Запуск</h3>
 <table>
-<thead><tr><th>Параметр</th><th>Значение</th></tr></thead>
+<thead><tr><th>Поле</th><th>Значение</th></tr></thead>
 <tbody>
-<tr><td>Node.js</td><td><strong>24</strong></td></tr>
-<tr><td>Browsers</td><td>Chromium · Firefox · WebKit</td></tr>
-<tr><td>Workers</td><td><strong>4 per browser</strong></td></tr>
-<tr><td>Retries</td><td><strong>0</strong></td></tr>
-<tr><td>Reports</td><td>HTML · Allure · JSON · JUnit</td></tr>
+<tr><td>Репозиторий</td><td><code>${escapeHtml(repository)}</code></td></tr>
+<tr><td>Ветка</td><td><code>${escapeHtml(branch)}</code></td></tr>
+<tr><td>Событие</td><td>${escapeHtml(event)}</td></tr>
+<tr><td>Автор</td><td><code>${escapeHtml(actor)}</code></td></tr>
+<tr><td>Коммит</td><td><code>${escapeHtml(shortSha)}</code></td></tr>
+<tr><td>Запуск</td><td><a href="${runUrl}">#${escapeHtml(runNumber)}</a></td></tr>
 </tbody>
 </table>
 </td>
 </tr>
-</table>
-
-### 🧹 E2E data discipline
-
-| Показатель | Значение |
-| --- | ---: |
-| E2E spec files | **${e2eSpecFiles.length}** |
-| API / Helper Arrange | **${e2eWithApiArrange.length} / ${e2eSpecFiles.length}** |
-| Centralized cleanup | **${e2eWithCleanup.length} / ${e2eSpecFiles.length}** |
-`;
-
-const sections = [htmlHeader];
+</table>`,
+];
 
 sections.push(
-  "## 🌐 Browser matrix\n\n" +
+  "## 🌐 Браузерная матрица\n\n" +
     markdownTable(
       [
-        "Browser",
+        "Браузер",
         "Результат",
-        "Expected fail",
-        "Unexpected",
-        "Flaky",
-        "Retries",
+        "Ожидаемые падения",
+        "Непредвиденные",
+        "Нестабильные",
+        "Повторы",
         "Время",
       ],
       browserRows,
@@ -574,23 +570,46 @@ if (allFailures.length > 0) {
   sections.push(
     "## 🚨 Непредвиденные падения\n\n" +
       markdownTable(
-        ["Browser", "Файл", "Сценарий"],
+        ["Браузер", "Файл", "Сценарий"],
         allFailures.map((failure) => [
           failure.browser,
           failure.file,
           failure.title,
         ]),
       ) +
-      "\n\n> Для failed job сохранены trace, screenshot/video и Allure/Playwright artifacts.",
+      "\n\n> Для упавших проверок сохранены trace, скриншоты, видео и отчёты.",
   );
 }
+
+sections.push(`
+## 📦 Отчёты и материалы
+
+| Материал | Назначение | Хранение |
+| --- | --- | ---: |
+| [Playwright HTML](${artifactsUrl}) | интерактивный отчёт по браузеру | 14 дней |
+| [Allure](${artifactsUrl}) | шаги, вложения и история | 14 дней |
+| [JSON + JUnit](${artifactsUrl}) | результаты для автоматической обработки | 14 дней |
+| [Диагностика ошибок](${artifactsUrl}) | trace / скриншоты / видео | 7 дней |
+| Матрица требований | проверка 50/50 + ссылки на тесты + README ↔ матрица | CI |
+
+<details>
+<summary><strong>🧹 Работа с тестовыми данными</strong></summary>
+
+| Показатель | Значение |
+| --- | ---: |
+| Файлы E2E | **${e2eSpecFiles.length}** |
+| Подготовка через API / вспомогательные функции | **${e2eWithApiArrange.length} / ${e2eSpecFiles.length}** |
+| Централизованная очистка | **${e2eWithCleanup.length} / ${e2eSpecFiles.length}** |
+
+</details>
+`);
 
 if (slowestRows.length > 0) {
   sections.push(
     "<details>\n" +
       "<summary><strong>⏱️ Самые медленные сценарии</strong></summary>\n\n" +
       markdownTable(
-        ["Browser", "Время", "Сценарий"],
+        ["Браузер", "Время", "Сценарий"],
         slowestRows,
       ) +
       "\n\n</details>",
@@ -598,75 +617,21 @@ if (slowestRows.length > 0) {
 }
 
 sections.push(`
-## 📦 Отчёты и evidence
+## 🛰 Дополнительные проверки
 
-| Evidence | Назначение | Retention |
-| --- | --- | ---: |
-| [Playwright HTML](${artifactsUrl}) | интерактивный browser report | 14 days |
-| [Allure](${artifactsUrl}) | история шагов и вложения | 14 days |
-| [JSON + JUnit](${artifactsUrl}) | machine-readable результаты | 14 days |
-| [Failure diagnostics](${artifactsUrl}) | trace / screenshots / video | 7 days |
-| Requirement coverage | 50/50 ID + test references + README ↔ matrix gate | CI |
-
-## 🛰 Дополнительные quality signals
-
-| Workflow | Что проверяет |
+| Проверка | Что контролирует |
 | --- | --- |
-| [Security & Quality Gates](${server}/${repository}/actions/workflows/security.yml) | npm audit · dependency review · SBOM · static quality |
-| [AI Review](${server}/${repository}/actions/workflows/ai-review.yml) | CODEX-scoped review после зелёного PR CI |
-| [Accessibility Audit](${server}/${repository}/actions/workflows/accessibility.yml) | axe-core / WCAG |
-| [Performance Smoke / Lighthouse](${server}/${repository}/actions/workflows/performance.yml) | performance · accessibility · best practices · SEO |
-| [Visual Regression](${server}/${repository}/actions/workflows/visual.yml) | visual diff в Chromium |
-| [Stability Check](${server}/${repository}/actions/workflows/stability.yml) | repeat-each с \`retries=0\` |
-| [Nightly E2E](${server}/${repository}/actions/workflows/nightly.yml) | плановая регрессия live-стенда |
-
-## 🚀 Контекст запуска
-
-| Поле | Значение |
-| --- | --- |
-| Repository | \`${escapeMarkdown(repository)}\` |
-| Branch | \`${escapeMarkdown(branch)}\` |
-| Event | ${escapeMarkdown(event)} |
-| Actor | \`${escapeMarkdown(actor)}\` |
-| Commit | \`${escapeMarkdown(shortSha)}\` |
-| Run | [#${escapeMarkdown(runNumber)}](${runUrl}) |
-
-<details>
-<summary><strong>🧭 Архитектура pipeline</strong></summary>
-
-\`\`\`mermaid
-flowchart LR
-  A[PR / push / manual] --> Q[Quality + coverage]
-  A --> U[Unit]
-  A --> P[API]
-  Q --> C[Chromium]
-  U --> C
-  P --> C
-  Q --> F[Firefox]
-  U --> F
-  P --> F
-  Q --> W[WebKit]
-  U --> W
-  P --> W
-  C --> S[CI Dashboard]
-  F --> S
-  W --> S
-  C --> R[Reports + artifacts]
-  F --> R
-  W --> R
-  Q --> T[Telegram]
-  U --> T
-  P --> T
-  C --> T
-  F --> T
-  W --> T
-\`\`\`
-
-</details>
+| [Безопасность](${server}/${repository}/actions/workflows/security.yml) | npm audit · зависимости · SBOM · статический анализ |
+| [AI Review](${server}/${repository}/actions/workflows/ai-review.yml) | проверка изменений по CODEX после зелёного CI |
+| [Доступность](${server}/${repository}/actions/workflows/accessibility.yml) | axe-core / WCAG |
+| [Производительность](${server}/${repository}/actions/workflows/performance.yml) | Lighthouse |
+| [Визуальная регрессия](${server}/${repository}/actions/workflows/visual.yml) | сравнение интерфейса в Chromium |
+| [Стабильность](${server}/${repository}/actions/workflows/stability.yml) | повторные прогоны с \`retries=0\` |
+| [Ночная регрессия](${server}/${repository}/actions/workflows/nightly.yml) | плановая проверка live-стенда |
 
 ---
 
-> **Принцип:** зелёный статус не маскируется retries. \`retries=0\`, browser matrix выполняется после быстрых Quality / Unit / API gates.
+> **Принцип:** результат не маскируется повторами. \`retries=0\`; браузерные E2E запускаются только после быстрых Quality / Unit / API проверок.
 `);
 
 const markdown = sections.join("\n\n");

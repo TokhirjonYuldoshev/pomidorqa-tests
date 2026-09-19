@@ -87,7 +87,7 @@ function buildAiStepSummary({
     : "—";
 
   return `
-# 🤖 AI Review Dashboard
+# 🤖 Сводка AI Review
 
 _Automated CODEX-scoped review • trusted reviewer from \`main\`_
 
@@ -102,42 +102,42 @@ _Automated CODEX-scoped review • trusted reviewer from \`main\`_
 <table>
 <tr>
 <td valign="top" width="50%">
-<h3>🔎 Review result</h3>
+<h3>🔎 Результат проверки</h3>
 <table>
 <thead><tr><th>Параметр</th><th>Значение</th></tr></thead>
 <tbody>
 <tr><td>PR</td><td>#${summaryCell(pullNumber)}</td></tr>
 <tr><td>Commit</td><td><code>${summaryCell(expectedHeadSha.slice(0, 7))}</code></td></tr>
-<tr><td>Result</td><td>${summaryCell(result)}</td></tr>
-<tr><td>Findings</td><td><strong>${summaryCell(findings)}</strong></td></tr>
+<tr><td>Результат</td><td>${summaryCell(result)}</td></tr>
+<tr><td>Замечания</td><td><strong>${summaryCell(findings)}</strong></td></tr>
 </tbody>
 </table>
 </td>
 <td valign="top" width="50%">
-<h3>🧠 Model & scope</h3>
+<h3>🧠 Модель и область проверки</h3>
 <table>
 <thead><tr><th>Параметр</th><th>Значение</th></tr></thead>
 <tbody>
-<tr><td>Model</td><td><code>${summaryCell(modelName)}</code></td></tr>
-<tr><td>Diff reviewed</td><td>${summaryCell(diffChars)}</td></tr>
-<tr><td>Rules</td><td><code>CODEX.md</code> + <code>REVIEW.md</code></td></tr>
-<tr><td>Verifier</td><td>second-pass validation</td></tr>
+<tr><td>Модель</td><td><code>${summaryCell(modelName)}</code></td></tr>
+<tr><td>Проверено изменений</td><td>${summaryCell(diffChars)}</td></tr>
+<tr><td>Правила</td><td><code>CODEX.md</code> + <code>REVIEW.md</code></td></tr>
+<tr><td>Повторная проверка</td><td>второй проход модели</td></tr>
 </tbody>
 </table>
 </td>
 </tr>
 </table>
 
-### 🔐 Safety model
+### 🔐 Безопасность проверки
 
 | Контроль | Значение |
 | --- | --- |
 | Reviewer code | trusted \`main\` |
-| PR code execution | **не выполняется** |
-| PR dependencies | **не устанавливаются** |
-| Inline comments | только добавленные строки |
+| Выполнение кода PR | **не выполняется** |
+| Зависимости PR | **не устанавливаются** |
+| Комментарии | только добавленные строки |
 | Max comments | \`5\` |
-| Usage | ${summaryCell(usage)} |
+| Токены | ${summaryCell(usage)} |
 `;
 }
 
@@ -1184,7 +1184,7 @@ async function main() {
       buildAiStepSummary({
         headline: "⏭️ REVIEW НЕ ВЫПОЛНЯЛСЯ",
         note: "Pull Request уже закрыт.",
-        result: "skipped",
+        result: "Пропущено",
       }),
     );
 
@@ -1224,7 +1224,7 @@ async function main() {
       buildAiStepSummary({
         headline: "⏭️ УСТАРЕВШИЙ REVIEW ПРОПУЩЕН",
         note: "Head PR изменился после CI; старый diff не публикуется.",
-        result: "stale",
+        result: "Устарело",
       }),
     );
 
@@ -1253,7 +1253,7 @@ async function main() {
       buildAiStepSummary({
         headline: "✅ COMMIT УЖЕ ПРОВЕРЕН",
         note: "Повторный вызов модели не нужен.",
-        result: "cached",
+        result: "Уже проверено",
         findings: "review already exists",
       }),
     );
@@ -1278,7 +1278,7 @@ async function main() {
       buildAiStepSummary({
         headline: "✅ REVIEW SCOPE CLEAN",
         note: "Workflow отработал; изменений в области review нет.",
-        result: "success",
+        result: "Успешно",
         findings: "0",
         diffChars: "0",
       }),
@@ -1461,7 +1461,7 @@ ${buildReviewConclusion(
       headline: reviewHeadline,
       note:
         "Результат опубликован в Pull Request после второго валидационного прохода.",
-      result: "published",
+      result: "Опубликовано",
       modelName: model,
       diffChars: `${prepared.diff.length} символов`,
       findings: String(verified.comments.length),
@@ -1482,7 +1482,7 @@ main().catch(
       buildAiStepSummary({
         headline: "❌ AI REVIEW FAILED",
         note: String(error.message),
-        result: "failure",
+        result: "Ошибка",
       }),
     );
 
