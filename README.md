@@ -133,7 +133,7 @@ docs/                     инженерная документация
 
 `main` защищён ruleset `Protect main`. Разрешено только слияние через Pull Request и **squash merge**. Обязательны разрешённые обсуждения и актуальные проверки относительно последнего `main`.
 
-Quality job дополнительно запускает три машинных инварианта: `npm run coverage:check` проверяет все 50 requirement ID и синхронизацию coverage; `scripts/ai-review-self-check.mjs` проверяет policy engine AI Review; `npm run ci:policy` валидирует 10 workflow-файлов — SHA-pinning GitHub Actions, `retries=0`, browser matrix `max-parallel: 2`, обязательные browser/gate/summary/Telegram сигналы, trusted checkout AI Review и non-blocking diagnostic artifact uploads. Поэтому ключевые правила CI нельзя незаметно ослабить простой правкой YAML.
+Quality job дополнительно запускает три машинных инварианта: `npm run coverage:check` проверяет все 50 requirement ID и синхронизацию coverage; `scripts/ai-review-self-check.mjs` проверяет policy engine AI Review; `npm run ci:policy` валидирует 10 workflow-файлов и локальный E2E shortcut — SHA-pinning GitHub Actions, `retries=0`, browser matrix `max-parallel: 2`, локальный worker cap 4, обязательные browser/gate/summary/Telegram сигналы, trusted checkout AI Review и non-blocking diagnostic artifact uploads. Поэтому ключевые правила CI нельзя незаметно ослабить простой правкой YAML или `package.json`.
 
 Обязательные проверки:
 
