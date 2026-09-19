@@ -312,6 +312,7 @@ function publishReviewOutputs({
   );
   writeStepOutput("model", model);
   writeStepOutput("tokens_total", usage?.totalTokens ?? 0);
+  writeStepOutput("upstream_run_id", upstreamRunId);
 }
 
 const codex =
@@ -1377,6 +1378,37 @@ async function main() {
       await getPullFiles(),
     );
 
+  const deterministicFindings =
+    findDeterministicFindings(
+      prepared.preparedFiles,
+    );
+
+  const impactedRequirements =
+    findImpactedRequirements(
+      coverageMatrix,
+      prepared.reviewedPaths,
+    );
+
+  const impactedRequirementText =
+    impactedRequirements.length
+      ? impactedRequirements
+          .map((item) => item.id)
+          .join(", ")
+      : "нет прямой связи по coverage matrix";
+
+  const upstreamRunText =
+    upstreamRunId
+      ? `run ${upstreamRunId}`
+      : "ручной запуск";
+
+  console.log(
+    "AI-review scope: " +
+      `${prepared.reviewedFiles}/` +
+      `${prepared.changedFiles} files; ` +
+      `deterministic=${deterministicFindings.length}; ` +
+      `requirements=${impactedRequirementText}.`,
+  );
+
   if (
     !prepared.diff.trim()
   ) {
@@ -1396,9 +1428,18 @@ async function main() {
         p2: "0",
         p3: "0",
         reviewedFiles: "0",
+        changedFiles: String(prepared.changedFiles),
+        ignoredFiles: String(prepared.ignoredFiles),
+        deterministicFindings: "0",
+        impactedRequirements: "нет",
+        upstreamRun: upstreamRunText,
       }),
     );
-    publishReviewOutputs({ state: "scope_clean" });
+    publishReviewOutputs({
+      state: "scope_clean",
+      changedFiles: prepared.changedFiles,
+      ignoredFiles: prepared.ignoredFiles,
+    });
 
     return;
   }
@@ -1457,9 +1498,16 @@ async function main() {
         coordinateValid,
     });
 
+  const finalFindings =
+    mergeReviewFindings(
+      deterministicFindings,
+      verified.comments,
+      MAX_INLINE_COMMENTS,
+    );
+
   const comments =
     toGitHubComments(
-      verified.comments,
+      finalFindings,
       prepared
         .addedLinesByPath,
       ruleNumbers,
@@ -1490,6 +1538,10 @@ async function main() {
       state: "stale",
       diffChars: prepared.diff.length,
       reviewedFiles: prepared.reviewedFiles,
+      changedFiles: prepared.changedFiles,
+      ignoredFiles: prepared.ignoredFiles,
+      deterministicFindings: deterministicFindings.length,
+      impactedRequirements,
       usage,
     });
 
@@ -1498,7 +1550,7 @@ async function main() {
 
   const priorityCounts =
     countPriorities(
-      verified.comments,
+      finalFindings,
     );
 
   const usageText =
@@ -1545,9 +1597,13 @@ ${buildReviewConclusion(
     );
     publishReviewOutputs({
       state: "dry_run",
-      comments: verified.comments,
+      comments: finalFindings,
       diffChars: prepared.diff.length,
       reviewedFiles: prepared.reviewedFiles,
+      changedFiles: prepared.changedFiles,
+      ignoredFiles: prepared.ignoredFiles,
+      deterministicFindings: deterministicFindings.length,
+      impactedRequirements,
       usage,
     });
 
@@ -1584,9 +1640,9 @@ ${buildReviewConclusion(
   );
 
   const reviewHeadline =
-    verified.comments.length === 0
+    finalFindings.length === 0
       ? "✅ ДОКАЗУЕМЫХ НАРУШЕНИЙ НЕ НАЙДЕНО"
-      : verified.comments.some((comment) =>
+      : finalFindings.some((comment) =>
             ["P1", "P2"].includes(comment.priority),
         )
         ? "❌ ТРЕБУЕТСЯ ДОРАБОТКА"
@@ -1600,22 +1656,31 @@ ${buildReviewConclusion(
       result: "Опубликовано",
       modelName: model,
       diffChars: `${prepared.diff.length} символов`,
-      findings: String(verified.comments.length),
+      findings: String(finalFindings.length),
       usage: usageText,
       reviewUrl: published.html_url,
       p1: String(priorityCounts.p1),
       p2: String(priorityCounts.p2),
       p3: String(priorityCounts.p3),
       reviewedFiles: String(prepared.reviewedFiles),
+      changedFiles: String(prepared.changedFiles),
+      ignoredFiles: String(prepared.ignoredFiles),
+      deterministicFindings: String(deterministicFindings.length),
+      impactedRequirements: impactedRequirementText,
+      upstreamRun: upstreamRunText,
     }),
   );
 
   publishReviewOutputs({
     state: "published",
-    comments: verified.comments,
+    comments: finalFindings,
     reviewUrl: published.html_url,
     diffChars: prepared.diff.length,
     reviewedFiles: prepared.reviewedFiles,
+    changedFiles: prepared.changedFiles,
+    ignoredFiles: prepared.ignoredFiles,
+    deterministicFindings: deterministicFindings.length,
+    impactedRequirements,
     usage,
   });
 
