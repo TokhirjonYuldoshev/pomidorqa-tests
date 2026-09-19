@@ -289,7 +289,7 @@ requireText(
 );
 requireText(
   aiReview,
-  "ref: main",
+  "ref: ${{ github.event.repository.default_branch }}",
   "AI Review trusted checkout",
 );
 
