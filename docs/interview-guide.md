@@ -65,7 +65,7 @@ Fixtures владеют жизненным циклом `BrowserContext`. `appFa
 
 ## Как устроен CI
 
-Сначала независимо выполняются Quality, Unit и API. Quality включает машинную проверку матрицы покрытия: все 50 requirement ID, статусы, ссылки на тесты и согласованность README. После них один E2E-набор проходит Chromium, Firefox и WebKit. Для каждого браузера Actions Summary показывает Markdown-таблицы результатов, времени, самых медленных сценариев, API Arrange/cleanup и ссылки на HTML/Allure/JSON/JUnit artifacts.
+Сначала независимо выполняются Quality, Unit и API. Quality включает машинную проверку матрицы покрытия: все 50 requirement ID, статусы, ссылки на тесты и согласованность README. После них один E2E-набор проходит Chromium, Firefox и WebKit. Каждый браузер сохраняет machine-readable JSON/JUnit и отдельные HTML/Allure artifacts. Финальный CI Dashboard агрегирует все три browser reports в одну сводку: pass/fail, expected/unexpected failures, flaky, retries, duration, slowest scenarios, data-discipline, requirement coverage и ссылки на artifacts.
 
 `main` защищён ruleset и принимает только squash merge после обязательных проверок.
 
@@ -111,7 +111,7 @@ Accessibility, Lighthouse и Visual Regression измеряют другие с�
 
 ## Как работает AI Review
 
-После успешного PR CI отдельный workflow запускает Gemini-review по CODEX-scoped diff. Он не исполняет код PR: reviewer и правила берутся из доверенной ветки `main`, а изменения PR читаются через GitHub API. Draft PR тоже проверяются; при необходимости review можно запустить вручную по номеру PR. Второй проход модели отбрасывает неподтверждённые замечания перед публикацией.
+После успешного PR CI отдельный workflow запускает Gemini-review по CODEX-scoped diff. Он не исполняет код PR: reviewer и правила берутся из доверенной ветки `main`, а изменения PR читаются через GitHub API. Scope включает тесты, `src`, `scripts`, workflows, документацию и ключевые конфигурационные файлы. Draft PR тоже проверяются; при необходимости review можно запустить вручную по номеру PR. Второй проход модели отбрасывает неподтверждённые замечания перед публикацией, а Actions Summary показывает модель, commit, размер diff, число findings и ссылку на review.
 
 ## Зачем Nightly
 

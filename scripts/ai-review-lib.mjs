@@ -1,9 +1,21 @@
 const REVIEWED_EXACT_PATHS = new Set([
+  "CODEX.md",
+  "README.md",
+  "REVIEW.md",
   "eslint.config.mjs",
   "package.json",
   "playwright.config.ts",
   "playwright.visual.config.ts",
+  "requirements.md",
 ]);
+
+const REVIEWED_PREFIXES = [
+  ".github/workflows/",
+  "docs/",
+  "scripts/",
+  "src/",
+  "tests/",
+];
 
 export const REVIEW_MARKER_PREFIX = "<!-- pomidorqa-gemini-review:";
 
@@ -14,7 +26,10 @@ function sanitizeReviewText(value) {
 }
 
 export function isReviewedPath(path) {
-  return path.startsWith("tests/") || REVIEWED_EXACT_PATHS.has(path);
+  return (
+    REVIEWED_EXACT_PATHS.has(path) ||
+    REVIEWED_PREFIXES.some((prefix) => path.startsWith(prefix))
+  );
 }
 
 export function extractRuleNumbers(markdown) {

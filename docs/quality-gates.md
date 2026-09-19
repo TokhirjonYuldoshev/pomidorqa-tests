@@ -56,7 +56,7 @@ npm run regression:metrics
 | Registration Contract Smoke | ручная проверка контракта регистрации |
 | Telegram Notification Test | ручная диагностика уведомлений |
 
-Диагностический сигнал не подменяет обязательную проверку.
+Диагностический сигнал не подменяет обязательную проверку. `CI Summary` служит обзорным dashboard и агрегирует machine-readable browser reports, но источником pass/fail остаются сами jobs.
 
 ## Детерминированность
 
@@ -77,7 +77,9 @@ npm run regression:metrics
 - отчёты accessibility/Lighthouse;
 - визуальные различия;
 - итог Registration Contract Smoke;
-- GitHub Actions Summary.
+- GitHub Actions Summary;
+- агрегированный CI Dashboard по Chromium / Firefox / WebKit;
+- AI Review Dashboard с моделью, scope, числом findings и ссылкой на опубликованный review.
 
 Artifacts нужны для расследования и не меняют фактический pass/fail.
 

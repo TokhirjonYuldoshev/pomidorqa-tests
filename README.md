@@ -56,14 +56,14 @@
 | Архитектура | Page Object Model, fixtures, helpers, уникальные тестовые данные |
 | Подготовка данных | создание тестовых аккаунтов через API там, где UI-регистрация не является предметом проверки |
 | Очистка данных | централизованное удаление созданных тестовых аккаунтов перед закрытием `BrowserContext` |
-| Отчёты | Playwright HTML, Allure, JSON/JUnit, trace, screenshots, video; Markdown-таблицы метрик в Actions Summary |
+| Отчёты | Playwright HTML, Allure, JSON/JUnit, trace, screenshots, video; единый Actions Dashboard агрегирует три браузера, failures, slowest tests, artifacts и coverage |
 | Доступность | axe-core / WCAG |
 | Производительность | Lighthouse |
 | Визуальные проверки | сравнение скриншотов в Chromium |
 | Безопасность | `npm audit`, проверка изменений зависимостей, CycloneDX SBOM |
 | Стабильность | повторные прогоны с `retries=0` и отдельной таблицей метрик |
 | Traceability | автоматическая проверка 50 requirement ID, статусов, test-ссылок и синхронизации README ↔ matrix |
-| AI Review | отдельный Gemini-review после зелёного PR CI + ручной запуск для выбранного PR |
+| AI Review | Gemini-review после зелёного PR CI + ручной запуск; проверяет tests/src/scripts/workflows/docs/config и публикует собственный Actions Dashboard |
 | Плановые проверки | Nightly E2E |
 | Уведомления | Telegram как вспомогательный канал, не источник результата тестов |
 
@@ -169,7 +169,7 @@ Quality job дополнительно запускает `npm run coverage:chec
 
 ## Отчёты и диагностика
 
-Playwright формирует HTML, Allure, JSON и JUnit. При ошибках сохраняются trace, screenshots, video и `test-results`. В GitHub Actions отчёты разделены по браузерам и доступны как artifacts; сводка E2E-метрик публикуется в GitHub Actions Step Summary.
+Playwright формирует HTML, Allure, JSON и JUnit. При ошибках сохраняются trace, screenshots, video и `test-results`. Каждый browser job публикует собственные метрики, а финальный `CI Summary` скачивает machine-readable отчёты Chromium/Firefox/WebKit и строит единый Actions Dashboard: статус gates, 50/50 requirement audit, test inventory, browser matrix, expected/unexpected failures, flaky/retries, slowest scenarios, data-discipline и прямые ссылки на artifacts.
 
 Telegram используется только для доставки результата. Если отправка уведомления не удалась, это не меняет фактический статус тестов или проверки безопасности.
 

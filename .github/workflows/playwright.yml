@@ -216,166 +216,39 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+
   summary:
     name: CI Summary
     if: ${{ always() }}
     needs: [quality, unit, api, e2e]
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Publish run summary
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+
+      - name: Download browser machine reports
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          pattern: machine-report-*-${{ github.run_id }}
+          path: .qa-artifacts/ci-machine-reports
+          merge-multiple: false
+
+      - name: Publish executive CI dashboard
+        if: ${{ always() }}
         env:
           QUALITY: ${{ needs.quality.result }}
           UNIT: ${{ needs.unit.result }}
           API: ${{ needs.api.result }}
           E2E: ${{ needs.e2e.result }}
-        run: |
-          status_ru() {
-            case "$1" in
-              success) echo "✅ Успешно" ;;
-              failure) echo "❌ Ошибка" ;;
-              cancelled) echo "⏹️ Отменено" ;;
-              skipped) echo "⏭️ Пропущено" ;;
-              *) echo "❔ ${1:-unknown}" ;;
-            esac
-          }
-
-          event_ru() {
-            case "$1" in
-              pull_request) echo "Pull Request" ;;
-              push) echo "Push в репозиторий" ;;
-              workflow_dispatch) echo "Ручной запуск" ;;
-              *) echo "$1" ;;
-            esac
-          }
-
-          html_escape() {
-            local text="$1"
-            text="${text//&/&amp;}"
-            text="${text//</&lt;}"
-            text="${text//>/&gt;}"
-            printf '%s' "$text"
-          }
-
-          if [[ "$QUALITY" == "success" && "$UNIT" == "success" && "$API" == "success" && "$E2E" == "success" ]]; then
-            OVERALL="✅ ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ"
-            OVERALL_NOTE="Сборка завершена успешно, включая browser matrix."
-            E2E_DISPLAY="$(status_ru "$E2E")"
-          elif [[ "$QUALITY" == "failure" || "$UNIT" == "failure" || "$API" == "failure" || "$E2E" == "failure" ]]; then
-            OVERALL="❌ ЕСТЬ ОШИБКИ"
-            OVERALL_NOTE="Одна или несколько проверок завершились с ошибкой."
-            E2E_DISPLAY="$(status_ru "$E2E")"
-          elif [[ "$QUALITY" == "cancelled" || "$UNIT" == "cancelled" || "$API" == "cancelled" || "$E2E" == "cancelled" ]]; then
-            OVERALL="⏹️ ЗАПУСК ОТМЕНЁН"
-            OVERALL_NOTE="Выполнение pipeline было остановлено."
-            E2E_DISPLAY="$(status_ru "$E2E")"
-          else
-            OVERALL="⚠️ ПРОВЕРКИ ЗАВЕРШЕНЫ НЕ ПОЛНОСТЬЮ"
-            OVERALL_NOTE="Часть проверок была пропущена."
-            E2E_DISPLAY="$(status_ru "$E2E")"
-          fi
-
-          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          ARTIFACTS_URL="${RUN_URL}#artifacts"
-          BRANCH="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
-          EVENT="$(event_ru "$GITHUB_EVENT_NAME")"
-          SHORT_SHA="${GITHUB_SHA:0:7}"
-          BRANCH_HTML="$(html_escape "$BRANCH")"
-          EVENT_HTML="$(html_escape "$EVENT")"
-          ACTOR_HTML="$(html_escape "$GITHUB_ACTOR")"
-
-          cat >> "$GITHUB_STEP_SUMMARY" <<EOF
-          # Playwright QA Automation CI Summary
-          _Автоматические проверки проекта • нативный GitHub Actions Summary_
-
-          ## ${OVERALL}
-          > ${OVERALL_NOTE}
-
-          [▶️ Открыть run](${RUN_URL}) · [📊 Allure reports](${ARTIFACTS_URL}) · [📦 Playwright artifacts](${ARTIFACTS_URL}) · [✈️ Telegram-бот](https://t.me/Tokhirjon_QA_Bot)
-
-          ---
-
-          <table>
-            <tr>
-              <td valign="top" width="50%">
-                <h3>📋 1. Проверки качества</h3>
-                <table>
-                  <thead><tr><th>Проверка</th><th>Статус</th></tr></thead>
-                  <tbody>
-                    <tr><td>ESLint + TypeScript</td><td>$(status_ru "$QUALITY")</td></tr>
-                    <tr><td>Unit tests</td><td>$(status_ru "$UNIT")</td></tr>
-                    <tr><td>API tests</td><td>$(status_ru "$API")</td></tr>
-                    <tr><td>E2E Matrix / Chromium + Firefox + WebKit</td><td>${E2E_DISPLAY}</td></tr>
-                  </tbody>
-                </table>
-              </td>
-              <td valign="top" width="50%">
-                <h3>✈️ 2. Telegram</h3>
-                <table>
-                  <thead><tr><th>Возможность</th><th>Детали</th></tr></thead>
-                  <tbody>
-                    <tr><td>🤖 Бот</td><td><a href="https://t.me/Tokhirjon_QA_Bot">@Tokhirjon_QA_Bot</a></td></tr>
-                    <tr><td>🔔 Уведомления</td><td>Автоматически после завершения CI</td></tr>
-                    <tr><td>📨 Содержимое</td><td>Общий статус + Quality / Unit / API / E2E Matrix</td></tr>
-                    <tr><td>🌿 Контекст</td><td>Ветка, автор и событие запуска</td></tr>
-                    <tr><td>🔗 Переход</td><td><a href="${RUN_URL}">Открыть этот GitHub Actions run</a></td></tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-            <tr>
-              <td valign="top" width="50%">
-                <h3>⚙️ 3. Окружение</h3>
-                <table>
-                  <thead><tr><th>Параметр</th><th>Значение</th></tr></thead>
-                  <tbody>
-                    <tr><td>Node.js</td><td><strong>24</strong></td></tr>
-                    <tr><td>Live E2E</td><td><strong>PR / push / manual</strong> · Chromium, Firefox and WebKit</td></tr>
-                    <tr><td>E2E workers</td><td><strong>4 per browser</strong></td></tr>
-                    <tr><td>E2E retries</td><td><strong>0</strong> · failures are not masked</td></tr>
-                    <tr><td>Browsers</td><td>Chromium · Firefox · WebKit</td></tr>
-                    <tr><td>Allure reports</td><td><a href="${ARTIFACTS_URL}">Открыть artifacts</a></td></tr>
-                    <tr><td>HTML reports</td><td><a href="${ARTIFACTS_URL}">Открыть artifacts</a></td></tr>
-                  </tbody>
-                </table>
-              </td>
-              <td valign="top" width="50%">
-                <h3>🚀 4. Запуск</h3>
-                <table>
-                  <thead><tr><th>Поле</th><th>Значение</th></tr></thead>
-                  <tbody>
-                    <tr><td>Репозиторий</td><td><code>${GITHUB_REPOSITORY}</code></td></tr>
-                    <tr><td>Ветка</td><td><code>${BRANCH_HTML}</code></td></tr>
-                    <tr><td>Событие</td><td>${EVENT_HTML}</td></tr>
-                    <tr><td>Автор</td><td><code>${ACTOR_HTML}</code></td></tr>
-                    <tr><td>Commit</td><td><code>${SHORT_SHA}</code></td></tr>
-                    <tr><td>Run</td><td><a href="${RUN_URL}">#${GITHUB_RUN_NUMBER}</a></td></tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-          </table>
-
-          > ✈️ **Telegram подключён:** бот получает итог pipeline и прямую ссылку на этот запуск.
-
-          <details>
-          <summary><strong>🔎 Технические статусы</strong></summary>
-
-          - Quality: <code>${QUALITY}</code>
-          - Unit: <code>${UNIT}</code>
-          - API: <code>${API}</code>
-          - E2E Matrix: ${E2E_DISPLAY}
-          </details>
-
-          ---
-          _Playwright QA Automation • Качественный код сегодня — уверенный релиз завтра._
-          EOF
-
-      - name: Publish requirement coverage
-        run: node scripts/validate-coverage-matrix.mjs --github-summary
+        run: node scripts/ci-dashboard.mjs .qa-artifacts/ci-machine-reports
 
   notify:
     name: Telegram Notification
