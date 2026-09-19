@@ -29,6 +29,20 @@
 | E2E | 100 |
 | Всего автоматизированных проверок | **121** |
 
+### Измеренное время последнего зелёного CI
+
+Срез из PR #90 на текущем наборе тестов:
+
+| Уровень / браузер | Результат | Время |
+| --- | ---: | ---: |
+| Unit | 10 passed | **1.3 s** |
+| API | 11 passed | **5.1 s** |
+| E2E / Chromium | 100 passed | **4.3 min** |
+| E2E / Firefox | 100 passed | **6.4 min** |
+| E2E / WebKit | 100 passed | **5.9 min** |
+
+Три браузерных E2E jobs выполняются параллельно, поэтому их времена не суммируются в wall-clock CI. Значения выше — измерение конкретного зелёного запуска и могут меняться вместе со стендом, нагрузкой и составом набора.
+
 Число тестов, автоматизированное покрытие и полнота аудита — разные метрики. Все 50 требований классифицированы; 45 имеют статус `automated`, два остаются `partial`, два `out of scope`, один — `known defect`. API-мок используется для автоматизированной проверки бизнес-контрактов бронирования на уровне API и не выдаётся за прямое исполнение production-кода PomidorQA. Единственный известный дефект матрицы — R8.3: каталог сейчас учитывает `want_to_learn`, хотя требование ограничивает фильтр навыками `can_help`. Регрессионные проверки написаны по требованию и оформлены как `test.fail()`.
 
 ## Что реализовано
@@ -42,12 +56,14 @@
 | Архитектура | Page Object Model, fixtures, helpers, уникальные тестовые данные |
 | Подготовка данных | создание тестовых аккаунтов через API там, где UI-регистрация не является предметом проверки |
 | Очистка данных | централизованное удаление созданных тестовых аккаунтов перед закрытием `BrowserContext` |
-| Отчёты | Playwright HTML, Allure, trace, screenshots, video |
+| Отчёты | Playwright HTML, Allure, JSON/JUnit, trace, screenshots, video; Markdown-таблицы метрик в Actions Summary |
 | Доступность | axe-core / WCAG |
 | Производительность | Lighthouse |
 | Визуальные проверки | сравнение скриншотов в Chromium |
 | Безопасность | `npm audit`, проверка изменений зависимостей, CycloneDX SBOM |
-| Стабильность | повторные прогоны с `retries=0` |
+| Стабильность | повторные прогоны с `retries=0` и отдельной таблицей метрик |
+| Traceability | автоматическая проверка 50 requirement ID, статусов, test-ссылок и синхронизации README ↔ matrix |
+| AI Review | отдельный Gemini-review после зелёного PR CI + ручной запуск для выбранного PR |
 | Плановые проверки | Nightly E2E |
 | Уведомления | Telegram как вспомогательный канал, не источник результата тестов |
 
@@ -122,6 +138,8 @@ docs/                     инженерная документация
 
 `main` защищён ruleset `Protect main`. Разрешено только слияние через Pull Request и **squash merge**. Обязательны разрешённые обсуждения и актуальные проверки относительно последнего `main`.
 
+Quality job дополнительно запускает `npm run coverage:check`: скрипт проверяет наличие всех 50 requirement ID, допустимые статусы, существование test-файлов из матрицы и совпадение цифр `README.md` с `docs/coverage-matrix.md`. Поэтому процент покрытия нельзя случайно рассинхронизировать простой правкой документации.
+
 Обязательные проверки:
 
 - `Quality / lint + typecheck`;
@@ -141,6 +159,7 @@ docs/                     инженерная документация
 - **Accessibility Audit** — axe-core и WCAG;
 - **Performance Smoke / Lighthouse** — производительность и технические показатели публичных страниц;
 - **Visual Regression** — визуальные изменения login/register;
+- **AI Review** — CODEX-scoped review после успешного PR CI; workflow использует доверенный код из `main`, умеет работать с draft PR и поддерживает ручной запуск по номеру PR;
 - **Nightly E2E Regression** — плановая проверка внешнего стенда;
 - **Stability Check** — повторные запуски без retries;
 - **Registration Contract Smoke** — ручная проверка `POST /pomidorqa/auth/register → 303 → /pomidorqa`;
@@ -193,6 +212,7 @@ E2E_BROWSER=webkit npm run test:e2e
 | `npm run gate` | полный gate: runtime + lint + typecheck + Unit + API + E2E |
 | `npm run regression:metrics` | полный Playwright-прогон и инженерная сводка метрик |
 | `npm run metrics` | разобрать последний JSON-отчёт Playwright |
+| `npm run coverage:check` | проверить 50/50 требований, статусы, test references и синхронизацию README ↔ matrix |
 | `npm run lint` | статический анализ ESLint |
 | `npm run typecheck` | проверка типов TypeScript |
 | `npm run test:unit` | Unit |

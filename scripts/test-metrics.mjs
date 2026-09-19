@@ -3,7 +3,11 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join, normalize } from "node:path";
 
-const reportPath = process.argv[2] ?? "test-results/results.json";
+const args = process.argv.slice(2);
+const reportPath =
+  args.find((arg) => !arg.startsWith("--")) ??
+  "test-results/results.json";
+const markdownMode = args.includes("--markdown");
 const testsDir = "tests";
 
 function normalizePath(path) {
@@ -59,6 +63,14 @@ function formatSeconds(ms) {
   return `${(ms / 1000).toFixed(1)} с`;
 }
 
+function formatPercent(value, total) {
+  if (total === 0) {
+    return "0.0%";
+  }
+
+  return `${((value / total) * 100).toFixed(1)}%`;
+}
+
 function table(rows) {
   const widths = rows[0].map((_, index) =>
     Math.max(...rows.map((row) => String(row[index]).length)),
@@ -73,6 +85,22 @@ function table(rows) {
         .join("  "),
     )
     .join("\n");
+}
+
+function markdownCell(value) {
+  return String(value)
+    .replaceAll("|", "\\|")
+    .replaceAll("\n", " ");
+}
+
+function markdownTable(headers, rows) {
+  return [
+    `| ${headers.map(markdownCell).join(" | ")} |`,
+    `| ${headers.map(() => "---").join(" | ")} |`,
+    ...rows.map(
+      (row) => `| ${row.map(markdownCell).join(" | ")} |`,
+    ),
+  ].join("\n");
 }
 
 const report = JSON.parse(readFileSync(reportPath, "utf8"));
@@ -102,6 +130,8 @@ const skipped = tests.filter(
 const retried = tests.filter(
   (currentTest) => currentTest.attempts > 1,
 );
+const passedAsExpected =
+  tests.length - unexpected.length - flaky.length - skipped.length;
 const wallClock =
   report.stats?.duration ??
   tests.reduce((sum, currentTest) => sum + currentTest.duration, 0);
@@ -144,74 +174,154 @@ const slowest = [...tests]
   .sort((left, right) => right.duration - left.duration)
   .slice(0, 5);
 
-console.log("Метрики прогона\n");
-console.log(
-  table([
-    ["Всего тестов", tests.length],
-    [
-      "Прошли как ожидалось",
-      tests.length - unexpected.length - flaky.length - skipped.length,
-    ],
-    ["Ожидаемые падения", expectedFailures.length],
-    ["Непредвиденные падения", unexpected.length],
-    ["Flaky", flaky.length],
-    ["Пропущены", skipped.length],
-    ["Тестов с повторами", retried.length],
-    ["Общее время", formatSeconds(wallClock)],
-  ]),
-);
-
-console.log("\nПо уровням\n");
-console.log(
-  table([
-    ["Уровень", "Тестов", "Время"],
-    ...[...byProject.entries()]
-      .sort((left, right) => right[1].count - left[1].count)
-      .map(([project, bucket]) => [
-        project,
-        bucket.count,
-        formatSeconds(bucket.duration),
-      ]),
-  ]),
-);
-
-console.log("\nДисциплина E2E\n");
-console.log(
-  table([
-    ["Файлов E2E", e2eFiles.length],
-    [
-      "API/Helper Arrange",
-      `${withApiArrange.length} из ${e2eFiles.length}`,
-    ],
-    [
-      "Централизованный cleanup",
-      `${withCentralizedCleanup.length} из ${e2eFiles.length}`,
-    ],
-  ]),
-);
-
-console.log("\nСамые медленные сценарии\n");
-console.log(
-  table(
-    slowest.map((currentTest) => [
-      formatSeconds(currentTest.duration),
-      currentTest.project,
-      currentTest.title,
+function printText() {
+  console.log("Метрики прогона\n");
+  console.log(
+    table([
+      ["Всего тестов", tests.length],
+      ["Прошли как ожидалось", passedAsExpected],
+      ["Ожидаемые падения", expectedFailures.length],
+      ["Непредвиденные падения", unexpected.length],
+      ["Доля непредвиденных падений", formatPercent(unexpected.length, tests.length)],
+      ["Flaky", flaky.length],
+      ["Пропущены", skipped.length],
+      ["Тестов с повторами", retried.length],
+      ["Общее время", formatSeconds(wallClock)],
     ]),
-  ),
-);
+  );
 
-if (unexpected.length > 0) {
-  console.log("\nНепредвиденные падения\n");
+  console.log("\nПо уровням\n");
+  console.log(
+    table([
+      ["Уровень", "Тестов", "Время"],
+      ...[...byProject.entries()]
+        .sort((left, right) => right[1].count - left[1].count)
+        .map(([project, bucket]) => [
+          project,
+          bucket.count,
+          formatSeconds(bucket.duration),
+        ]),
+    ]),
+  );
+
+  console.log("\nДисциплина E2E\n");
+  console.log(
+    table([
+      ["Файлов E2E", e2eFiles.length],
+      ["API/Helper Arrange", `${withApiArrange.length} из ${e2eFiles.length}`],
+      [
+        "Централизованный cleanup",
+        `${withCentralizedCleanup.length} из ${e2eFiles.length}`,
+      ],
+    ]),
+  );
+
+  console.log("\nСамые медленные сценарии\n");
   console.log(
     table(
-      unexpected.map((currentTest) => [
+      slowest.map((currentTest) => [
+        formatSeconds(currentTest.duration),
         currentTest.project,
-        currentTest.file,
         currentTest.title,
       ]),
     ),
   );
+
+  if (unexpected.length > 0) {
+    console.log("\nНепредвиденные падения\n");
+    console.log(
+      table(
+        unexpected.map((currentTest) => [
+          currentTest.project,
+          currentTest.file,
+          currentTest.title,
+        ]),
+      ),
+    );
+  }
+}
+
+function printMarkdown() {
+  console.log(
+    markdownTable(
+      ["Метрика", "Значение"],
+      [
+        ["Всего тестов", tests.length],
+        ["Прошли как ожидалось", passedAsExpected],
+        ["Ожидаемые падения", expectedFailures.length],
+        ["Непредвиденные падения", unexpected.length],
+        [
+          "Доля непредвиденных падений",
+          formatPercent(unexpected.length, tests.length),
+        ],
+        ["Flaky", flaky.length],
+        ["Пропущены", skipped.length],
+        ["Тестов с повторами", retried.length],
+        ["Общее время", formatSeconds(wallClock)],
+      ],
+    ),
+  );
+
+  console.log("\n#### По уровням\n");
+  console.log(
+    markdownTable(
+      ["Уровень", "Тестов", "Время"],
+      [...byProject.entries()]
+        .sort((left, right) => right[1].count - left[1].count)
+        .map(([project, bucket]) => [
+          project,
+          bucket.count,
+          formatSeconds(bucket.duration),
+        ]),
+    ),
+  );
+
+  console.log("\n#### Дисциплина E2E\n");
+  console.log(
+    markdownTable(
+      ["Показатель", "Значение"],
+      [
+        ["Файлов E2E", e2eFiles.length],
+        ["API/Helper Arrange", `${withApiArrange.length} из ${e2eFiles.length}`],
+        [
+          "Централизованный cleanup",
+          `${withCentralizedCleanup.length} из ${e2eFiles.length}`,
+        ],
+      ],
+    ),
+  );
+
+  console.log("\n#### Самые медленные сценарии\n");
+  console.log(
+    markdownTable(
+      ["Время", "Уровень", "Сценарий"],
+      slowest.map((currentTest) => [
+        formatSeconds(currentTest.duration),
+        currentTest.project,
+        currentTest.title,
+      ]),
+    ),
+  );
+
+  if (unexpected.length > 0) {
+    console.log("\n#### Непредвиденные падения\n");
+    console.log(
+      markdownTable(
+        ["Уровень", "Файл", "Сценарий"],
+        unexpected.map((currentTest) => [
+          currentTest.project,
+          currentTest.file,
+          currentTest.title,
+        ]),
+      ),
+    );
+  }
+}
+
+if (markdownMode) {
+  printMarkdown();
+} else {
+  printText();
 }
 
 process.exit(unexpected.length > 0 ? 1 : 0);

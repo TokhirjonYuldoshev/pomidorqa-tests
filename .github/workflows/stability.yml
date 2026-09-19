@@ -117,6 +117,15 @@ jobs:
           --workers="$STABILITY_WORKERS"
           --retries=0
 
+      - name: Publish stability metrics
+        if: ${{ always() }}
+        run: |
+          {
+            echo "### Stability test metrics"
+            echo
+            node scripts/test-metrics.mjs test-results/results.json --markdown || true
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Generate Allure report
         if: ${{ always() }}
         run: npm run allure:generate

@@ -18,7 +18,7 @@
 npm run gate
 ```
 
-Он запускает runtime check, lint, typecheck, Unit, API и E2E в fail-fast цепочке: дорогой браузерный уровень начинается только после дешёвых статических и нижележащих проверок.
+Он запускает runtime check, lint, typecheck, проверку матрицы покрытия, Unit, API и E2E в fail-fast цепочке: дорогой браузерный уровень начинается только после дешёвых статических и нижележащих проверок.
 
 Для полного прогона с JSON-метриками используется:
 
@@ -30,7 +30,7 @@ npm run regression:metrics
 
 | Проверка GitHub | Что подтверждает |
 | --- | --- |
-| `Quality / lint + typecheck` | ESLint и TypeScript |
+| `Quality / lint + typecheck` | ESLint, TypeScript и автоматическая валидация requirement coverage |
 | `Unit tests` | чистую бизнес-логику |
 | `API tests` | локальные HTTP-контракты и live test API регистрации PomidorQA |
 | `E2E / Chromium` | пользовательские сценарии в Chromium |
@@ -39,6 +39,8 @@ npm run regression:metrics
 | `Security / npm audit` | отсутствие блокирующих npm-уязвимостей |
 | `Security / dependency change review` | согласованность изменений зависимостей и lockfile |
 | `Security / code quality` | независимую статическую проверку кода |
+
+Внутри Quality выполняется `npm run coverage:check`. Он блокирует PR, если отсутствует любой из 50 requirement ID, встречается недопустимый/дублирующийся статус, матрица ссылается на несуществующий spec-файл или цифры README расходятся с матрицей.
 
 Если одна из этих проверок красная, связанное изменение не готово к слиянию.
 

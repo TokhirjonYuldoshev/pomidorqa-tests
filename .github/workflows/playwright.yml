@@ -43,6 +43,9 @@ jobs:
       - name: TypeScript typecheck
         run: npm run typecheck
 
+      - name: Validate requirement coverage matrix
+        run: npm run coverage:check
+
   unit:
     name: Unit tests
     runs-on: ubuntu-latest
@@ -145,11 +148,21 @@ jobs:
       - name: Publish test metrics
         if: ${{ !cancelled() }}
         run: |
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
           {
             echo "### Test metrics / ${{ matrix.label }}"
-            printf '%s\n' '```text'
-            npm run metrics || true
-            printf '%s\n' '```'
+            echo
+            node scripts/test-metrics.mjs test-results/results.json --markdown || true
+            echo
+            echo "#### Reports"
+            echo
+            echo "| Отчёт | Где открыть | Retention |"
+            echo "| --- | --- | ---: |"
+            echo "| Playwright HTML | [Artifacts](${RUN_URL}#artifacts) | 14 days |"
+            echo "| Allure | [Artifacts](${RUN_URL}#artifacts) | 14 days |"
+            echo "| JSON + JUnit | [Artifacts](${RUN_URL}#artifacts) | 14 days |"
+            echo "| Trace / screenshots / video при failure | [Artifacts](${RUN_URL}#artifacts) | 7 days |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload JSON and JUnit reports
@@ -210,6 +223,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
       - name: Publish run summary
         env:
           QUALITY: ${{ needs.quality.result }}
@@ -357,6 +373,9 @@ jobs:
           ---
           _Playwright QA Automation • Качественный код сегодня — уверенный релиз завтра._
           EOF
+
+      - name: Publish requirement coverage
+        run: node scripts/validate-coverage-matrix.mjs --github-summary
 
   notify:
     name: Telegram Notification
