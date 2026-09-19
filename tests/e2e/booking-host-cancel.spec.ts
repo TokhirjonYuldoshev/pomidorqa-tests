@@ -17,80 +17,67 @@ test("хост отменяет встречу, и отмену видят об�
   const hostApp = await appFactory();
   const guestApp = await appFactory();
 
-  await registerUserViaApi(hostApp.context.request, host);
-  await hostApp.profilePage.goto();
-  await hostApp.profilePage.addSkill(skill, "can_help");
-  await hostApp.slotsPage.goto();
-  await hostApp.slotsPage.addSlot("13:00");
+  await test.step("Хост публикует навык и свободный слот", async () => {
+    await registerUserViaApi(hostApp.context.request, host);
+    await hostApp.profilePage.goto();
+    await hostApp.profilePage.addSkill(skill, "can_help");
+    await hostApp.slotsPage.goto();
+    await hostApp.slotsPage.addSlot("13:00");
+  });
 
-  await registerUserViaApi(guestApp.context.request, guest);
-  await guestApp.bookingPage.goToCatalog();
-  await guestApp.bookingPage.searchCatalog(skill);
-  await guestApp.bookingPage.waitForPersonInCatalog(host.name, skill);
-  await guestApp.bookingPage.openPerson(host.name);
-  await guestApp.bookingPage.pickOnlyAvailableSlot();
-  await guestApp.bookingPage.confirmBooking();
+  await test.step("Гость бронирует слот хоста", async () => {
+    await registerUserViaApi(guestApp.context.request, guest);
+    await guestApp.bookingPage.goToCatalog();
+    await guestApp.bookingPage.searchCatalog(skill);
+    await guestApp.bookingPage.waitForPersonInCatalog(host.name, skill);
+    await guestApp.bookingPage.openPerson(host.name);
+    await guestApp.bookingPage.pickOnlyAvailableSlot();
+    await guestApp.bookingPage.confirmBooking();
+  });
 
-  expect(
-    await guestApp.bookingPage.waitForBookingResult(),
-  ).toEqual({ status: "success" });
+  await test.step("Бронирование гостя подтверждено", async () => {
+    expect(
+      await guestApp.bookingPage.waitForBookingResult(),
+    ).toEqual({ status: "success" });
+  });
 
-  await expect
-    .poll(
-      async () => {
-        await hostApp.bookingPage.goToBookings();
-        return hostApp.bookingPage
-          .upcomingBookingByParticipant(guest.name)
-          .count();
-      },
-      {
-        timeout: 15_000,
-        intervals: [500, 1_000, 2_000],
-      },
-    )
-    .toBe(1);
+  await test.step("Хост открывает свои встречи", async () => {
+    await hostApp.bookingPage.goToBookings();
+  });
 
-  await hostApp.bookingPage.cancelBookingWith(guest.name);
+  await test.step("Хост видит встречу с гостем", async () => {
+    await expect(
+      hostApp.bookingPage.upcomingBookingByParticipant(guest.name),
+    ).toBeVisible({ timeout: 15_000 });
+  });
 
-  await expect
-    .poll(
-      async () => {
-        await hostApp.page.reload();
-        return hostApp.bookingPage
-          .pastBookingByParticipant(guest.name)
-          .count();
-      },
-      {
-        timeout: 15_000,
-        intervals: [500, 1_000, 2_000],
-      },
-    )
-    .toBe(1);
+  await test.step("Хост отменяет встречу", async () => {
+    await hostApp.bookingPage.cancelBookingWith(guest.name);
+    await hostApp.page.reload();
+  });
 
-  await expect(
-    hostApp.bookingPage.pastBookingByParticipant(guest.name),
-  ).toContainText("отменено");
-  await expect(
-    hostApp.bookingPage
-      .pastBookingByParticipant(guest.name)
-      .getByRole("button", { name: "Отменить" }),
-  ).toHaveCount(0);
+  await test.step("У хоста встреча перенесена в отменённые", async () => {
+    await expect(
+      hostApp.bookingPage.pastBookingByParticipant(guest.name),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      hostApp.bookingPage.pastBookingByParticipant(guest.name),
+    ).toContainText("отменено");
+    await expect(
+      hostApp.bookingPage.pastBookingCancelButton(guest.name),
+    ).toHaveCount(0);
+  });
 
-  await guestApp.bookingPage.goToBookings();
-  await expect
-    .poll(
-      () =>
-        guestApp.bookingPage
-          .pastBookingByParticipant(host.name)
-          .count(),
-      {
-        timeout: 15_000,
-        intervals: [500, 1_000, 2_000],
-      },
-    )
-    .toBe(1);
+  await test.step("Гость открывает свои встречи", async () => {
+    await guestApp.bookingPage.goToBookings();
+  });
 
-  await expect(
-    guestApp.bookingPage.upcomingBookingByParticipant(host.name),
-  ).toHaveCount(0);
+  await test.step("Гость тоже видит отменённую встречу", async () => {
+    await expect(
+      guestApp.bookingPage.pastBookingByParticipant(host.name),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect(
+      guestApp.bookingPage.upcomingBookingByParticipant(host.name),
+    ).toHaveCount(0);
+  });
 });
