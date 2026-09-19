@@ -46,6 +46,9 @@ jobs:
       - name: Validate requirement coverage matrix
         run: npm run coverage:check
 
+      - name: Validate AI review policy engine
+        run: node scripts/ai-review-self-check.mjs
+
   unit:
     name: Unit tests
     runs-on: ubuntu-latest
