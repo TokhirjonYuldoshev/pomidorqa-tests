@@ -23,8 +23,11 @@ export class BookingPage {
   readonly personCards: Locator;
   readonly personName: Locator;
   readonly confirmDialog: Locator;
+  readonly confirmCancelButton: Locator;
   readonly confirmSuccess: Locator;
   readonly confirmError: Locator;
+  readonly calendarTimezoneHint: Locator;
+  readonly cancelError: Locator;
 
   constructor(readonly page: Page) {
     this.catalogFilterInput = page.locator("#pomidorqa-catalog-skill-filter");
@@ -44,8 +47,13 @@ export class BookingPage {
     this.confirmButton = this.confirmDialog.getByRole("button", {
       name: "Подтвердить",
     });
+    this.confirmCancelButton = this.confirmDialog.getByRole("button", {
+      name: "Отмена",
+    });
     this.confirmSuccess = this.confirmDialog.getByRole("status");
     this.confirmError = this.confirmDialog.getByRole("alert");
+    this.calendarTimezoneHint = page.getByTestId("slots-timezone");
+    this.cancelError = page.getByTestId("cancel-error");
 
     this.bookingsSection = page.getByTestId("upcoming-meetings");
     this.upcomingBookings = this.bookingsSection.locator("[data-booking-id]");
@@ -207,6 +215,11 @@ export class BookingPage {
     await this.confirmButton.click();
   }
 
+  async dismissBooking(): Promise<void> {
+    await this.confirmCancelButton.click();
+    await this.confirmDialog.waitFor({ state: "hidden", timeout: 5_000 });
+  }
+
   async waitForBookingResult(timeout = 15_000): Promise<BookingResult> {
     await this.confirmSuccess.or(this.confirmError).waitFor({
       state: "visible",
@@ -235,6 +248,22 @@ export class BookingPage {
 
   pastBookingByParticipant(name: string): Locator {
     return this.pastBookings.filter({ hasText: name });
+  }
+
+  async submitCancel(name: string): Promise<void> {
+    const responsePromise = this.page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === ROUTES.bookings &&
+        response.request().method() === "POST",
+      { timeout: 15_000 },
+    );
+
+    await Promise.all([
+      responsePromise,
+      this.upcomingBookingByParticipant(name)
+        .getByRole("button", { name: "Отменить" })
+        .click(),
+    ]);
   }
 
   async cancelBookingWith(name: string): Promise<void> {
