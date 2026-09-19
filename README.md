@@ -1,16 +1,10 @@
 # PomidorQA — автоматизация тестирования
 
 [![Playwright QA Automation CI](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/playwright.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/playwright.yml)
-[![Nightly E2E Regression](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/nightly.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/nightly.yml)
 [![Security & Quality Gates](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/security.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/security.yml)
-[![Stability Check](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/stability.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/stability.yml)
-[![Accessibility Audit](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/accessibility.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/accessibility.yml)
-[![Performance Smoke / Lighthouse](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/performance.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/performance.yml)
-[![Visual Regression](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/visual.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/visual.yml)
+[![Nightly E2E Regression](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/nightly.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/nightly.yml)
 
-Инженерный проект по автоматизации тестирования сервиса **PomidorQA** на **Playwright + TypeScript**. Основной фокус — не количество сценариев, а качество тестового сигнала: проверяемые требования, изоляция данных, воспроизводимые ошибки, cross-browser регрессия, прозрачная диагностика и независимые quality gates.
-
-Система тестирования построена вокруг реальных продуктовых рисков: сессии пользователей, профиль и навыки, доступность слотов, поиск участников, конкурентное бронирование, отмена встреч, часовые пояса и согласованность состояния между несколькими пользователями.
+Инженерный проект по автоматизации тестирования сервиса **PomidorQA** на **Playwright + TypeScript**. Основной фокус — качество тестового сигнала: проверяемые требования, изоляция данных, воспроизводимые ошибки, cross-browser регрессия, прозрачная диагностика и независимые quality gates.
 
 ## Ключевые результаты
 
@@ -35,15 +29,15 @@
 
 ## Измеренная скорость
 
-Контрольный срез: `main` на commit `ef716ed`, Playwright QA Automation CI run **#294**. Ниже — фактическое время успешно завершившихся test jobs; это измеренный результат конкретного запуска, а не SLA.
+Контрольный срез: `main` на commit `bf2d8d7`, Playwright QA Automation CI run **#296**, завершённый успешно с первого attempt. Ниже — фактическое время test jobs; это измеренный результат конкретного запуска, а не SLA.
 
 | Уровень | Объём | Результат | Время |
 | --- | ---: | ---: | ---: |
-| Unit | 10 | 10 passed | **764 ms** |
-| API | 11 | 11 passed | **5.0 s** |
-| E2E / Chromium | 100 | 100 passed | **5.1 min** |
-| E2E / Firefox | 100 | 100 passed | **6.2 min** |
-| E2E / WebKit | 100 | 100 passed | **5.7 min** |
+| Unit | 10 | 10 passed | **787 ms** |
+| API | 11 | 11 passed | **3.6 s** |
+| E2E / Chromium | 100 | 100 passed | **4.4 min** |
+| E2E / Firefox | 100 | 100 passed | **5.4 min** |
+| E2E / WebKit | 100 | 100 passed | **6.0 min** |
 
 Browser matrix использует `workers=4` внутри каждого job, `retries=0` и `max-parallel: 2`. Актуальные длительности автоматически попадают в machine-readable reports и CI Dashboard, поэтому их можно сравнивать между запусками без ручного пересчёта.
 
