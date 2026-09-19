@@ -83,11 +83,11 @@ function buildAiStepSummary({
     `${repository}/actions/runs/${process.env.GITHUB_RUN_ID || ""}`;
 
   const reviewLink = reviewUrl
-    ? `[Открыть review](${reviewUrl})`
-    : "—";
+    ? `<a href="${reviewUrl}">Открыть review</a>`
+    : "Review не опубликован";
 
   return `
-# 🤖 Сводка AI Review
+# Сводка AI Review
 
 _Automated CODEX-scoped review • trusted reviewer from \`main\`_
 
@@ -95,14 +95,14 @@ _Automated CODEX-scoped review • trusted reviewer from \`main\`_
 
 > ${note}
 
-[▶️ Открыть workflow](${runUrl}) · ${reviewLink}
+<p><a href="${runUrl}">Открыть запуск</a> · ${reviewLink}</p>
 
 ---
 
 <table>
 <tr>
 <td valign="top" width="50%">
-<h3>🔎 Результат проверки</h3>
+<h3>1. Результат проверки</h3>
 <table>
 <thead><tr><th>Параметр</th><th>Значение</th></tr></thead>
 <tbody>
@@ -114,7 +114,7 @@ _Automated CODEX-scoped review • trusted reviewer from \`main\`_
 </table>
 </td>
 <td valign="top" width="50%">
-<h3>🧠 Модель и область проверки</h3>
+<h3>2. Модель и область проверки</h3>
 <table>
 <thead><tr><th>Параметр</th><th>Значение</th></tr></thead>
 <tbody>
@@ -128,7 +128,7 @@ _Automated CODEX-scoped review • trusted reviewer from \`main\`_
 </tr>
 </table>
 
-### 🔐 Безопасность проверки
+### Безопасность проверки
 
 | Контроль | Значение |
 | --- | --- |

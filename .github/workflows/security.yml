@@ -215,14 +215,6 @@ jobs:
           if [[ -z "$TELEGRAM_BOT_TOKEN" || -z "$TELEGRAM_CHAT_ID" ]]; then
             echo "::notice::Telegram secrets не настроены; уведомление пропущено."
 
-            {
-              echo "## ✈️ Telegram"
-              echo
-              echo "ℹ️ Security notification пропущено: TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID недоступны."
-              echo
-              echo "Для Pull Request из fork GitHub repository secrets намеренно недоступны."
-            } >> "$GITHUB_STEP_SUMMARY"
-
             exit 0
           fi
 
@@ -346,19 +338,7 @@ jobs:
 
             echo "::warning::Telegram не подтвердил доставку Security notification (HTTP ${HTTP_CODE:-transport-error})."
 
-            {
-              echo "## ✈️ Telegram"
-              echo
-              echo "⚠️ Security result сохранён, но Telegram не подтвердил доставку."
-            } >> "$GITHUB_STEP_SUMMARY"
-
             exit 0
           fi
-
-          {
-            echo "## ✈️ Telegram"
-            echo
-            echo "✅ Security & Quality Gates result отправлен в Telegram."
-          } >> "$GITHUB_STEP_SUMMARY"
 
           echo "Telegram security notification sent."

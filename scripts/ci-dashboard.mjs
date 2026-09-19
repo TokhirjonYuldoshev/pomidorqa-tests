@@ -300,6 +300,65 @@ function markdownTable(headers, rows) {
   ].join("\n");
 }
 
+function browserDetails(browser, label, current) {
+  if (!current) {
+    return `<details>
+<summary><strong>${label} — подробности</strong></summary>
+
+Отчёт браузера недоступен.
+
+</details>`;
+  }
+
+  const metricsTable = markdownTable(
+    ["Показатель", "Значение"],
+    [
+      ["Всего тестов", current.total],
+      ["Прошли как ожидалось", current.passedAsExpected],
+      ["Ожидаемые падения", current.expectedFailures],
+      ["Непредвиденные падения", current.unexpected],
+      ["Нестабильные", current.flaky],
+      ["Пропущены", current.skipped],
+      ["Повторы", current.retried],
+      ["Время", formatDuration(current.duration)],
+    ],
+  );
+
+  const slowest = markdownTable(
+    ["Время", "Сценарий"],
+    current.slowest.map((test) => [
+      formatDuration(test.duration),
+      test.title,
+    ]),
+  );
+
+  const failures =
+    current.failures.length === 0
+      ? "Непредвиденных падений нет."
+      : markdownTable(
+          ["Файл", "Сценарий"],
+          current.failures.map((failure) => [
+            failure.file,
+            failure.title,
+          ]),
+        );
+
+  return `<details>
+<summary><strong>${label} — подробности</strong></summary>
+
+${metricsTable}
+
+**Самые медленные сценарии**
+
+${slowest}
+
+**Ошибки**
+
+${failures}
+
+</details>`;
+}
+
 const metrics = readBrowserMetrics(reportsRoot);
 const portfolio = parsePortfolioMetrics();
 
@@ -361,6 +420,11 @@ const actor =
 const event = eventLabel(
   process.env.GITHUB_EVENT_NAME,
 );
+const runner =
+  (process.env.RUNNER_OS || "Linux") +
+  " / " +
+  (process.env.RUNNER_ARCH || "X64");
+const nodeVersion = process.version;
 
 const browserLabels = {
   chromium: "Chromium",
@@ -474,24 +538,20 @@ const e2eWithCleanup = e2eSpecFiles.filter((path) => {
 const sections = [
 `# Сводка CI PomidorQA
 
-_Автоматические проверки проекта • GitHub Actions_
+_Автоматические проверки проекта · GitHub Actions_
 
 ## ${overall}
 
 > ${note}
 
-[▶️ Открыть запуск](${runUrl}) ·
-[📊 Allure](${artifactsUrl}) ·
-[🎭 Playwright HTML](${artifactsUrl}) ·
-[🧾 JSON / JUnit](${artifactsUrl}) ·
-[✈️ Telegram](https://t.me/Tokhirjon_QA_Bot)
+<p><a href="${runUrl}">Открыть запуск</a> · <a href="${artifactsUrl}">Allure</a> · <a href="${artifactsUrl}">Playwright HTML</a> · <a href="${artifactsUrl}">JSON / JUnit</a> · <a href="https://t.me/Tokhirjon_QA_Bot">Telegram</a></p>
 
 ---
 
 <table>
 <tr>
 <td valign="top" width="50%">
-<h3>📋 1. Проверки качества</h3>
+<h3>1. Проверки качества</h3>
 <table>
 <thead><tr><th>Проверка</th><th>Статус</th></tr></thead>
 <tbody>
@@ -503,7 +563,7 @@ _Автоматические проверки проекта • GitHub Actions
 </table>
 </td>
 <td valign="top" width="50%">
-<h3>🎯 2. Покрытие требований</h3>
+<h3>2. Покрытие требований</h3>
 <table>
 <thead><tr><th>Статус</th><th>Результат</th></tr></thead>
 <tbody>
@@ -518,14 +578,13 @@ _Автоматические проверки проекта • GitHub Actions
 </tr>
 <tr>
 <td valign="top" width="50%">
-<h3>🧪 3. Тесты и окружение</h3>
+<h3>3. Окружение</h3>
 <table>
 <thead><tr><th>Параметр</th><th>Значение</th></tr></thead>
 <tbody>
-<tr><td>Модульные</td><td>${portfolio.unit ?? "—"}</td></tr>
-<tr><td>API</td><td>${portfolio.api ?? "—"}</td></tr>
-<tr><td>E2E</td><td>${portfolio.e2e ?? "—"}</td></tr>
-<tr><td>Всего проверок</td><td><strong>${portfolio.total ?? "—"}</strong></td></tr>
+<tr><td>Runner</td><td>${escapeHtml(runner)}</td></tr>
+<tr><td>Node.js</td><td><code>${escapeHtml(nodeVersion)}</code></td></tr>
+<tr><td>Стенд</td><td><code>https://aiqa.su</code></td></tr>
 <tr><td>Браузеры</td><td>Chromium · Firefox · WebKit</td></tr>
 <tr><td>Параллельность</td><td><strong>4 процесса на браузер</strong></td></tr>
 <tr><td>Повторы</td><td><strong>0</strong></td></tr>
@@ -533,7 +592,7 @@ _Автоматические проверки проекта • GitHub Actions
 </table>
 </td>
 <td valign="top" width="50%">
-<h3>🚀 4. Запуск</h3>
+<h3>4. Запуск</h3>
 <table>
 <thead><tr><th>Поле</th><th>Значение</th></tr></thead>
 <tbody>
@@ -551,7 +610,20 @@ _Автоматические проверки проекта • GitHub Actions
 ];
 
 sections.push(
-  "## 🌐 Браузерная матрица\n\n" +
+  "## Состав тестов\n\n" +
+    markdownTable(
+      ["Уровень", "Проверок"],
+      [
+        ["Модульные", portfolio.unit ?? "—"],
+        ["API", portfolio.api ?? "—"],
+        ["E2E", portfolio.e2e ?? "—"],
+        ["**Всего**", "**" + (portfolio.total ?? "—") + "**"],
+      ],
+    ),
+);
+
+sections.push(
+  "## Браузерная матрица\n\n" +
     markdownTable(
       [
         "Браузер",
@@ -568,7 +640,7 @@ sections.push(
 
 if (allFailures.length > 0) {
   sections.push(
-    "## 🚨 Непредвиденные падения\n\n" +
+    "## Непредвиденные падения\n\n" +
       markdownTable(
         ["Браузер", "Файл", "Сценарий"],
         allFailures.map((failure) => [
@@ -577,12 +649,40 @@ if (allFailures.length > 0) {
           failure.title,
         ]),
       ) +
-      "\n\n> Для упавших проверок сохранены trace, скриншоты, видео и отчёты.",
+      "\n\nДля упавших проверок сохранены trace, скриншоты, видео и отчёты.",
+  );
+}
+
+sections.push(
+  "## Работа с тестовыми данными\n\n" +
+    markdownTable(
+      ["Показатель", "Значение"],
+      [
+        ["Файлы E2E", e2eSpecFiles.length],
+        [
+          "Подготовка через API / вспомогательные функции",
+          e2eWithApiArrange.length + " / " + e2eSpecFiles.length,
+        ],
+        [
+          "Централизованная очистка",
+          e2eWithCleanup.length + " / " + e2eSpecFiles.length,
+        ],
+      ],
+    ),
+);
+
+if (slowestRows.length > 0) {
+  sections.push(
+    "## Самые медленные сценарии\n\n" +
+      markdownTable(
+        ["Браузер", "Время", "Сценарий"],
+        slowestRows,
+      ),
   );
 }
 
 sections.push(`
-## 📦 Отчёты и материалы
+## Отчёты и материалы
 
 | Материал | Назначение | Хранение |
 | --- | --- | ---: |
@@ -592,32 +692,7 @@ sections.push(`
 | [Диагностика ошибок](${artifactsUrl}) | trace / скриншоты / видео | 7 дней |
 | Матрица требований | проверка 50/50 + ссылки на тесты + README ↔ матрица | CI |
 
-<details>
-<summary><strong>🧹 Работа с тестовыми данными</strong></summary>
-
-| Показатель | Значение |
-| --- | ---: |
-| Файлы E2E | **${e2eSpecFiles.length}** |
-| Подготовка через API / вспомогательные функции | **${e2eWithApiArrange.length} / ${e2eSpecFiles.length}** |
-| Централизованная очистка | **${e2eWithCleanup.length} / ${e2eSpecFiles.length}** |
-
-</details>
-`);
-
-if (slowestRows.length > 0) {
-  sections.push(
-    "<details>\n" +
-      "<summary><strong>⏱️ Самые медленные сценарии</strong></summary>\n\n" +
-      markdownTable(
-        ["Браузер", "Время", "Сценарий"],
-        slowestRows,
-      ) +
-      "\n\n</details>",
-  );
-}
-
-sections.push(`
-## 🛰 Дополнительные проверки
+## Дополнительные проверки
 
 | Проверка | Что контролирует |
 | --- | --- |
@@ -628,10 +703,31 @@ sections.push(`
 | [Визуальная регрессия](${server}/${repository}/actions/workflows/visual.yml) | сравнение интерфейса в Chromium |
 | [Стабильность](${server}/${repository}/actions/workflows/stability.yml) | повторные прогоны с \`retries=0\` |
 | [Ночная регрессия](${server}/${repository}/actions/workflows/nightly.yml) | плановая проверка live-стенда |
+| [Контракт регистрации](${server}/${repository}/actions/workflows/registration-contract-smoke.yml) | отдельная smoke-проверка регистрации |
+
+## Подробности по браузерам
+
+${browserDetails(
+  "chromium",
+  "Chromium",
+  metrics.get("chromium"),
+)}
+
+${browserDetails(
+  "firefox",
+  "Firefox",
+  metrics.get("firefox"),
+)}
+
+${browserDetails(
+  "webkit",
+  "WebKit",
+  metrics.get("webkit"),
+)}
 
 ---
 
-> **Принцип:** результат не маскируется повторами. \`retries=0\`; браузерные E2E запускаются только после быстрых Quality / Unit / API проверок.
+> **Принцип:** результат не маскируется повторами. \`retries=0\`; браузерные E2E запускаются только после быстрых проверок качества, модульных и API-тестов.
 `);
 
 const markdown = sections.join("\n\n");
