@@ -133,7 +133,7 @@ docs/                     инженерная документация
 
 `main` защищён ruleset `Protect main`. Разрешено только слияние через Pull Request и **squash merge**. Обязательны разрешённые обсуждения и актуальные проверки относительно последнего `main`.
 
-Quality job дополнительно запускает `npm run coverage:check`: скрипт проверяет наличие всех 50 requirement ID, допустимые статусы, существование test-файлов из матрицы и совпадение цифр `README.md` с `docs/coverage-matrix.md`. Поэтому процент покрытия нельзя случайно рассинхронизировать простой правкой документации.
+Quality job дополнительно запускает `npm run coverage:check`: скрипт проверяет наличие всех 50 requirement ID, допустимые статусы, существование test-файлов из матрицы и совпадение цифр `README.md` с `docs/coverage-matrix.md`. После этого `scripts/ai-review-self-check.mjs` детерминированно проверяет patch parsing, CODEX preflight, requirement traceability и дедупликацию AI Review. Поэтому процент покрытия нельзя случайно рассинхронизировать простой правкой документации, а reviewer policy engine проверяется до browser E2E.
 
 Обязательные проверки:
 
