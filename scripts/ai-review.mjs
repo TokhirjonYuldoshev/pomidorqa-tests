@@ -1235,6 +1235,7 @@ async function main() {
         result: "Пропущено",
       }),
     );
+    publishReviewOutputs({ state: "skipped" });
 
     return;
   }
@@ -1255,6 +1256,7 @@ async function main() {
         result: "skipped",
       }),
     );
+    publishReviewOutputs({ state: "skipped" });
 
     return;
   }
@@ -1275,6 +1277,7 @@ async function main() {
         result: "Устарело",
       }),
     );
+    publishReviewOutputs({ state: "stale" });
 
     return;
   }
@@ -1305,6 +1308,7 @@ async function main() {
         findings: "review already exists",
       }),
     );
+    publishReviewOutputs({ state: "already_reviewed" });
 
     return;
   }
@@ -1329,8 +1333,13 @@ async function main() {
         result: "Успешно",
         findings: "0",
         diffChars: "0",
+        p1: "0",
+        p2: "0",
+        p3: "0",
+        reviewedFiles: "0",
       }),
     );
+    publishReviewOutputs({ state: "scope_clean" });
 
     return;
   }
@@ -1418,9 +1427,20 @@ async function main() {
         "новый commit — результат " +
         "не опубликован.",
     );
+    publishReviewOutputs({
+      state: "stale",
+      diffChars: prepared.diff.length,
+      reviewedFiles: prepared.reviewedFiles,
+      usage,
+    });
 
     return;
   }
+
+  const priorityCounts =
+    countPriorities(
+      verified.comments,
+    );
 
   const usageText =
     usage
@@ -1462,6 +1482,13 @@ ${buildReviewConclusion(
         2,
       ),
     );
+    publishReviewOutputs({
+      state: "dry_run",
+      comments: verified.comments,
+      diffChars: prepared.diff.length,
+      reviewedFiles: prepared.reviewedFiles,
+      usage,
+    });
 
     return;
   }
@@ -1533,6 +1560,7 @@ main().catch(
         result: "Ошибка",
       }),
     );
+    publishReviewOutputs({ state: "failed" });
 
     process.exitCode = 1;
   },
