@@ -143,7 +143,7 @@ CI Summary
 Telegram Notification
 ```
 
-Для E2E: `workers=4` на browser job, `retries=0`, `fail-fast: false`. Browser jobs выполняются параллельно, а `Regression Gate` агрегирует их итог вместе с Quality, Unit и API.
+Для E2E: `workers=4` на browser job, `retries=0`, `fail-fast: false`, `max-parallel: 2`. Browser jobs остаются независимыми, но одновременно выполняются максимум два браузера; `Regression Gate` агрегирует их итог вместе с Quality, Unit и API.
 
 Отдельный workflow безопасности даёт независимый сигнал по зависимостям и статическим проверкам. AI Review запускается только после успешного PR CI, использует код проверки из доверенного `main`, читает PR diff через GitHub API и не исполняет код PR. До модели выполняется детерминированный preflight по однозначным запретам `CODEX.md`; затем основной и валидационный проходы модели. `requirements.md` и coverage matrix используются как продуктовый контекст, а изменённые test-файлы связываются с requirement ID по evidence-колонке матрицы.
 

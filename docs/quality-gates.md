@@ -65,7 +65,7 @@ npm run regression:metrics
 
 ## Детерминированность
 
-Для live E2E, Nightly и Stability сохраняется `retries=0`.
+Для live E2E, Nightly и Stability сохраняется `retries=0`. В основном PR/push CI browser matrix дополнительно ограничена `max-parallel: 2`; это контроль нагрузки внешнего стенда, а не повтор тестов.
 
 Нельзя получать зелёный результат за счёт `waitForTimeout`, произвольных пауз, `force`, `.only`, `skip`, постоянного увеличения таймаутов или многократного повторного запуска без диагностики.
 
