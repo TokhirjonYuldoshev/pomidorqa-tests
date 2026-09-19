@@ -224,7 +224,7 @@ function readBrowserMetrics(root) {
   return result;
 }
 
-function parsePortfolioMetrics() {
+function parseProjectMetrics() {
   const readme = readFileSync("README.md", "utf8");
   const matrix = readFileSync(
     "docs/coverage-matrix.md",
@@ -360,7 +360,7 @@ ${failures}
 }
 
 const metrics = readBrowserMetrics(reportsRoot);
-const portfolio = parsePortfolioMetrics();
+const projectMetrics = parseProjectMetrics();
 
 const quality = process.env.QUALITY || "unknown";
 const unit = process.env.UNIT || "unknown";
@@ -510,7 +510,7 @@ for (const browser of [
   }
 }
 
-const coverage = portfolio.coverage;
+const coverage = projectMetrics.coverage;
 const coverageTotal = Object.values(coverage).reduce(
   (sum, value) => sum + value,
   0,
@@ -571,7 +571,7 @@ _Автоматические проверки проекта · GitHub Actions_
 <table>
 <thead><tr><th>Статус</th><th>Результат</th></tr></thead>
 <tbody>
-<tr><td>Полнота аудита</td><td><strong>${coverageTotal} / ${portfolio.requirements} · 100%</strong></td></tr>
+<tr><td>Полнота аудита</td><td><strong>${coverageTotal} / ${projectMetrics.requirements} · 100%</strong></td></tr>
 <tr><td>Автоматизировано</td><td><strong>${coverage.automated} / 50 · 90%</strong></td></tr>
 <tr><td>Частично</td><td>${coverage.partial} / 50 · 4%</td></tr>
 <tr><td>Известный дефект</td><td>${coverage["known defect"]} / 50 · 2%</td></tr>
@@ -619,10 +619,10 @@ sections.push(
     markdownTable(
       ["Уровень", "Проверок"],
       [
-        ["Модульные", portfolio.unit ?? "—"],
-        ["API", portfolio.api ?? "—"],
-        ["E2E", portfolio.e2e ?? "—"],
-        ["**Всего**", "**" + (portfolio.total ?? "—") + "**"],
+        ["Модульные", projectMetrics.unit ?? "—"],
+        ["API", projectMetrics.api ?? "—"],
+        ["E2E", projectMetrics.e2e ?? "—"],
+        ["**Всего**", "**" + (projectMetrics.total ?? "—") + "**"],
       ],
     ),
 );
