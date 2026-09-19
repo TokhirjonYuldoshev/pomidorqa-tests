@@ -134,12 +134,18 @@ Quality + Unit + API
 E2E Chromium / Firefox / WebKit
           |
           v
-Playwright HTML + Allure + диагностика
+Regression Gate
+          |
+          v
+CI Summary
+          |
+          v
+Telegram Notification
 ```
 
-Для E2E: `workers=1`, `retries=0`, `fail-fast: false`.
+Для E2E: `workers=4` на browser job, `retries=0`, `fail-fast: false`. Browser jobs выполняются параллельно, а `Regression Gate` агрегирует их итог вместе с Quality, Unit и API.
 
-Отдельный workflow безопасности даёт независимый сигнал по зависимостям и статическим проверкам.
+Отдельный workflow безопасности даёт независимый сигнал по зависимостям и статическим проверкам. AI Review запускается только после успешного PR CI, использует reviewer-код из доверенного `main`, читает PR diff через GitHub API и не исполняет код PR.
 
 ## Нефункциональные проверки
 
@@ -149,6 +155,6 @@ Nightly проверяет внешний стенд по расписанию. 
 
 ## Отчёты
 
-Allure и Playwright HTML используются вместе. При падении E2E дополнительно сохраняются trace, screenshots, video и `test-results`.
+Allure и Playwright HTML используются вместе. При падении E2E дополнительно сохраняются trace, screenshots, video и `test-results`. `CI Summary` агрегирует browser JSON, показывает requirement coverage, slowest scenarios, data discipline и номер run attempt. AI Review публикует отдельную сводку с моделью, размером diff, P1/P2/P3 и ссылкой на review.
 
 Отчёт помогает понять причину, но не меняет результат проверки.

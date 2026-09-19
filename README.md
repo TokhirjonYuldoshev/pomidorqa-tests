@@ -29,19 +29,13 @@
 | E2E | 100 |
 | Всего автоматизированных проверок | **121** |
 
-### Измеренное время последнего зелёного CI
+### Время прогонов и стабильность CI
 
-Срез из PR #90 на текущем наборе тестов:
+Длительность не хранится как постоянная характеристика проекта: `CI Summary` рассчитывает её заново для каждого запуска по machine-readable отчётам трёх браузеров.
 
-| Уровень / браузер | Результат | Время |
-| --- | ---: | ---: |
-| Unit | 10 passed | **1.3 s** |
-| API | 11 passed | **5.1 s** |
-| E2E / Chromium | 100 passed | **4.3 min** |
-| E2E / Firefox | 100 passed | **6.4 min** |
-| E2E / WebKit | 100 passed | **5.9 min** |
+Контрольный post-merge запуск `main` #259 (`35429008868`) завершился успешно. В нём browser jobs заняли примерно **4 мин 48 с для Chromium**, **6 мин 28 с для Firefox** и **6 мин 59 с для WebKit** по wall-clock времени job. Firefox и WebKit стали зелёными на третьем attempt после отдельных navigation/session/timeout сбоев; внутри Playwright по-прежнему используется **`retries=0`**. Это различие важно: GitHub rerun остаётся видимым событием и не маскируется как автоматический retry теста.
 
-Три браузерных E2E jobs выполняются параллельно, поэтому их времена не суммируются в wall-clock CI. Значения выше — измерение конкретного зелёного запуска и могут меняться вместе со стендом, нагрузкой и составом набора.
+Актуальные длительности, expected/unexpected failures, flaky/retried counters и самые медленные сценарии нужно смотреть в `CI Summary` конкретного запуска.
 
 Число тестов, автоматизированное покрытие и полнота аудита — разные метрики. Все 50 требований классифицированы; 45 имеют статус `automated`, два остаются `partial`, два `out of scope`, один — `known defect`. API-мок используется для автоматизированной проверки бизнес-контрактов бронирования на уровне API и не выдаётся за прямое исполнение production-кода PomidorQA. Единственный известный дефект матрицы — R8.3: каталог сейчас учитывает `want_to_learn`, хотя требование ограничивает фильтр навыками `can_help`. Регрессионные проверки написаны по требованию и оформлены как `test.fail()`.
 
@@ -63,7 +57,8 @@
 | Безопасность | `npm audit`, проверка изменений зависимостей, CycloneDX SBOM |
 | Стабильность | повторные прогоны с `retries=0` и отдельной таблицей метрик |
 | Traceability | автоматическая проверка 50 requirement ID, статусов, test-ссылок и синхронизации README ↔ matrix |
-| AI Review | Gemini-review после зелёного PR CI + ручной запуск; проверяет tests/src/scripts/workflows/docs/config и публикует собственный Actions Dashboard |
+| Regression Gate | агрегирует Quality + Unit + API + E2E matrix в один понятный итоговый сигнал перед Summary |
+| AI Review | Gemini-review после зелёного PR CI + ручной запуск; trusted-main архитектура, второй валидационный проход, P1/P2/P3-метрики, отдельная Telegram job и собственный Actions Dashboard |
 | Плановые проверки | Nightly E2E |
 | Уведомления | Telegram как вспомогательный канал, не источник результата тестов |
 
@@ -154,12 +149,14 @@ Quality job дополнительно запускает `npm run coverage:chec
 
 Для браузерных E2E в CI используются `workers=4`, `retries=0` и `fail-fast: false`. Три браузера запускаются параллельно отдельными jobs, поэтому суммарный параллелизм остаётся высоким без избыточной нагрузки на один runner и live-стенд.
 
+После browser matrix выполняется `Regression Gate`. Он не заменяет исходные checks и не скрывает их результат: job только агрегирует обязательные функциональные сигналы в один статус, после чего запускаются `CI Summary` и `Telegram Notification`.
+
 ## Отдельные проверки качества
 
 - **Accessibility Audit** — axe-core и WCAG;
 - **Performance Smoke / Lighthouse** — производительность и технические показатели публичных страниц;
 - **Visual Regression** — визуальные изменения login/register;
-- **AI Review** — CODEX-scoped review после успешного PR CI; workflow использует доверенный код из `main`, умеет работать с draft PR и поддерживает ручной запуск по номеру PR;
+- **AI Review** — CODEX-scoped review после успешного PR CI; workflow использует доверенный код из `main`, выполняет второй проход для отсечения ложных замечаний, публикует приоритеты P1/P2/P3 и отправляет отдельное Telegram-уведомление; поддерживаются draft PR и ручной запуск по номеру PR;
 - **Nightly E2E Regression** — плановая проверка внешнего стенда;
 - **Stability Check** — повторные запуски без retries;
 - **Registration Contract Smoke** — ручная проверка `POST /pomidorqa/auth/register → 303 → /pomidorqa`;
@@ -169,7 +166,7 @@ Quality job дополнительно запускает `npm run coverage:chec
 
 ## Отчёты и диагностика
 
-Playwright формирует HTML, Allure, JSON и JUnit. При ошибках сохраняются trace, screenshots, video и `test-results`. Каждый browser job публикует собственные метрики, а финальный `CI Summary` скачивает machine-readable отчёты Chromium/Firefox/WebKit и строит единый Actions Dashboard: статус gates, 50/50 requirement audit, test inventory, browser matrix, expected/unexpected failures, flaky/retries, slowest scenarios, data-discipline и прямые ссылки на artifacts.
+Playwright формирует HTML, Allure, JSON и JUnit. При ошибках сохраняются trace, screenshots, video и `test-results`. Каждый browser job публикует собственные метрики, `Regression Gate` агрегирует обязательные функциональные сигналы, а финальный `CI Summary` скачивает machine-readable отчёты Chromium/Firefox/WebKit и строит единый Actions Dashboard: статус gates, номер attempt, 50/50 requirement audit, test inventory, browser matrix, expected/unexpected failures, flaky/retries, slowest scenarios, data-discipline и прямые ссылки на artifacts.
 
 Telegram используется только для доставки результата. Если отправка уведомления не удалась, это не меняет фактический статус тестов или проверки безопасности.
 
@@ -239,6 +236,7 @@ E2E_BROWSER=webkit npm run test:e2e
 - [docs/architecture.md](docs/architecture.md) — архитектура;
 - [docs/quality-gates.md](docs/quality-gates.md) — обязательные проверки перед слиянием;
 - [docs/ci-incident-runbook.md](docs/ci-incident-runbook.md) — порядок разбора сбоев CI;
+- [docs/ai-review.md](docs/ai-review.md) — архитектура, безопасность, второй проход и Telegram-сигнал AI Review;
 - [docs/interview-guide.md](docs/interview-guide.md) — подготовка к техническому собеседованию;
 - [docs/registration-contract-smoke.md](docs/registration-contract-smoke.md) — ручная проверка контракта регистрации.
 

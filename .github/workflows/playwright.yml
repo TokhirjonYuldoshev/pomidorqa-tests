@@ -188,10 +188,38 @@ jobs:
           retention-days: 7
 
 
+  regression_gate:
+    name: Regression Gate
+    if: ${{ always() }}
+    needs: [quality, unit, api, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Verify mandatory CI signals
+        env:
+          QUALITY: ${{ needs.quality.result }}
+          UNIT: ${{ needs.unit.result }}
+          API: ${{ needs.api.result }}
+          E2E: ${{ needs.e2e.result }}
+        run: |
+          printf '%-30s %s\n' "Quality / lint + typecheck" "$QUALITY"
+          printf '%-30s %s\n' "Unit tests" "$UNIT"
+          printf '%-30s %s\n' "API tests" "$API"
+          printf '%-30s %s\n' "E2E matrix" "$E2E"
+
+          if [[ "$QUALITY" == "success" && "$UNIT" == "success" && "$API" == "success" && "$E2E" == "success" ]]; then
+            echo "Regression gate passed."
+            exit 0
+          fi
+
+          echo "::error::Regression gate failed: at least one mandatory CI signal is not successful."
+          exit 1
+
+
   summary:
     name: CI Summary
     if: ${{ always() }}
-    needs: [quality, unit, api, e2e]
+    needs: [quality, unit, api, e2e, regression_gate]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -219,12 +247,13 @@ jobs:
           UNIT: ${{ needs.unit.result }}
           API: ${{ needs.api.result }}
           E2E: ${{ needs.e2e.result }}
+          REGRESSION_GATE: ${{ needs.regression_gate.result }}
         run: node scripts/ci-dashboard.mjs .qa-artifacts/ci-machine-reports
 
   notify:
     name: Telegram Notification
     if: ${{ always() }}
-    needs: [quality, unit, api, e2e, summary]
+    needs: [quality, unit, api, e2e, regression_gate, summary]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -236,6 +265,7 @@ jobs:
           UNIT: ${{ needs.unit.result }}
           API: ${{ needs.api.result }}
           E2E: ${{ needs.e2e.result }}
+          REGRESSION_GATE: ${{ needs.regression_gate.result }}
         run: |
           if [[ -z "$TELEGRAM_BOT_TOKEN" || -z "$TELEGRAM_CHAT_ID" ]]; then
             echo "::notice::Telegram secrets are not configured; notification skipped."
@@ -320,7 +350,8 @@ jobs:
           <blockquote>$(result_label "$QUALITY")  Линт и типизация
           $(result_label "$UNIT")  Unit tests
           $(result_label "$API")  API tests
-          ${E2E_LABEL}  E2E Matrix / Chromium + Firefox + WebKit</blockquote>
+          ${E2E_LABEL}  E2E Matrix / Chromium + Firefox + WebKit
+          $(result_label "$REGRESSION_GATE")  Regression Gate</blockquote>
 
           🔗 <a href="${RUN_URL}"><b>Открыть запуск в GitHub Actions</b></a>
           <i>Запуск #${GITHUB_RUN_NUMBER}</i>

@@ -366,6 +366,8 @@ const quality = process.env.QUALITY || "unknown";
 const unit = process.env.UNIT || "unknown";
 const api = process.env.API || "unknown";
 const e2e = process.env.E2E || "unknown";
+const regressionGate =
+  process.env.REGRESSION_GATE || "unknown";
 
 let overall = "⚠️ ПРОВЕРКИ ЗАВЕРШЕНЫ НЕ ПОЛНОСТЬЮ";
 let note =
@@ -375,19 +377,20 @@ if (
   quality === "success" &&
   unit === "success" &&
   api === "success" &&
-  e2e === "success"
+  e2e === "success" &&
+  regressionGate === "success"
 ) {
   overall = "✅ ВСЕ ПРОВЕРКИ ПРОЙДЕНЫ";
   note =
     "Сборка завершена успешно, включая три браузера.";
 } else if (
-  [quality, unit, api, e2e].includes("failure")
+  [quality, unit, api, e2e, regressionGate].includes("failure")
 ) {
   overall = "❌ ЕСТЬ ОШИБКИ";
   note =
     "Одна или несколько обязательных проверок завершились с ошибкой.";
 } else if (
-  [quality, unit, api, e2e].includes("cancelled")
+  [quality, unit, api, e2e, regressionGate].includes("cancelled")
 ) {
   overall = "⏹️ ЗАПУСК ОТМЕНЁН";
   note =
@@ -559,6 +562,7 @@ _Автоматические проверки проекта · GitHub Actions_
 <tr><td>Модульные тесты</td><td>${escapeHtml(statusLabel(unit))}</td></tr>
 <tr><td>API-тесты</td><td>${escapeHtml(statusLabel(api))}</td></tr>
 <tr><td>E2E · 3 браузера</td><td>${escapeHtml(statusLabel(e2e))}</td></tr>
+<tr><td>Regression Gate</td><td>${escapeHtml(statusLabel(regressionGate))}</td></tr>
 </tbody>
 </table>
 </td>
@@ -602,6 +606,7 @@ _Автоматические проверки проекта · GitHub Actions_
 <tr><td>Автор</td><td><code>${escapeHtml(actor)}</code></td></tr>
 <tr><td>Коммит</td><td><code>${escapeHtml(shortSha)}</code></td></tr>
 <tr><td>Запуск</td><td><a href="${runUrl}">#${escapeHtml(runNumber)}</a></td></tr>
+<tr><td>Attempt</td><td><strong>${escapeHtml(process.env.GITHUB_RUN_ATTEMPT || "1")}</strong></td></tr>
 </tbody>
 </table>
 </td>

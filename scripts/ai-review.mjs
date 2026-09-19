@@ -62,6 +62,25 @@ function appendStepSummary(markdown) {
   appendFileSync(summaryPath, `${markdown.trim()}\n`);
 }
 
+function writeStepOutput(name, value) {
+  const outputPath = process.env.GITHUB_OUTPUT;
+
+  if (!outputPath) {
+    return;
+  }
+
+  const normalized = String(value ?? "").replaceAll("\n", " ");
+  appendFileSync(outputPath, `${name}=${normalized}\n`);
+}
+
+function countPriorities(comments = []) {
+  return {
+    p1: comments.filter((comment) => comment.priority === "P1").length,
+    p2: comments.filter((comment) => comment.priority === "P2").length,
+    p3: comments.filter((comment) => comment.priority === "P3").length,
+  };
+}
+
 function summaryCell(value) {
   return String(value ?? "")
     .replaceAll("|", "\\|")
@@ -77,6 +96,10 @@ function buildAiStepSummary({
   findings = "—",
   usage = "—",
   reviewUrl = "",
+  p1 = "—",
+  p2 = "—",
+  p3 = "—",
+  reviewedFiles = "—",
 }) {
   const runUrl =
     `${process.env.GITHUB_SERVER_URL || "https://github.com"}/` +
@@ -89,7 +112,7 @@ function buildAiStepSummary({
   return `
 # Сводка AI Review
 
-_Automated CODEX-scoped review • trusted reviewer from \`main\`_
+_Автоматическая проверка diff по \`CODEX.md\` и \`REVIEW.md\` • код проверки из доверенной \`main\`_
 
 ## ${headline}
 
@@ -110,6 +133,7 @@ _Automated CODEX-scoped review • trusted reviewer from \`main\`_
 <tr><td>Commit</td><td><code>${summaryCell(expectedHeadSha.slice(0, 7))}</code></td></tr>
 <tr><td>Результат</td><td>${summaryCell(result)}</td></tr>
 <tr><td>Замечания</td><td><strong>${summaryCell(findings)}</strong></td></tr>
+<tr><td>P1 / P2 / P3</td><td>${summaryCell(p1)} / ${summaryCell(p2)} / ${summaryCell(p3)}</td></tr>
 </tbody>
 </table>
 </td>
@@ -120,6 +144,7 @@ _Automated CODEX-scoped review • trusted reviewer from \`main\`_
 <tbody>
 <tr><td>Модель</td><td><code>${summaryCell(modelName)}</code></td></tr>
 <tr><td>Проверено изменений</td><td>${summaryCell(diffChars)}</td></tr>
+<tr><td>Файлов в scope</td><td>${summaryCell(reviewedFiles)}</td></tr>
 <tr><td>Правила</td><td><code>CODEX.md</code> + <code>REVIEW.md</code></td></tr>
 <tr><td>Повторная проверка</td><td>второй проход модели</td></tr>
 </tbody>
@@ -132,11 +157,11 @@ _Automated CODEX-scoped review • trusted reviewer from \`main\`_
 
 | Контроль | Значение |
 | --- | --- |
-| Reviewer code | trusted \`main\` |
+| Код проверки | доверенная \`main\` |
 | Выполнение кода PR | **не выполняется** |
 | Зависимости PR | **не устанавливаются** |
 | Комментарии | только добавленные строки |
-| Max comments | \`5\` |
+| Максимум комментариев | \`5\` |
 | Токены | ${summaryCell(usage)} |
 `;
 }
@@ -242,6 +267,28 @@ const geminiBaseUrl = (
 const model =
   process.env.GEMINI_MODEL ||
   DEFAULT_MODEL;
+
+function publishReviewOutputs({
+  state,
+  comments = [],
+  reviewUrl = "",
+  diffChars = 0,
+  reviewedFiles = 0,
+  usage = null,
+}) {
+  const counts = countPriorities(comments);
+
+  writeStepOutput("review_state", state);
+  writeStepOutput("findings_total", comments.length);
+  writeStepOutput("p1_count", counts.p1);
+  writeStepOutput("p2_count", counts.p2);
+  writeStepOutput("p3_count", counts.p3);
+  writeStepOutput("review_url", reviewUrl);
+  writeStepOutput("diff_chars", diffChars);
+  writeStepOutput("reviewed_files", reviewedFiles);
+  writeStepOutput("model", model);
+  writeStepOutput("tokens_total", usage?.totalTokens ?? 0);
+}
 
 const codex =
   readProjectFile("CODEX.md");
@@ -383,6 +430,7 @@ function prepareDiff(files) {
 
   return {
     diff,
+    reviewedFiles: prepared.length,
 
     addedLinesByPath:
       new Map(
@@ -401,9 +449,9 @@ function buildReviewPrompts({
   diff,
 }) {
   const system = `
-Ты строгий, но доброжелательный senior QA Automation reviewer проекта PomidorQA на Playwright + TypeScript.
+Ты выполняешь автоматизированное ревью проекта PomidorQA на Playwright + TypeScript.
 
-Твоя задача — проверить Pull Request только по переданным CODEX.md, REVIEW.md и diff.
+Проверь Pull Request только по переданным CODEX.md, REVIEW.md и diff.
 
 БЕЗОПАСНОСТЬ И ГРАНИЦЫ:
 
@@ -1187,6 +1235,7 @@ async function main() {
         result: "Пропущено",
       }),
     );
+    publishReviewOutputs({ state: "skipped" });
 
     return;
   }
@@ -1207,6 +1256,7 @@ async function main() {
         result: "skipped",
       }),
     );
+    publishReviewOutputs({ state: "skipped" });
 
     return;
   }
@@ -1227,6 +1277,7 @@ async function main() {
         result: "Устарело",
       }),
     );
+    publishReviewOutputs({ state: "stale" });
 
     return;
   }
@@ -1257,6 +1308,7 @@ async function main() {
         findings: "review already exists",
       }),
     );
+    publishReviewOutputs({ state: "already_reviewed" });
 
     return;
   }
@@ -1281,8 +1333,13 @@ async function main() {
         result: "Успешно",
         findings: "0",
         diffChars: "0",
+        p1: "0",
+        p2: "0",
+        p3: "0",
+        reviewedFiles: "0",
       }),
     );
+    publishReviewOutputs({ state: "scope_clean" });
 
     return;
   }
@@ -1370,9 +1427,20 @@ async function main() {
         "новый commit — результат " +
         "не опубликован.",
     );
+    publishReviewOutputs({
+      state: "stale",
+      diffChars: prepared.diff.length,
+      reviewedFiles: prepared.reviewedFiles,
+      usage,
+    });
 
     return;
   }
+
+  const priorityCounts =
+    countPriorities(
+      verified.comments,
+    );
 
   const usageText =
     usage
@@ -1392,6 +1460,8 @@ async function main() {
 ${buildReviewConclusion(
   verified.comments,
 )}
+
+Приоритеты: P1 — ${priorityCounts.p1}, P2 — ${priorityCounts.p2}, P3 — ${priorityCounts.p3}.
 
 ---
 Модель: \`${model}\`. ${usageText}`;
@@ -1414,6 +1484,13 @@ ${buildReviewConclusion(
         2,
       ),
     );
+    publishReviewOutputs({
+      state: "dry_run",
+      comments: verified.comments,
+      diffChars: prepared.diff.length,
+      reviewedFiles: prepared.reviewedFiles,
+      usage,
+    });
 
     return;
   }
@@ -1467,8 +1544,21 @@ ${buildReviewConclusion(
       findings: String(verified.comments.length),
       usage: usageText,
       reviewUrl: published.html_url,
+      p1: String(priorityCounts.p1),
+      p2: String(priorityCounts.p2),
+      p3: String(priorityCounts.p3),
+      reviewedFiles: String(prepared.reviewedFiles),
     }),
   );
+
+  publishReviewOutputs({
+    state: "published",
+    comments: verified.comments,
+    reviewUrl: published.html_url,
+    diffChars: prepared.diff.length,
+    reviewedFiles: prepared.reviewedFiles,
+    usage,
+  });
 
 }
 
@@ -1480,11 +1570,12 @@ main().catch(
     );
     appendStepSummary(
       buildAiStepSummary({
-        headline: "❌ AI REVIEW FAILED",
+        headline: "❌ AI REVIEW ЗАВЕРШИЛСЯ ОШИБКОЙ",
         note: String(error.message),
         result: "Ошибка",
       }),
     );
+    publishReviewOutputs({ state: "failed" });
 
     process.exitCode = 1;
   },
