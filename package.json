@@ -8,13 +8,17 @@
     "test:unit": "playwright test --project=unit",
     "test:api": "playwright test --project=api",
     "test:e2e": "playwright test --project=e2e",
+    "test:e2e:fast": "playwright test --project=e2e --workers=16",
     "runtime:check": "node -e \"const major=Number(process.versions.node.split('.')[0]); if (major !== 24) { console.error('Node 24 is required; current runtime: ' + process.version); process.exit(1); } console.log('Node runtime OK: ' + process.version);\"",
     "verify:local": "npm run runtime:check && npm run lint && npm run typecheck && npm run test:unit -- --reporter=line && npm run test:api -- --reporter=line",
     "lint": "eslint src tests scripts playwright.config.ts playwright.visual.config.ts",
     "typecheck": "tsc --noEmit",
     "report": "playwright show-report",
     "allure:generate": "allure generate allure-results --output allure-report",
-    "allure:open": "allure open allure-report"
+    "allure:open": "allure open allure-report",
+    "metrics": "node scripts/test-metrics.mjs test-results/results.json",
+    "gate": "npm run runtime:check && npm run lint && npm run typecheck && npm run test:unit -- --reporter=line && npm run test:api -- --reporter=line && npm run test:e2e",
+    "regression:metrics": "npm test && npm run metrics"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

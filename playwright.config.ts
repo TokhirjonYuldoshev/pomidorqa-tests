@@ -26,11 +26,14 @@ export default defineConfig({
         ["line"],
         ["github"],
         ["html", { open: "never" }],
+        ["json", { outputFile: "test-results/results.json" }],
+        ["junit", { outputFile: "test-results/results.xml" }],
         ["allure-playwright", { resultsDir: "allure-results" }],
       ]
     : [
         ["list"],
         ["html", { open: "on-failure" }],
+        ["json", { outputFile: "test-results/results.json" }],
         ["allure-playwright", { resultsDir: "allure-results" }],
       ],
   projects: [

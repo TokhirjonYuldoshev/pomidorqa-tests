@@ -191,10 +191,10 @@ test.describe("Каталог: данные и фильтрация", () => {
     },
   );
 
-  test(
-    "участник находится по навыкам обоих типов",
+  test.fail(
+    "поиск не должен находить участника только по навыку хочу разобрать",
     async ({ appFactory }) => {
-      const runId = makeRunId("skill-type");
+      const runId = makeRunId("skill-type-known-defect");
       const canHelpSkill = `CanHelp-${runId}`;
       const wantToLearnSkill = `WantToLearn-${runId}`;
       const host = makeUser("skill-type-host", runId);
@@ -202,40 +202,29 @@ test.describe("Каталог: данные и фильтрация", () => {
       const hostApp = await appFactory();
       const guestApp = await appFactory();
 
-      await test.step(
-        "Хост: создаёт аккаунт и добавляет навыки разных типов",
-        async () => {
-          await registerUserViaApi(
-            hostApp.context.request,
-            host,
-          );
-
-          await hostApp.profilePage.goto();
-          await hostApp.profilePage.addSkill(
-            canHelpSkill,
-            "can_help",
-          );
-          await hostApp.profilePage.addSkill(
-            wantToLearnSkill,
-            "want_to_learn",
-          );
-        },
+      await registerUserViaApi(
+        hostApp.context.request,
+        host,
       );
-
-      await addFutureSlot(
-        hostApp,
-        host.name,
+      await hostApp.profilePage.goto();
+      await hostApp.profilePage.addSkill(
+        canHelpSkill,
+        "can_help",
       );
+      await hostApp.profilePage.addSkill(
+        wantToLearnSkill,
+        "want_to_learn",
+      );
+      await addFutureSlot(hostApp, host.name);
 
       await test.step(
-        "По навыку могу помочь участник находится",
+        "Контроль: по can_help участник находится",
         async () => {
           await findParticipant(
             guestApp,
             host.name,
             canHelpSkill,
           );
-
           await expect(
             guestApp.bookingPage.personCard(host.name),
           ).toHaveCount(1);
@@ -243,17 +232,15 @@ test.describe("Каталог: данные и фильтрация", () => {
       );
 
       await test.step(
-        "По навыку хочу изучить участник также находится",
+        "По want_to_learn участник не должен попадать в выдачу",
         async () => {
-          await findParticipant(
-            guestApp,
-            host.name,
+          await guestApp.bookingPage.goToCatalog();
+          await guestApp.bookingPage.searchCatalog(
             wantToLearnSkill,
           );
-
           await expect(
             guestApp.bookingPage.personCard(host.name),
-          ).toHaveCount(1);
+          ).toHaveCount(0);
         },
       );
     },

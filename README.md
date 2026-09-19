@@ -8,16 +8,34 @@
 [![Performance Smoke / Lighthouse](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/performance.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/performance.yml)
 [![Visual Regression](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/visual.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/visual.yml)
 
-Портфельный проект по автоматизации тестирования на **Playwright + TypeScript**. Он вырос из учебного PomidorQA и развивается как самостоятельная тестовая система: функциональные проверки, CI/CD, диагностика, безопасность, доступность, производительность и визуальные проверки.
+Портфельный проект по автоматизации тестирования сервиса PomidorQA на **Playwright + TypeScript**. Ключевые продуктовые риски — потеря/смешивание пользовательской сессии, двойное бронирование одного слота, некорректная доступность в каталоге, ошибки часового пояса и нарушение окна отмены. Репозиторий развивает учебный проект в самостоятельную тестовую систему с функциональными, CI/CD и нефункциональными сигналами качества.
 
 Исходный учебный репозиторий: [lebed52/pomidorqa-course-tests](https://github.com/lebed52/pomidorqa-course-tests).
+
+## Покрытие требований — HW16
+
+Источник требований — [`requirements.md`](requirements.md), а подробное соответствие «требование → тест → статус» находится в [`docs/coverage-matrix.md`](docs/coverage-matrix.md).
+
+| Метрика | Значение |
+| --- | ---: |
+| Требований MVP | 50 |
+| `automated` | **42 / 50 (84%)** |
+| `partial` | 5 / 50 (10%) |
+| `known defect` | 1 / 50 (2%) |
+| `out of scope` | 2 / 50 (4%) |
+| Unit | 10 |
+| API | 11 |
+| E2E | 100 |
+| Всего автоматизированных проверок | **121** |
+
+Число тестов и процент requirement coverage — разные метрики. В покрытие продукта не засчитываются Unit и локальный mock API сами по себе: они проверяют код этого репозитория, а не live PomidorQA. Единственный известный дефект матрицы — R8.3: каталог сейчас учитывает `want_to_learn`, хотя требование ограничивает фильтр навыками `can_help`. Регрессионные проверки написаны по требованию и оформлены как `test.fail()`.
 
 ## Что реализовано
 
 | Область | Реализация |
 | --- | --- |
 | Unit | проверки чистой бизнес-логики без браузера |
-| API | локальные HTTP-контракты без зависимости от внешнего стенда |
+| API | локальные HTTP-контракты + live test API регистрации PomidorQA |
 | E2E | реальные пользовательские сценарии PomidorQA |
 | Браузеры | Chromium, Firefox и WebKit |
 | Архитектура | Page Object Model, fixtures, helpers, уникальные тестовые данные |
@@ -48,7 +66,7 @@
 
 ### Каталог и поиск
 
-Покрыты положительные и отрицательные сценарии поиска, точное и частичное совпадение, регистр, пробелы, Enter, кириллица и специальные символы, многословные навыки, одинаковые имена/навыки, оба типа навыков, скрытие собственной карточки, обновление выдачи после изменения профиля, удаления аккаунта, появления/исчезновения слотов и каскадных изменений связанных сущностей.
+Покрыты положительные и отрицательные сценарии поиска, точное и частичное совпадение, регистр, пробелы, Enter, кириллица и специальные символы, многословные навыки, одинаковые имена/навыки, скрытие собственной карточки, обновление выдачи после изменения профиля, удаления аккаунта, появления/исчезновения слотов и каскадных изменений связанных сущностей. Расхождение фильтрации `can_help` / `want_to_learn` не маскируется зелёным тестом и зафиксировано как known defect R8.3.
 
 ### Бронирование и отмена
 
@@ -115,7 +133,7 @@ docs/                     инженерная документация
 - `Security / dependency change review`;
 - `Security / code quality`.
 
-Для браузерных E2E используются `workers=1`, `retries=0` и `fail-fast: false`, чтобы сохранить полный сигнал по Chromium, Firefox и WebKit.
+Для браузерных E2E в CI используются `workers=4`, `retries=0` и `fail-fast: false`. Три браузера запускаются параллельно отдельными jobs, поэтому суммарный параллелизм остаётся высоким без избыточной нагрузки на один runner и live-стенд.
 
 ## Отдельные проверки качества
 
@@ -131,7 +149,7 @@ docs/                     инженерная документация
 
 ## Отчёты и диагностика
 
-Playwright формирует HTML-отчёт и данные Allure. При ошибках сохраняются trace, screenshots, video и `test-results`. В GitHub Actions отчёты разделены по браузерам и доступны как artifacts.
+Playwright формирует HTML, Allure, JSON и JUnit. При ошибках сохраняются trace, screenshots, video и `test-results`. В GitHub Actions отчёты разделены по браузерам и доступны как artifacts; сводка E2E-метрик публикуется в GitHub Actions Step Summary.
 
 Telegram используется только для доставки результата. Если отправка уведомления не удалась, это не меняет фактический статус тестов или проверки безопасности.
 
@@ -153,6 +171,12 @@ npm run verify:local
 npm run test:e2e
 ```
 
+Для быстрого локального E2E-прогона:
+
+```bash
+npm run test:e2e:fast
+```
+
 Для другого браузера:
 
 ```bash
@@ -164,12 +188,16 @@ E2E_BROWSER=webkit npm run test:e2e
 
 | Команда | Назначение |
 | --- | --- |
-| `npm run verify:local` | Node 24 + ESLint + TypeScript + Unit + API |
+| `npm run verify:local` | быстрый локальный gate: Node 24 + ESLint + TypeScript + Unit + API |
+| `npm run gate` | полный gate: runtime + lint + typecheck + Unit + API + E2E |
+| `npm run regression:metrics` | полный Playwright-прогон и инженерная сводка метрик |
+| `npm run metrics` | разобрать последний JSON-отчёт Playwright |
 | `npm run lint` | статический анализ ESLint |
 | `npm run typecheck` | проверка типов TypeScript |
 | `npm run test:unit` | Unit |
 | `npm run test:api` | API |
 | `npm run test:e2e` | E2E в выбранном браузере |
+| `npm run test:e2e:fast` | быстрый локальный E2E-прогон с 16 workers |
 | `npm test` | все проекты Playwright |
 | `npm run report` | открыть Playwright HTML report |
 | `npm run allure:generate` | собрать Allure report |
@@ -184,6 +212,8 @@ E2E_BROWSER=webkit npm run test:e2e
 - [CODEX.md](CODEX.md) — актуальные правила курса для автотестов;
 - [REVIEW.md](REVIEW.md) — чек-лист ревью курса;
 - [docs/README.md](docs/README.md) — карта инженерной документации;
+- [requirements.md](requirements.md) — 50 функциональных требований MVP;
+- [docs/coverage-matrix.md](docs/coverage-matrix.md) — requirement coverage и известные gaps/defects;
 - [docs/test-strategy.md](docs/test-strategy.md) — стратегия тестирования;
 - [docs/architecture.md](docs/architecture.md) — архитектура;
 - [docs/quality-gates.md](docs/quality-gates.md) — обязательные проверки перед слиянием;
@@ -191,6 +221,12 @@ E2E_BROWSER=webkit npm run test:e2e
 - [docs/interview-guide.md](docs/interview-guide.md) — подготовка к техническому собеседованию;
 - [docs/registration-contract-smoke.md](docs/registration-contract-smoke.md) — ручная проверка контракта регистрации.
 
+## Происхождение кода и вклад
+
+Базовые учебные сценарии и постановка PomidorQA происходят из курса `lebed52/pomidorqa-course-tests`. В личном репозитории существенно расширены архитектура тестов, централизованный lifecycle `BrowserContext`, API Arrange/cleanup, многопользовательские и lifecycle-сценарии, cross-browser CI, security/accessibility/performance/visual workflows, отчётность и AI-review automation.
+
+HW16 использует официальный `requirements.md` как источник спецификации. Аудит покрытия, дополнительные тесты, метрики и документация подготовлены с AI-assisted workflow; корректность не принимается «на доверии» и должна подтверждаться code review, `retries=0`, обязательными CI checks и ссылками из матрицы на реальные тесты.
+
 ## Цель проекта
 
-Репозиторий показывает не количество тестов как самоцель, а управляемую систему качества: независимые уровни проверок, контролируемые тестовые данные, честный `retries=0`, диагностику, обязательные проверки перед слиянием и отдельные сигналы для нефункциональных рисков.
+Репозиторий показывает не количество тестов как самоцель, а управляемую систему качества: независимые уровни проверок, контролируемые тестовые данные, честный `retries=0`, диагностику, обязательные проверки перед слиянием, измеримое requirement coverage и отдельные сигналы для нефункциональных рисков.

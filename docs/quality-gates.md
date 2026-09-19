@@ -10,13 +10,29 @@
 
 Проверки выполняются в строгом режиме относительно актуального `main`.
 
+## Локальный quality gate
+
+Перед отправкой крупного изменения можно выполнить полный локальный gate:
+
+```bash
+npm run gate
+```
+
+Он запускает runtime check, lint, typecheck, Unit, API и E2E в fail-fast цепочке: дорогой браузерный уровень начинается только после дешёвых статических и нижележащих проверок.
+
+Для полного прогона с JSON-метриками используется:
+
+```bash
+npm run regression:metrics
+```
+
 ## Обязательные проверки
 
 | Проверка GitHub | Что подтверждает |
 | --- | --- |
 | `Quality / lint + typecheck` | ESLint и TypeScript |
 | `Unit tests` | чистую бизнес-логику |
-| `API tests` | локальные HTTP-контракты |
+| `API tests` | локальные HTTP-контракты и live test API регистрации PomidorQA |
 | `E2E / Chromium` | пользовательские сценарии в Chromium |
 | `E2E / Firefox` | пользовательские сценарии в Firefox |
 | `E2E / WebKit` | пользовательские сценарии в WebKit |

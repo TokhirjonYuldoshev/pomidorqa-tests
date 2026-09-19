@@ -137,10 +137,31 @@ jobs:
         run: npx playwright install ${{ matrix.browser }}
 
       - name: Run E2E tests
-        run: npm run test:e2e -- --workers=1 --retries=0
+        run: npm run test:e2e -- --workers=4 --retries=0
         env:
           CI: true
           E2E_BROWSER: ${{ matrix.browser }}
+
+      - name: Publish test metrics
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            echo "### Test metrics / ${{ matrix.label }}"
+            printf '%s\n' '```text'
+            npm run metrics || true
+            printf '%s\n' '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload JSON and JUnit reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: machine-report-${{ matrix.browser }}-${{ github.run_id }}
+          path: |
+            test-results/results.json
+            test-results/results.xml
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Generate Allure report
         if: ${{ !cancelled() }}
@@ -297,7 +318,7 @@ jobs:
                   <tbody>
                     <tr><td>Node.js</td><td><strong>24</strong></td></tr>
                     <tr><td>Live E2E</td><td><strong>PR / push / manual</strong> · Chromium, Firefox and WebKit</td></tr>
-                    <tr><td>E2E workers</td><td><strong>1 per browser</strong></td></tr>
+                    <tr><td>E2E workers</td><td><strong>4 per browser</strong></td></tr>
                     <tr><td>E2E retries</td><td><strong>0</strong> · failures are not masked</td></tr>
                     <tr><td>Browsers</td><td>Chromium · Firefox · WebKit</td></tr>
                     <tr><td>Allure reports</td><td><a href="${ARTIFACTS_URL}">Открыть artifacts</a></td></tr>

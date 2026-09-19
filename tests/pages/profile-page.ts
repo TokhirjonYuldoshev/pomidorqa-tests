@@ -96,6 +96,35 @@ export class ProfilePage {
     await this.addSkillButton.click();
   }
 
+  async attemptSaveProfile(): Promise<void> {
+    await this.saveButton.click();
+  }
+
+  async submitSkill(name: string, type: SkillType): Promise<void> {
+    await this.skillInput.fill(name);
+    await this.skillTypeSelect.selectOption(type);
+
+    const responsePromise = this.page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === ROUTES.profile &&
+        response.request().method() === "POST",
+      { timeout: 15_000 },
+    );
+
+    await Promise.all([
+      responsePromise,
+      this.addSkillButton.click(),
+    ]);
+  }
+
+  skillChip(tag: string): Locator {
+    return this.page.locator(`[data-skill-tag="${tag}"]`);
+  }
+
+  skillsSection(type: SkillType): Locator {
+    return type === "can_help" ? this.canHelpSkills : this.wantToLearnSkills;
+  }
+
   async removeSkill(skillName: string): Promise<void> {
     const skill = this.page.locator(`[data-skill-tag="${skillName}"]`);
     const removeButton = skill.getByLabel(/^Убрать/);
