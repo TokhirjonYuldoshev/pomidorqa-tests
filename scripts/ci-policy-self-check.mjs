@@ -51,6 +51,13 @@ const workflows = new Map(
   ]),
 );
 
+const packageJson = JSON.parse(
+  readFileSync("package.json", "utf8"),
+);
+
+const packageScripts =
+  packageJson.scripts ?? {};
+
 const failures = [];
 let pinnedActionCount = 0;
 let uploadCount = 0;
@@ -154,6 +161,52 @@ for (const [name, text] of workflows) {
         `${name}: Allure generation after the primary check must be non-blocking`,
       );
     }
+  }
+}
+
+const fastE2eCommand =
+  packageScripts["test:e2e:fast"] ?? "";
+
+if (
+  fastE2eCommand !==
+  "playwright test --project=e2e --workers=4 --retries=0"
+) {
+  fail(
+    "package.json: test:e2e:fast must use workers=4 and retries=0",
+  );
+}
+
+for (
+  const [name, command] of
+  Object.entries(packageScripts)
+) {
+  if (
+    !name.startsWith("test:e2e") ||
+    typeof command !== "string"
+  ) {
+    continue;
+  }
+
+  const workerMatch =
+    command.match(/--workers=(\d+)/);
+
+  if (
+    workerMatch &&
+    Number(workerMatch[1]) > 4
+  ) {
+    fail(
+      `package.json: ${name} exceeds the live E2E worker cap of 4`,
+    );
+  }
+
+  if (
+    /--retries=(?!0\b)\d+/.test(
+      command,
+    )
+  ) {
+    fail(
+      `package.json: ${name} enables positive Playwright retries`,
+    );
   }
 }
 
@@ -319,5 +372,6 @@ console.log(
     `non_blocking_uploads=${uploadCount}`,
     "retries=0",
     "main_matrix_max_parallel=2",
+    "local_e2e_worker_cap=4",
   ].join(" "),
 );
