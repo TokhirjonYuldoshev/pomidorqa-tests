@@ -33,7 +33,7 @@
 
 Длительность не хранится как постоянная характеристика проекта: `CI Summary` рассчитывает её заново для каждого запуска по machine-readable отчётам трёх браузеров.
 
-Контрольный post-merge запуск `main` #259 (`35429008868`) завершился успешно. В нём browser jobs заняли примерно **4 мин 48 с для Chromium**, **6 мин 28 с для Firefox** и **6 мин 59 с для WebKit** по wall-clock времени job. Firefox и WebKit стали зелёными на третьем attempt после отдельных navigation/session/timeout сбоев; внутри Playwright по-прежнему используется **`retries=0`**. Это различие важно: GitHub rerun остаётся видимым событием и не маскируется как автоматический retry теста.
+Контрольный post-merge запуск `main` #282 (`35453857843`) завершился успешно с первого attempt уже с текущей browser policy `workers=4`, `retries=0`, `max-parallel: 2`. Wall-clock browser jobs составили примерно **5 мин 26 с для Chromium**, **6 мин 33 с для Firefox** и **6 мин 42 с для WebKit**. WebKit стартовал после освобождения одного из двух matrix slots — это ожидаемое следствие ограничения пиковой нагрузки live-стенда.
 
 Актуальные длительности, expected/unexpected failures, flaky/retried counters и самые медленные сценарии нужно смотреть в `CI Summary` конкретного запуска.
 
@@ -133,7 +133,7 @@ docs/                     инженерная документация
 
 `main` защищён ruleset `Protect main`. Разрешено только слияние через Pull Request и **squash merge**. Обязательны разрешённые обсуждения и актуальные проверки относительно последнего `main`.
 
-Quality job дополнительно запускает три машинных инварианта: `npm run coverage:check` проверяет все 50 requirement ID и синхронизацию coverage; `scripts/ai-review-self-check.mjs` проверяет policy engine AI Review; `npm run ci:policy` валидирует 10 workflow-файлов — SHA-pinning GitHub Actions, `retries=0`, browser matrix `max-parallel: 2`, обязательные browser/gate/summary/Telegram сигналы, trusted checkout AI Review и non-blocking diagnostic artifact uploads. Поэтому ключевые правила CI нельзя незаметно ослабить простой правкой YAML.
+Quality job дополнительно запускает три машинных инварианта: `npm run coverage:check` проверяет все 50 requirement ID и синхронизацию coverage; `scripts/ai-review-self-check.mjs` проверяет policy engine AI Review; `npm run ci:policy` валидирует 10 workflow-файлов и локальный E2E shortcut — SHA-pinning GitHub Actions, `retries=0`, browser matrix `max-parallel: 2`, локальный worker cap 4, обязательные browser/gate/summary/Telegram сигналы, trusted checkout AI Review и non-blocking diagnostic artifact uploads. Поэтому ключевые правила CI нельзя незаметно ослабить простой правкой YAML или `package.json`.
 
 Обязательные проверки:
 
@@ -218,7 +218,7 @@ E2E_BROWSER=webkit npm run test:e2e
 | `npm run test:unit` | Unit |
 | `npm run test:api` | API |
 | `npm run test:e2e` | E2E в выбранном браузере |
-| `npm run test:e2e:fast` | быстрый локальный E2E-прогон с 16 workers |
+| `npm run test:e2e:fast` | локальный E2E с ограниченным параллелизмом: 4 workers, `retries=0` |
 | `npm test` | все проекты Playwright |
 | `npm run report` | открыть Playwright HTML report |
 | `npm run allure:generate` | собрать Allure report |
