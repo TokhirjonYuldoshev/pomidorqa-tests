@@ -40,7 +40,7 @@ npm run regression:metrics
 | `Security / dependency change review` | согласованность изменений зависимостей и lockfile |
 | `Security / code quality` | независимую статическую проверку кода |
 
-Внутри Quality выполняется `npm run coverage:check`. Он блокирует PR, если отсутствует любой из 50 requirement ID, встречается недопустимый/дублирующийся статус, матрица ссылается на несуществующий spec-файл или цифры README расходятся с матрицей.
+Внутри Quality выполняется `npm run coverage:check`. Он блокирует PR, если отсутствует любой из 50 requirement ID, встречается недопустимый/дублирующийся статус, матрица ссылается на несуществующий spec-файл или цифры README расходятся с матрицей. Там же выполняется `node scripts/ai-review-self-check.mjs`: он проверяет patch annotation, детерминированные CODEX findings, requirement traceability и дедупликацию reviewer findings без изменения Playwright test inventory.
 
 ### Агрегированный Regression Gate
 
