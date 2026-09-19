@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { appendFileSync, readFileSync } from "node:fs";
 
 import {
@@ -158,6 +159,8 @@ _Автоматическая проверка diff по \`CODEX.md\` и \`REVIE
 <tr><td>Требования</td><td>${summaryCell(impactedRequirements)}</td></tr>
 <tr><td>Детерминированные findings</td><td>${summaryCell(deterministicFindings)}</td></tr>
 <tr><td>Upstream CI</td><td>${summaryCell(upstreamRun)}</td></tr>
+<tr><td>Reviewer revision</td><td><code>${summaryCell(reviewerSha.slice(0, 12) || "unknown")}</code></td></tr>
+<tr><td>Policy fingerprint</td><td><code>${summaryCell(policyFingerprint)}</code></td></tr>
 <tr><td>Правила</td><td><code>CODEX.md</code> + <code>REVIEW.md</code></td></tr>
 <tr><td>Повторная проверка</td><td>второй проход модели</td></tr>
 </tbody>
@@ -313,6 +316,8 @@ function publishReviewOutputs({
   writeStepOutput("model", model);
   writeStepOutput("tokens_total", usage?.totalTokens ?? 0);
   writeStepOutput("upstream_run_id", upstreamRunId);
+  writeStepOutput("reviewer_sha", reviewerSha);
+  writeStepOutput("policy_fingerprint", policyFingerprint);
 }
 
 const codex =
@@ -329,6 +334,21 @@ const coverageMatrix =
 
 const upstreamRunId =
   process.env.AI_REVIEW_UPSTREAM_RUN_ID || "";
+
+const reviewerSha =
+  process.env.AI_REVIEW_REVIEWER_SHA || "";
+
+const policyFingerprint =
+  createHash("sha256")
+    .update(codex)
+    .update("\0")
+    .update(checklist)
+    .update("\0")
+    .update(requirementsSpec)
+    .update("\0")
+    .update(coverageMatrix)
+    .digest("hex")
+    .slice(0, 16);
 
 const ruleNumbers =
   extractRuleNumbers(codex);
@@ -1576,6 +1596,8 @@ ${buildReviewConclusion(
 Детерминированные проверки: ${deterministicFindings.length}.
 Traceability требований: ${impactedRequirementText}.
 Upstream CI: ${upstreamRunText}.
+Reviewer revision: \`${reviewerSha.slice(0, 12) || "unknown"}\`.
+Policy fingerprint: \`${policyFingerprint}\`.
 
 ---
 Модель: \`${model}\`. ${usageText}`;
