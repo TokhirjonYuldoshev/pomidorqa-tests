@@ -8,8 +8,9 @@
 - **45 / 50 (90%)** имеют статус `automated`;
 - **2 / 50** — `partial`, **2 / 50** — `out of scope`, **1 / 50** — `known defect`;
 - в наборе **121 автоматизированная проверка**: 10 Unit, 11 API, 100 E2E;
-- последний зелёный CI в PR #90: Unit — **1.3 s**, API — **5.1 s**, E2E — Chromium **4.3 min**, Firefox **6.4 min**, WebKit **5.9 min**;
-- браузерные jobs идут параллельно и работают с `retries=0`.
+- длительность фиксируется в каждом `CI Summary`, а не считается постоянным числом; контрольный post-merge run #259 завершился успешно, browser jobs заняли примерно Chromium **4:48**, Firefox **6:28**, WebKit **6:59** по wall-clock job;
+- Firefox и WebKit в run #259 стали зелёными на третьем GitHub attempt после отдельных navigation/session/timeout сбоев; Playwright при этом работал с `retries=0`;
+- браузерные jobs идут параллельно, `Regression Gate` агрегирует Quality + Unit + API + E2E matrix перед итоговой сводкой.
 
 Из найденных продуктовых расхождений в текущей матрице остаётся R8.3: каталог учитывает `want_to_learn`, хотя требование ограничивает поиск навыками `can_help`. Проверка написана по требованию и оформлена как `test.fail()`, поэтому дефект виден в наборе и не маскируется зелёным тестом.
 
@@ -65,7 +66,7 @@ Fixtures владеют жизненным циклом `BrowserContext`. `appFa
 
 ## Как устроен CI
 
-Сначала независимо выполняются Quality, Unit и API. Quality включает машинную проверку матрицы покрытия: все 50 requirement ID, статусы, ссылки на тесты и согласованность README. После них один E2E-набор проходит Chromium, Firefox и WebKit. Каждый браузер сохраняет machine-readable JSON/JUnit и отдельные HTML/Allure artifacts. Финальный CI Dashboard агрегирует все три browser reports в одну сводку: pass/fail, expected/unexpected failures, flaky, retries, duration, slowest scenarios, data-discipline, requirement coverage и ссылки на artifacts.
+Сначала независимо выполняются Quality, Unit и API. Quality включает машинную проверку матрицы покрытия: все 50 requirement ID, статусы, ссылки на тесты и согласованность README. После них один E2E-набор проходит Chromium, Firefox и WebKit. Каждый браузер сохраняет machine-readable JSON/JUnit и отдельные HTML/Allure artifacts. Затем `Regression Gate` агрегирует обязательные функциональные сигналы. Финальный CI Dashboard собирает три browser reports в одну сводку: pass/fail, expected/unexpected failures, flaky, retries, duration, slowest scenarios, data-discipline, requirement coverage, номер attempt и ссылки на artifacts.
 
 `main` защищён ruleset и принимает только squash merge после обязательных проверок.
 
@@ -111,7 +112,7 @@ Accessibility, Lighthouse и Visual Regression измеряют другие с�
 
 ## Как работает AI Review
 
-После успешного PR CI отдельный workflow запускает Gemini-review по CODEX-scoped diff. Он не исполняет код PR: reviewer и правила берутся из доверенной ветки `main`, а изменения PR читаются через GitHub API. Scope включает тесты, `src`, `scripts`, workflows, документацию и ключевые конфигурационные файлы. Draft PR тоже проверяются; при необходимости review можно запустить вручную по номеру PR. Второй проход модели отбрасывает неподтверждённые замечания перед публикацией, а Actions Summary показывает модель, commit, размер diff, число findings и ссылку на review.
+После успешного PR CI отдельный workflow запускает Gemini-review по CODEX-scoped diff. Он не исполняет код PR: код проверки и правила берутся из доверенной ветки `main`, а изменения PR читаются через GitHub API. Scope включает тесты, `src`, `scripts`, workflows, документацию и ключевые конфигурационные файлы. Draft PR тоже проверяются; при необходимости review можно запустить вручную по номеру PR. Второй проход модели отбрасывает неподтверждённые замечания перед публикацией. Actions Summary показывает модель, commit, размер diff, число файлов, findings и P1/P2/P3; отдельная Telegram job доставляет итог и ссылку на опубликованный review.
 
 ## Зачем Nightly
 
@@ -123,7 +124,7 @@ Stability повторяет выбранный сценарий несколь�
 
 ## Зачем Telegram
 
-Telegram — канал доставки результата. Он не решает, зелёный тест или красный. Если транспорт уведомления упал, исходный статус теста не меняется.
+Telegram — канал доставки результата. Он не решает, зелёный тест или красный. В основном CI и AI Review уведомление выполняется отдельной job, поэтому транспортная ошибка видна отдельно и не меняет исходный статус тестов или review.
 
 ## Как разбирать красный E2E
 
