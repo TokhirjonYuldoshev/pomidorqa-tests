@@ -169,6 +169,7 @@ jobs:
 
           case "$REVIEW_STATE" in
             published) STATE="Review опубликован" ;;
+            degraded) STATE="Model degraded; опубликован детерминированный результат" ;;
             already_reviewed) STATE="Commit уже проверен" ;;
             scope_clean) STATE="Изменений в scope нет" ;;
             stale) STATE="Результат устарел и не опубликован" ;;
