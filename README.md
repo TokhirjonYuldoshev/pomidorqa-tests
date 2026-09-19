@@ -1,4 +1,4 @@
-# PomidorQA — автоматизация тестирования
+# PomidorQA — test automation
 
 [![Playwright QA Automation CI](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/playwright.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/playwright.yml)
 [![Nightly E2E Regression](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/nightly.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/nightly.yml)
@@ -8,18 +8,18 @@
 [![Performance Smoke / Lighthouse](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/performance.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/performance.yml)
 [![Visual Regression](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/visual.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/visual.yml)
 
-Портфельный проект по автоматизации тестирования сервиса PomidorQA на **Playwright + TypeScript**. Ключевые продуктовые риски — потеря/смешивание пользовательской сессии, двойное бронирование одного слота, некорректная доступность в каталоге, ошибки часового пояса и нарушение окна отмены. Репозиторий развивает учебный проект в самостоятельную тестовую систему с функциональными, CI/CD и нефункциональными сигналами качества.
+Автоматизация тестирования сервиса PomidorQA на **Playwright + TypeScript** с раздельными Unit, API и E2E-уровнями, cross-browser regression, контролем тестовых данных, security/accessibility/performance/visual-сигналами и воспроизводимой CI-диагностикой.
 
-Исходный учебный репозиторий: [lebed52/pomidorqa-course-tests](https://github.com/lebed52/pomidorqa-course-tests).
+Проект построен вокруг продуктовых рисков, а не количества тестов. Основные зоны риска: авторизация и изоляция сессий, согласованность профиля, управление свободными слотами, фильтрация каталога, гонка за один слот, отмена бронирования и корректность временных ограничений.
 
-## Покрытие требований — HW16
+## Текущие метрики
 
-Источник требований — [`requirements.md`](requirements.md), а подробное соответствие «требование → тест → статус» находится в [`docs/coverage-matrix.md`](docs/coverage-matrix.md).
+Источник требований — [`requirements.md`](requirements.md). Связь «требование → статус → доказательство» ведётся в [`docs/coverage-matrix.md`](docs/coverage-matrix.md).
 
 | Метрика | Значение |
 | --- | ---: |
 | Требований MVP | 50 |
-| Полнота аудита | **50 / 50 (100%)** |
+| Полнота аудита требований | **50 / 50 (100%)** |
 | `automated` | **45 / 50 (90%)** |
 | `partial` | 2 / 50 (4%) |
 | `known defect` | 1 / 50 (2%) |
@@ -29,226 +29,192 @@
 | E2E | 100 |
 | Всего автоматизированных проверок | **121** |
 
-### Время прогонов и стабильность CI
+Все 50 требований классифицированы. Процент automated не смешивается с полнотой аудита: требование может быть частично наблюдаемым, недостижимым через доступные black-box интерфейсы или иметь подтверждённое расхождение продукта.
 
-Длительность не хранится как постоянная характеристика проекта: `CI Summary` рассчитывает её заново для каждого запуска по machine-readable отчётам трёх браузеров.
+Известное расхождение **R8.3** оставлено видимым: каталог учитывает `want_to_learn`, хотя спецификация ограничивает поиск навыками `can_help`. Проверки написаны по требованию и используют `test.fail()`, поэтому дефект не превращён в «зелёное» ожидаемое поведение.
 
-Контрольный post-merge запуск `main` #282 (`35453857843`) завершился успешно с первого attempt уже с текущей browser policy `workers=4`, `retries=0`, `max-parallel: 2`. Wall-clock browser jobs составили примерно **5 мин 26 с для Chromium**, **6 мин 33 с для Firefox** и **6 мин 42 с для WebKit**. WebKit стартовал после освобождения одного из двух matrix slots — это ожидаемое следствие ограничения пиковой нагрузки live-стенда.
-
-Актуальные длительности, expected/unexpected failures, flaky/retried counters и самые медленные сценарии нужно смотреть в `CI Summary` конкретного запуска.
-
-Число тестов, автоматизированное покрытие и полнота аудита — разные метрики. Все 50 требований классифицированы; 45 имеют статус `automated`, два остаются `partial`, два `out of scope`, один — `known defect`. API-мок используется для автоматизированной проверки бизнес-контрактов бронирования на уровне API и не выдаётся за прямое исполнение production-кода PomidorQA. Единственный известный дефект матрицы — R8.3: каталог сейчас учитывает `want_to_learn`, хотя требование ограничивает фильтр навыками `can_help`. Регрессионные проверки написаны по требованию и оформлены как `test.fail()`.
-
-## Что реализовано
-
-| Область | Реализация |
-| --- | --- |
-| Unit | проверки чистой бизнес-логики без браузера |
-| API | локальные HTTP-контракты + live test API регистрации PomidorQA |
-| E2E | реальные пользовательские сценарии PomidorQA |
-| Браузеры | Chromium, Firefox и WebKit |
-| Архитектура | Page Object Model, fixtures, helpers, уникальные тестовые данные |
-| Подготовка данных | создание тестовых аккаунтов через API там, где UI-регистрация не является предметом проверки |
-| Очистка данных | централизованное удаление созданных тестовых аккаунтов перед закрытием `BrowserContext` |
-| Отчёты | Playwright HTML, Allure, JSON/JUnit, trace, screenshots, video; транспорт отчётов не подменяет результат тестов, а Actions Dashboard агрегирует три браузера, failures, slowest tests, artifacts и coverage |
-| Доступность | axe-core / WCAG |
-| Производительность | Lighthouse |
-| Визуальные проверки | сравнение скриншотов в Chromium |
-| Безопасность | `npm audit`, проверка изменений зависимостей, CycloneDX SBOM |
-| Стабильность | повторные прогоны с `retries=0` и отдельной таблицей метрик |
-| Traceability | автоматическая проверка 50 requirement ID, статусов, test-ссылок и синхронизации README ↔ matrix |
-| Regression Gate | агрегирует Quality + Unit + API + E2E matrix в один понятный итоговый сигнал перед Summary |
-| AI Review | Gemini-review после зелёного PR CI + ручной запуск; trusted-main архитектура, детерминированный preflight без docs false positives, второй валидационный проход, traceability requirement ID, graceful `degraded` mode при временной недоступности Gemini, P1/P2/P3, upstream CI, reviewer revision, policy fingerprint, отдельная Telegram job и Actions Dashboard |
-| Плановые проверки | Nightly E2E |
-| Уведомления | Telegram как вспомогательный канал, не источник результата тестов |
-
-## Функциональное покрытие
+## Покрываемые пользовательские потоки
 
 ### Авторизация и сессии
 
-Проверяются успешный и ошибочный вход, восстановление после неверного пароля, сохранение сессии после перезагрузки, выход, защита страниц профиля/встреч/слотов, независимость нескольких браузерных контекстов и отсутствие влияния выхода одного пользователя на сессию другого.
+Проверяются успешный и ошибочный вход, восстановление после неверного пароля, сохранение сессии после reload, logout, защита приватных страниц, независимость браузерных контекстов, согласованность нескольких вкладок и отсутствие влияния одной пользовательской сессии на другую.
 
-### Профиль
+### Профиль и навыки
 
-Проверяются имя, Telegram, описание, часовой пояс, оба типа навыков, сохранение после перезагрузки, удаление навыков, несколько навыков, независимость полей, последнее сохранённое значение и изоляция состояния разных аккаунтов.
+Проверяются обязательность имени, необязательные Telegram и описание, часовой пояс, оба типа навыков, уникальность навыков одного типа, сохранение после reload, удаление, независимость полей и изоляция данных разных аккаунтов.
 
 ### Свободные слоты
 
-Проверяются пустое начальное состояние, создание и сохранение слотов, несколько времён в один день, несколько дат, видимость доступных времён гостю и изоляция слотов разных аккаунтов.
+Проверяются создание и удаление слотов, несколько времён и дат, защита от прошлой даты, отображение времени, изоляция слотов разных пользователей и изменение состояния после бронирования.
 
-### Каталог и поиск
+### Каталог
 
-Покрыты положительные и отрицательные сценарии поиска, точное и частичное совпадение, регистр, пробелы, Enter, кириллица и специальные символы, многословные навыки, одинаковые имена/навыки, скрытие собственной карточки, обновление выдачи после изменения профиля, удаления аккаунта, появления/исчезновения слотов и каскадных изменений связанных сущностей. Расхождение фильтрации `can_help` / `want_to_learn` не маскируется зелёным тестом и зафиксировано как known defect R8.3.
+Покрыты self-exclusion, условия появления участника в каталоге, точное и частичное совпадение, регистр, пробелы, Enter, кириллица, специальные символы, одинаковые имена и навыки, обновление выдачи после изменения профиля, слотов, бронирований и удаления аккаунта.
 
 ### Бронирование и отмена
 
-Проверяются основной путь бронирования, гонка двух пользователей за один слот, отображение встречи у обеих сторон, отмена, сохранение отменённого состояния после перезагрузки, исчезновение хоста при занятии последнего слота, восстановление доступности после отмены и повторное бронирование освобождённого слота другим пользователем.
+Проверяются основной путь, гонка двух пользователей за один слот, единственность подтверждённой брони, видимость встречи у обеих сторон, отмена каждой стороной, двухчасовое окно отмены, восстановление свободного слота и повторное бронирование другим пользователем.
 
-## Архитектура
+## Архитектура тестов
 
 ```text
-src/pyramid/              чистая логика и локальный mock API
+src/pyramid/              детерминированная бизнес-логика и локальный mock API
 
 tests/
-├── unit/                 модульные проверки
-├── api/                  HTTP-проверки
-├── e2e/                  пользовательские сценарии
-├── fixtures/             управление контекстами
-├── helpers/              данные и подготовка состояния
+├── unit/                 Unit-проверки
+├── api/                  HTTP-контракты
+├── e2e/                  интегрированные пользовательские сценарии
+├── fixtures/             lifecycle BrowserContext и teardown
+├── helpers/              подготовка состояния и тестовые данные
 ├── pages/                Page Objects
 └── visual/               визуальные проверки
 
-scripts/                  вспомогательные проверки
-docs/                     инженерная документация
-.github/workflows/         CI и отдельные проверки качества
+scripts/                  метрики, policy checks, dashboards, AI review
+docs/                     архитектура, стратегия, coverage и runbooks
+.github/workflows/         CI и специализированные quality workflows
 ```
 
-Главное разделение ответственности:
+Разделение ответственности:
 
-**сценарий и проверки — в spec → действия экрана — в Page Object → подготовка данных и повторяемые действия — в helpers → создание и очистка контекстов — в fixtures**.
+**spec описывает сценарий и assertions → Page Object инкапсулирует действия экрана → helpers готовят повторяемое состояние → fixtures владеют BrowserContext и cleanup**.
+
+Это уменьшает дублирование, ограничивает связанность между тестами и делает источник сбоя понятнее.
 
 ## Работа с тестовыми данными
 
-Каждый сценарий использует уникальные данные. Многопользовательские проверки работают в отдельных `BrowserContext`.
+Каждый сценарий использует уникальные данные. Многопользовательские проверки выполняются в отдельных `BrowserContext`.
 
-Когда регистрация не является предметом теста, аккаунт создаётся через тестовый API. Контекст, в котором создан тестовый аккаунт, помечается для очистки; teardown удаляет аккаунт и затем закрывает браузерный контекст. Удаление аккаунта каскадно очищает связанные тестовые навыки, слоты и бронирования.
+Если UI-регистрация не является предметом проверки, аккаунт создаётся через тестовый API. Созданные аккаунты регистрируются для teardown; cleanup удаляет аккаунт до закрытия контекста. Это уменьшает нагрузку на общий стенд и снижает накопление тестовых сущностей.
 
-Это снижает нагрузку на общий стенд и не оставляет новые тестовые данные после обычных E2E-прогонов.
+Готовые постоянные аккаунты не являются зависимостью E2E-набора.
 
-## Синхронизация и стабильность
+## Синхронизация и детерминизм
 
-Не используются как способ «починить» тест:
+Как способ «починить» тест не используются:
 
 - `waitForTimeout` и произвольные паузы;
 - `force: true`;
-- `.only` и `skip`;
+- `.only`;
 - `page.pause()`;
-- автоматические повторные попытки, скрывающие первый сбой.
+- положительные Playwright retries.
 
-Основные E2E, Nightly и Stability сохраняют `retries=0`.
+Основные E2E, Nightly и Stability сохраняют **`retries=0`**.
 
-Изменяющие состояние действия подтверждаются наблюдаемыми сигналами: HTTP-ответом нужного запроса, переходом по URL, появлением/исчезновением состояния интерфейса или ограниченным повторным опросом там, где подтверждена eventual consistency.
+Изменяющее состояние действие подтверждается наблюдаемым сигналом: ожидаемым HTTP-ответом, URL-переходом, изменением UI-состояния или ограниченным polling только там, где подтверждена eventual consistency.
 
-## CI и защита `main`
+Browser matrix использует **Chromium + Firefox + WebKit**, `workers=4` на browser job и `max-parallel: 2`. Локальный `test:e2e:fast` также ограничен четырьмя workers и `retries=0`.
 
-`main` защищён ruleset `Protect main`. Разрешено только слияние через Pull Request и **squash merge**. Обязательны разрешённые обсуждения и актуальные проверки относительно последнего `main`.
+## Система quality signals
 
-Quality job дополнительно запускает три машинных инварианта: `npm run coverage:check` проверяет все 50 requirement ID и синхронизацию coverage; `scripts/ai-review-self-check.mjs` проверяет policy engine AI Review; `npm run ci:policy` валидирует 10 workflow-файлов и локальный E2E shortcut — SHA-pinning GitHub Actions, `retries=0`, browser matrix `max-parallel: 2`, локальный worker cap 4, обязательные browser/gate/summary/Telegram сигналы, trusted checkout AI Review и non-blocking diagnostic artifact uploads. Поэтому ключевые правила CI нельзя незаметно ослабить простой правкой YAML или `package.json`.
+Проект разделяет первичный результат проверки и вспомогательную доставку диагностики.
 
-Обязательные проверки:
+| Сигнал | Назначение |
+| --- | --- |
+| Quality | ESLint, TypeScript, coverage integrity, AI-review self-check, CI policy |
+| Unit | детерминированная логика |
+| API | HTTP-контракты и live registration contract |
+| E2E | пользовательские сценарии в Chromium, Firefox и WebKit |
+| Regression Gate | агрегированный функциональный итог |
+| Security | npm audit, dependency consistency, static checks, SBOM |
+| Accessibility | axe-core / WCAG |
+| Performance | Lighthouse |
+| Visual | screenshot comparison |
+| Nightly | плановая cross-browser регрессия |
+| Stability | повторные прогоны выбранного сценария при `retries=0` |
+| AI Review | CODEX-scoped review PR diff с trusted-main reviewer |
+| Telegram | доставка уже вычисленного результата |
 
-- `Quality / lint + typecheck`;
-- `Unit tests`;
-- `API tests`;
-- `E2E / Chromium`;
-- `E2E / Firefox`;
-- `E2E / WebKit`;
-- `Security / npm audit`;
-- `Security / dependency change review`;
-- `Security / code quality`.
-
-Для браузерных E2E в CI используются `workers=4`, `retries=0`, `fail-fast: false` и `max-parallel: 2` на browser matrix. Chromium, Firefox и WebKit остаются отдельными jobs, но одновременно выполняются максимум два браузера. Ограничение введено после повторяемых HTTP 502/timeout на live-стенде при трёх параллельных browser jobs; изолированный Chromium на тех же `workers=4` прошёл полностью. Это сохраняет внутрибраузерный параллелизм, но снижает пиковую нагрузку с 12 до 8 E2E workers.
-
-После browser matrix выполняется `Regression Gate`. Он не заменяет исходные checks и не скрывает их результат: job только агрегирует обязательные функциональные сигналы в один статус, после чего запускаются `CI Summary` и `Telegram Notification`.
-
-## Отдельные проверки качества
-
-- **Accessibility Audit** — axe-core и WCAG;
-- **Performance Smoke / Lighthouse** — производительность и технические показатели публичных страниц;
-- **Visual Regression** — визуальные изменения login/register;
-- **AI Review** — CODEX-scoped review после успешного PR CI; workflow использует доверенный код из `main`, выполняет детерминированный preflight только по Playwright-коду, второй проход для отсечения ложных замечаний, показывает связанные requirement ID по coverage matrix, P1/P2/P3, upstream CI, trusted reviewer revision и policy fingerprint; временный 408/429/5xx Gemini переводит review в честный `degraded` mode, а отдельная Telegram job доставляет состояние; поддерживаются draft PR и ручной запуск по номеру PR;
-- **Nightly E2E Regression** — плановая проверка внешнего стенда;
-- **Stability Check** — повторные запуски без retries;
-- **Registration Contract Smoke** — ручная проверка `POST /pomidorqa/auth/register → 303 → /pomidorqa`;
-- **Telegram Notification Test** — ручная диагностика интеграции Telegram.
-
-Эти сигналы отделены от функционального E2E, чтобы причина сбоя оставалась понятной.
+`npm run ci:policy` машинно защищает ключевые CI-инварианты: pinning GitHub Actions на полный SHA, отсутствие `pull_request_target`, `retries=0`, browser concurrency, local worker cap, trusted-main AI Review и non-blocking diagnostic uploads.
 
 ## Отчёты и диагностика
 
-Playwright формирует HTML, Allure, JSON и JUnit. При ошибках сохраняются trace, screenshots, video и `test-results`. В основном CI, Nightly, Stability, Accessibility, Lighthouse, Visual и Registration Contract Smoke доставка диагностических artifacts отделена от результата самой проверки: сетевой сбой GitHub artifact storage не превращает успешную проверку в ложное функциональное падение. Nightly и Stability дополнительно сохраняют machine-readable JSON/JUnit для разбора метрик. Пример причины, из-за которой это разделение введено: в post-merge CI #262 attempt 1 Chromium завершил `100 passed`, а исходный job стал красным только при финализации HTML artifact из-за `ECONNRESET`. Attempt 2 позже показал уже независимый сбой live-стенда — `ECONNREFUSED` на test-account API; разные attempts классифицируются по фактической первой причине, а не объединяются под общим словом «flaky».
+Playwright публикует HTML, JSON/JUnit и Allure-данные. При E2E failure сохраняются trace, screenshot, video и `test-results`.
 
-Каждый browser job публикует собственные метрики, `Regression Gate` агрегирует обязательные функциональные сигналы, а финальный `CI Summary` скачивает machine-readable отчёты Chromium/Firefox/WebKit и строит единый Actions Dashboard: статус gates, номер attempt, 50/50 requirement audit, test inventory, browser matrix, expected/unexpected failures, flaky/retries, slowest scenarios, data-discipline и прямые ссылки на artifacts. Отсутствующий artifact остаётся диагностическим ухудшением и виден в Summary, но не переписывает фактический test result.
+Diagnostic artifact transport не является источником результата тестов. Если upload отчёта временно недоступен, это остаётся отдельной reporting-проблемой и не должно превращать успешно завершившуюся проверку в ложный продуктовый failure.
 
-Telegram используется только для доставки результата. Если отправка уведомления не удалась, это не меняет фактический статус тестов или проверки безопасности.
+`CI Summary` агрегирует machine-readable browser reports и показывает:
 
-## Быстрый старт
+- статус основных gates;
+- номер GitHub run attempt;
+- requirement coverage;
+- test inventory;
+- browser matrix;
+- expected/unexpected failures;
+- retries/flaky counters;
+- slowest scenarios;
+- состояние test-data discipline;
+- ссылки на artifacts.
 
-Требования: Node.js 24, npm и Chromium.
+Подробный порядок расследования находится в [`docs/ci-incident-runbook.md`](docs/ci-incident-runbook.md).
 
-```bash
-git clone https://github.com/TokhirjonYuldoshev/pomidorqa-tests.git
-cd pomidorqa-tests
-npm ci
-npx playwright install chromium
-npm run verify:local
-```
+## AI Review
 
-Для E2E:
+AI Review запускается после успешного PR CI и использует reviewer-код из доверенной ветки `main`. PR-код не checkout-ится и не исполняется привилегированным workflow.
 
-```bash
-npm run test:e2e
-```
+Проверка состоит из:
 
-Для быстрого локального E2E-прогона:
+1. deterministic preflight по однозначным правилам `CODEX.md`;
+2. requirement traceability через coverage matrix;
+3. модельного анализа diff;
+4. отдельного validation pass для отсечения неподтверждённых замечаний;
+5. публикации provenance: reviewed commit, upstream CI, reviewer revision и policy fingerprint.
 
-```bash
-npm run test:e2e:fast
-```
+При временной недоступности модели workflow переходит в `degraded` mode: deterministic findings сохраняются, а непроверенные модельные выводы не публикуются как подтверждённые.
 
-Для другого браузера:
+## Структура инженерной документации
+
+| Документ | Назначение |
+| --- | --- |
+| [`requirements.md`](requirements.md) | спецификация продукта |
+| [`docs/coverage-matrix.md`](docs/coverage-matrix.md) | requirement coverage |
+| [`docs/test-coverage.md`](docs/test-coverage.md) | карта suites и рисков |
+| [`docs/test-strategy.md`](docs/test-strategy.md) | risk-based стратегия |
+| [`docs/architecture.md`](docs/architecture.md) | устройство тестовой системы |
+| [`docs/quality-gates.md`](docs/quality-gates.md) | обязательные и диагностические сигналы |
+| [`docs/ci-incident-runbook.md`](docs/ci-incident-runbook.md) | классификация CI incidents |
+| [`docs/ai-review.md`](docs/ai-review.md) | архитектура AI Review |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | правила изменений |
+| [`CODEX.md`](CODEX.md) | обязательные правила тестового кода |
+| [`REVIEW.md`](REVIEW.md) | checklist ревью |
+
+## Основные команды
+
+| Команда | Назначение |
+| --- | --- |
+| `npm run verify:local` | runtime + lint + typecheck + coverage + CI policy + Unit + API |
+| `npm run gate` | локальный полный gate с E2E |
+| `npm run coverage:check` | проверить 50 requirement ID, статусы и evidence |
+| `npm run ci:policy` | проверить CI-инварианты и local E2E worker cap |
+| `npm run test:unit` | Unit |
+| `npm run test:api` | API |
+| `npm run test:e2e` | E2E в выбранном браузере |
+| `npm run test:e2e:fast` | E2E с 4 workers и `retries=0` |
+| `npm run metrics` | разобрать последний JSON report |
+| `npm run report` | открыть Playwright HTML report |
+| `npm run allure:generate` | собрать Allure report |
+
+Для другого браузера используется переменная окружения `E2E_BROWSER`:
 
 ```bash
 E2E_BROWSER=firefox npm run test:e2e
 E2E_BROWSER=webkit npm run test:e2e
 ```
 
-## Основные команды
+## Текущее состояние
 
-| Команда | Назначение |
-| --- | --- |
-| `npm run verify:local` | быстрый локальный gate: Node 24 + ESLint + TypeScript + coverage + CI policy + Unit + API |
-| `npm run gate` | полный gate: runtime + lint + typecheck + Unit + API + E2E |
-| `npm run regression:metrics` | полный Playwright-прогон и инженерная сводка метрик |
-| `npm run metrics` | разобрать последний JSON-отчёт Playwright |
-| `npm run coverage:check` | проверить 50/50 требований, статусы, test references и синхронизацию README ↔ matrix |
-| `npm run ci:policy` | проверить инварианты GitHub Actions: pinned actions, retries, matrix load, trusted review и diagnostic transport |
-| `npm run lint` | статический анализ ESLint |
-| `npm run typecheck` | проверка типов TypeScript |
-| `npm run test:unit` | Unit |
-| `npm run test:api` | API |
-| `npm run test:e2e` | E2E в выбранном браузере |
-| `npm run test:e2e:fast` | локальный E2E с ограниченным параллелизмом: 4 workers, `retries=0` |
-| `npm test` | все проекты Playwright |
-| `npm run report` | открыть Playwright HTML report |
-| `npm run allure:generate` | собрать Allure report |
-| `npm run allure:open` | открыть Allure report |
+- Requirement audit: **50 / 50**.
+- Automated requirement coverage: **45 / 50 (90%)**.
+- Test inventory: **121**.
+- Cross-browser E2E: Chromium, Firefox, WebKit.
+- Playwright retries: **0**.
+- Known product discrepancy: **R8.3**.
+- Coverage и CI policy проверяются автоматически.
+- Test/report/notification signals разделены по ответственности.
 
-По умолчанию используется `https://aiqa.su`. Адрес можно переопределить через `POMIDORQA_BASE_URL`.
-
-## Документация
-
-- [CONTRIBUTING.md](CONTRIBUTING.md) — правила внесения изменений;
-- [SECURITY.md](SECURITY.md) — безопасность и ответственное тестирование;
-- [CODEX.md](CODEX.md) — актуальные правила курса для автотестов;
-- [REVIEW.md](REVIEW.md) — чек-лист ревью курса;
-- [docs/README.md](docs/README.md) — карта инженерной документации;
-- [requirements.md](requirements.md) — 50 функциональных требований MVP;
-- [docs/coverage-matrix.md](docs/coverage-matrix.md) — requirement coverage и известные gaps/defects;
-- [docs/test-strategy.md](docs/test-strategy.md) — стратегия тестирования;
-- [docs/architecture.md](docs/architecture.md) — архитектура;
-- [docs/quality-gates.md](docs/quality-gates.md) — обязательные проверки перед слиянием;
-- [docs/ci-incident-runbook.md](docs/ci-incident-runbook.md) — порядок разбора сбоев CI;
-- [docs/ai-review.md](docs/ai-review.md) — архитектура, безопасность, второй проход и Telegram-сигнал AI Review;
-- [docs/interview-guide.md](docs/interview-guide.md) — подготовка к техническому собеседованию;
-- [docs/registration-contract-smoke.md](docs/registration-contract-smoke.md) — ручная проверка контракта регистрации.
+Проект сознательно не заявляет 100% automated coverage там, где black-box интерфейс не позволяет доказать скрытую server-side часть требования. Статусы `partial`, `known defect` и `out of scope` сохраняют границы доказательства видимыми.
 
 ## Происхождение кода и вклад
 
-Базовые учебные сценарии и постановка PomidorQA происходят из курса `lebed52/pomidorqa-course-tests`. В личном репозитории существенно расширены архитектура тестов, централизованный lifecycle `BrowserContext`, API Arrange/cleanup, многопользовательские и lifecycle-сценарии, cross-browser CI, security/accessibility/performance/visual workflows, отчётность и AI-review automation.
+Первоначальная база проекта: [lebed52/pomidorqa-course-tests](https://github.com/lebed52/pomidorqa-course-tests).
 
-HW16 использует официальный `requirements.md` как источник спецификации. Аудит покрытия, дополнительные тесты, метрики и документация подготовлены с AI-assisted workflow; корректность не принимается «на доверии» и должна подтверждаться code review, `retries=0`, обязательными CI checks и ссылками из матрицы на реальные тесты.
-
-## Цель проекта
-
-Репозиторий показывает не количество тестов как самоцель, а управляемую систему качества: независимые уровни проверок, контролируемые тестовые данные, честный `retries=0`, диагностику, обязательные проверки перед слиянием, измеримое requirement coverage и отдельные сигналы для нефункциональных рисков.
+Текущий репозиторий существенно расширен: переработана архитектура тестов, добавлены независимый lifecycle `BrowserContext`, API Arrange/cleanup, многопользовательские и lifecycle-сценарии, cross-browser regression, requirement traceability, quality/security/accessibility/performance/visual workflows, отчётность, CI policy и AI Review.
