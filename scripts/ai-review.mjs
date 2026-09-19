@@ -1461,6 +1461,8 @@ ${buildReviewConclusion(
   verified.comments,
 )}
 
+Приоритеты: P1 — ${priorityCounts.p1}, P2 — ${priorityCounts.p2}, P3 — ${priorityCounts.p3}.
+
 ---
 Модель: \`${model}\`. ${usageText}`;
 
@@ -1542,8 +1544,21 @@ ${buildReviewConclusion(
       findings: String(verified.comments.length),
       usage: usageText,
       reviewUrl: published.html_url,
+      p1: String(priorityCounts.p1),
+      p2: String(priorityCounts.p2),
+      p3: String(priorityCounts.p3),
+      reviewedFiles: String(prepared.reviewedFiles),
     }),
   );
+
+  publishReviewOutputs({
+    state: "published",
+    comments: verified.comments,
+    reviewUrl: published.html_url,
+    diffChars: prepared.diff.length,
+    reviewedFiles: prepared.reviewedFiles,
+    usage,
+  });
 
 }
 
