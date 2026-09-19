@@ -36,14 +36,15 @@ npm run regression:metrics
 | `E2E / Chromium` | пользовательские сценарии в Chromium |
 | `E2E / Firefox` | пользовательские сценарии в Firefox |
 | `E2E / WebKit` | пользовательские сценарии в WebKit |
-| `Regression Gate` | агрегированный итог Quality + Unit + API + E2E matrix; не заменяет исходные checks |
 | `Security / npm audit` | отсутствие блокирующих npm-уязвимостей |
 | `Security / dependency change review` | согласованность изменений зависимостей и lockfile |
 | `Security / code quality` | независимую статическую проверку кода |
 
 Внутри Quality выполняется `npm run coverage:check`. Он блокирует PR, если отсутствует любой из 50 requirement ID, встречается недопустимый/дублирующийся статус, матрица ссылается на несуществующий spec-файл или цифры README расходятся с матрицей.
 
-`Regression Gate` выполняется после browser matrix и даёт один стабильный итог функционального CI. При расследовании источником истины остаётся конкретный исходный job: Quality, Unit, API или соответствующий браузер.
+### Агрегированный Regression Gate
+
+`Regression Gate` выполняется после browser matrix и даёт один стабильный итог функционального CI. Он не входит в текущий список required status checks ruleset `Protect main` и не заменяет их. При расследовании источником истины остаётся конкретный исходный job: Quality, Unit, API или соответствующий браузер.
 
 Если одна из обязательных проверок красная, связанное изменение не готово к слиянию.
 
