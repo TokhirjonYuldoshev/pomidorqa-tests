@@ -1644,15 +1644,26 @@ async function main() {
 
       : "Статистика токенов недоступна.";
 
+  const conclusion =
+    modelDegradedReason
+      ? finalFindings.length
+        ? "**Итог: модель временно недоступна.** " +
+          "Опубликованы только детерминированные findings; " +
+          "непроверенные модельные кандидаты отброшены."
+        : "**Итог: модель временно недоступна.** " +
+          "Детерминированный preflight не нашёл нарушений; " +
+          "полный модельный review не выполнен."
+      : buildReviewConclusion(
+          finalFindings,
+        );
+
   const body =
 `${reviewMarker(
   expectedHeadSha,
 )}
 ## Общий вывод AI-reviewer
 
-${buildReviewConclusion(
-  finalFindings,
-)}
+${conclusion}
 
 Приоритеты: P1 — ${priorityCounts.p1}, P2 — ${priorityCounts.p2}, P3 — ${priorityCounts.p3}.
 Детерминированные проверки: ${deterministicFindings.length}.
@@ -1660,6 +1671,7 @@ Traceability требований: ${impactedRequirementText}.
 Upstream CI: ${upstreamRunText}.
 Reviewer revision: \`${reviewerSha.slice(0, 12) || "unknown"}\`.
 Policy fingerprint: \`${policyFingerprint}\`.
+Состояние модели: ${modelDegradedReason ? "degraded" : "ok"}.
 
 ---
 Модель: \`${model}\`. ${usageText}`;
@@ -1727,19 +1739,23 @@ Policy fingerprint: \`${policyFingerprint}\`.
   );
 
   const reviewHeadline =
-    finalFindings.length === 0
-      ? "✅ ДОКАЗУЕМЫХ НАРУШЕНИЙ НЕ НАЙДЕНО"
-      : finalFindings.some((comment) =>
-            ["P1", "P2"].includes(comment.priority),
-        )
-        ? "❌ ТРЕБУЕТСЯ ДОРАБОТКА"
-        : "⚠️ ЕСТЬ НЕБЛОКИРУЮЩИЕ ЗАМЕЧАНИЯ";
+    modelDegradedReason
+      ? "⚠️ MODEL DEGRADED — ВЫПОЛНЕН ДЕТЕРМИНИРОВАННЫЙ PREFLIGHT"
+      : finalFindings.length === 0
+        ? "✅ ДОКАЗУЕМЫХ НАРУШЕНИЙ НЕ НАЙДЕНО"
+        : finalFindings.some((comment) =>
+              ["P1", "P2"].includes(comment.priority),
+          )
+          ? "❌ ТРЕБУЕТСЯ ДОРАБОТКА"
+          : "⚠️ ЕСТЬ НЕБЛОКИРУЮЩИЕ ЗАМЕЧАНИЯ";
 
   appendStepSummary(
     buildAiStepSummary({
       headline: reviewHeadline,
       note:
-        "Результат опубликован в Pull Request после второго валидационного прохода.",
+        modelDegradedReason
+          ? "Gemini временно недоступен; опубликован только детерминированный результат."
+          : "Результат опубликован в Pull Request после второго валидационного прохода.",
       result: "Опубликовано",
       modelName: model,
       diffChars: `${prepared.diff.length} символов`,
@@ -1759,7 +1775,10 @@ Policy fingerprint: \`${policyFingerprint}\`.
   );
 
   publishReviewOutputs({
-    state: "published",
+    state:
+      modelDegradedReason
+        ? "degraded"
+        : "published",
     comments: finalFindings,
     reviewUrl: published.html_url,
     diffChars: prepared.diff.length,
