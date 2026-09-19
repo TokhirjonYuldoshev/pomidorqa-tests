@@ -240,6 +240,19 @@ function sleep(ms) {
   });
 }
 
+function isTransientGeminiError(error) {
+  const message =
+    error instanceof Error
+      ? error.message
+      : String(error);
+
+  return (
+    /Gemini API (?:408|429|500|502|503|504)/.test(message) ||
+    /Gemini API network error/.test(message) ||
+    /Gemini API исчерпал допустимое число попыток/.test(message)
+  );
+}
+
 function getRetryDelayMs(attempt) {
   const exponentialDelay = Math.min(
     GEMINI_INITIAL_BACKOFF_MS *
@@ -1470,17 +1483,43 @@ async function main() {
       "символов.",
   );
 
-  const generated =
-    await requestReview({
-      pull,
+  let modelDegradedReason = "";
+  let generated;
 
-      diff:
-        prepared.diff,
+  try {
+    generated =
+      await requestReview({
+        pull,
 
-      addedLinesByPath:
-        prepared
-          .addedLinesByPath,
-    });
+        diff:
+          prepared.diff,
+
+        addedLinesByPath:
+          prepared
+            .addedLinesByPath,
+      });
+  } catch (error) {
+    if (!isTransientGeminiError(error)) {
+      throw error;
+    }
+
+    modelDegradedReason =
+      error instanceof Error
+        ? error.message
+        : String(error);
+
+    console.warn(
+      "Основной Gemini-проход временно недоступен. " +
+        "Продолжаем только с детерминированным preflight.",
+    );
+
+    generated = {
+      review: {
+        comments: [],
+      },
+      usage: null,
+    };
+  }
 
   const coordinateValid =
     generated.review.comments
@@ -1509,14 +1548,37 @@ async function main() {
     );
   }
 
-  const verified =
-    await verifyComments({
-      diff:
-        prepared.diff,
+  let verified = {
+    comments: [],
+    usage: null,
+  };
 
-      comments:
-        coordinateValid,
-    });
+  if (coordinateValid.length) {
+    try {
+      verified =
+        await verifyComments({
+          diff:
+            prepared.diff,
+
+          comments:
+            coordinateValid,
+        });
+    } catch (error) {
+      if (!isTransientGeminiError(error)) {
+        throw error;
+      }
+
+      modelDegradedReason =
+        error instanceof Error
+          ? error.message
+          : String(error);
+
+      console.warn(
+        "Verifier Gemini временно недоступен. " +
+          "Непроверенные модельные кандидаты не публикуются.",
+      );
+    }
+  }
 
   const finalFindings =
     mergeReviewFindings(
