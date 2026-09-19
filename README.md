@@ -110,7 +110,7 @@ Browser matrix использует **Chromium + Firefox + WebKit**, `workers=4`
 
 | Сигнал | Назначение |
 | --- | --- |
-| Quality | ESLint, TypeScript, coverage integrity, AI-review self-check, CI policy |
+| Quality | ESLint, TypeScript, coverage integrity, repository framing guard, AI-review self-check, CI policy |
 | Unit | детерминированная логика |
 | API | HTTP-контракты и live registration contract |
 | E2E | пользовательские сценарии в Chromium, Firefox и WebKit |
@@ -184,6 +184,7 @@ AI Review запускается после успешного PR CI и испо
 | `npm run verify:local` | runtime + lint + typecheck + coverage + CI policy + Unit + API |
 | `npm run gate` | локальный полный gate с E2E |
 | `npm run coverage:check` | проверить 50 requirement ID, статусы и evidence |
+| `npm run repo:framing` | проверить отсутствие учебного фрейма и ролевых ярлыков вне разрешённой origin-ссылки |
 | `npm run ci:policy` | проверить CI-инварианты и local E2E worker cap |
 | `npm run test:unit` | Unit |
 | `npm run test:api` | API |
