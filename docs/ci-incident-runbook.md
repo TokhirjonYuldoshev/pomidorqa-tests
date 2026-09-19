@@ -91,6 +91,21 @@ Nightly ищет изменения, возникшие после слияни�
 
 Reference incident: в post-merge CI #262 attempt 1 Chromium завершил `100 passed (5.4m)`, после чего `Upload Playwright HTML report` упал на `Failed to FinalizeArtifact: ... ECONNRESET`. Это был сбой финализации artifact в GitHub storage, а не падение сценария PomidorQA. Повторный attempt 2 дал уже другую причину: 4 сценария не смогли создать тестовые аккаунты из-за `connect ECONNREFUSED 51.250.30.12:443` на `POST https://aiqa.su/api/pomidorqa/test/accounts`. Эти attempts нельзя объединять в одну «flaky test» причину: первый относится к reporting transport, второй — к доступности внешнего live-стенда.
 
+## Общий timeout одного live endpoint в разных сценариях
+
+Если одновременно падают несколько несвязанных сценариев, но stack trace сходится к одному сетевому действию, сначала расследуется общий endpoint или нагрузка, а не каждый тест отдельно.
+
+Reference incident: post-merge CI #284 attempt 1 дал Chromium `98 passed / 2 failed` и Firefox `97 passed / 3 failed`. Все пять failures сошлись в `SlotsPage.addSlot()`: ожидание response на `POST /slots` превысило 15 секунд. Изменение, которое было слито перед запуском, не затрагивало E2E или продуктовую логику. Один следующий GitHub attempt завершил Chromium, Firefox и WebKit успешно с `retries=0`.
+
+Правило для такого случая:
+
+1. сгруппировать failures по общему endpoint/helper;
+2. не увеличивать timeout только ради зелёного результата;
+3. не включать Playwright retries;
+4. выполнить не более одного обоснованного GitHub rerun;
+5. если тот же endpoint снова стабильно падает, расследовать доступность/контракт live-сервиса;
+6. если rerun зелёный, сохранить incident как внешний/временный сигнал, а не переписывать сценарии.
+
 ## Временная недоступность Gemini
 
 Если Gemini после ограниченного retry возвращает 408/429/5xx или network error, это внешний model-provider incident, а не дефект PR.
