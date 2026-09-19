@@ -62,6 +62,85 @@ function appendStepSummary(markdown) {
   appendFileSync(summaryPath, `${markdown.trim()}\n`);
 }
 
+function summaryCell(value) {
+  return String(value ?? "")
+    .replaceAll("|", "\\|")
+    .replaceAll("\n", " ");
+}
+
+function buildAiStepSummary({
+  headline,
+  note,
+  result,
+  modelName = model,
+  diffChars = "—",
+  findings = "—",
+  usage = "—",
+  reviewUrl = "",
+}) {
+  const runUrl =
+    `${process.env.GITHUB_SERVER_URL || "https://github.com"}/` +
+    `${repository}/actions/runs/${process.env.GITHUB_RUN_ID || ""}`;
+
+  const reviewLink = reviewUrl
+    ? `[Открыть review](${reviewUrl})`
+    : "—";
+
+  return `
+# 🤖 AI Review Dashboard
+
+_Automated CODEX-scoped review • trusted reviewer from \`main\`_
+
+## ${headline}
+
+> ${note}
+
+[▶️ Открыть workflow](${runUrl}) · ${reviewLink}
+
+---
+
+<table>
+<tr>
+<td valign="top" width="50%">
+<h3>🔎 Review result</h3>
+<table>
+<thead><tr><th>Параметр</th><th>Значение</th></tr></thead>
+<tbody>
+<tr><td>PR</td><td>#${summaryCell(pullNumber)}</td></tr>
+<tr><td>Commit</td><td><code>${summaryCell(expectedHeadSha.slice(0, 7))}</code></td></tr>
+<tr><td>Result</td><td>${summaryCell(result)}</td></tr>
+<tr><td>Findings</td><td><strong>${summaryCell(findings)}</strong></td></tr>
+</tbody>
+</table>
+</td>
+<td valign="top" width="50%">
+<h3>🧠 Model & scope</h3>
+<table>
+<thead><tr><th>Параметр</th><th>Значение</th></tr></thead>
+<tbody>
+<tr><td>Model</td><td><code>${summaryCell(modelName)}</code></td></tr>
+<tr><td>Diff reviewed</td><td>${summaryCell(diffChars)}</td></tr>
+<tr><td>Rules</td><td><code>CODEX.md</code> + <code>REVIEW.md</code></td></tr>
+<tr><td>Verifier</td><td>second-pass validation</td></tr>
+</tbody>
+</table>
+</td>
+</tr>
+</table>
+
+### 🔐 Safety model
+
+| Контроль | Значение |
+| --- | --- |
+| Reviewer code | trusted \`main\` |
+| PR code execution | **не выполняется** |
+| PR dependencies | **не устанавливаются** |
+| Inline comments | только добавленные строки |
+| Max comments | \`5\` |
+| Usage | ${summaryCell(usage)} |
+`;
+}
+
 function truncate(value, maxLength) {
   const text = String(value ?? "");
 
@@ -1101,14 +1180,13 @@ async function main() {
 
   if (pull.state !== "open") {
     console.log("PR закрыт — AI-review пропущен.");
-    appendStepSummary(`
-## AI Review
-
-| Параметр | Значение |
-| --- | --- |
-| PR | #${pullNumber} |
-| Результат | ⏭️ PR закрыт, review не выполнялся |
-`);
+    appendStepSummary(
+      buildAiStepSummary({
+        headline: "⏭️ REVIEW НЕ ВЫПОЛНЯЛСЯ",
+        note: "Pull Request уже закрыт.",
+        result: "skipped",
+      }),
+    );
 
     return;
   }
@@ -1122,6 +1200,13 @@ async function main() {
       "PR открыт не в основную " +
         "ветку — AI-review пропущен.",
     );
+    appendStepSummary(
+      buildAiStepSummary({
+        headline: "⏭️ REVIEW ПРОПУЩЕН",
+        note: "PR открыт не в основную ветку.",
+        result: "skipped",
+      }),
+    );
 
     return;
   }
@@ -1134,6 +1219,13 @@ async function main() {
       "После CI в PR появился " +
         "новый commit — устаревшее " +
         "review пропущено.",
+    );
+    appendStepSummary(
+      buildAiStepSummary({
+        headline: "⏭️ УСТАРЕВШИЙ REVIEW ПРОПУЩЕН",
+        note: "Head PR изменился после CI; старый diff не публикуется.",
+        result: "stale",
+      }),
     );
 
     return;
@@ -1157,6 +1249,14 @@ async function main() {
         "AI-reviewer — повторный " +
         "вызов Gemini не нужен.",
     );
+    appendStepSummary(
+      buildAiStepSummary({
+        headline: "✅ COMMIT УЖЕ ПРОВЕРЕН",
+        note: "Повторный вызов модели не нужен.",
+        result: "cached",
+        findings: "review already exists",
+      }),
+    );
 
     return;
   }
@@ -1174,15 +1274,15 @@ async function main() {
         "которые входят в область " +
         "AI-review — пропускаем.",
     );
-    appendStepSummary(`
-## AI Review
-
-| Параметр | Значение |
-| --- | --- |
-| PR | #${pullNumber} |
-| Commit | \`${expectedHeadSha.slice(0, 7)}\` |
-| Результат | ✅ Workflow отработал; изменений в области CODEX-review нет |
-`);
+    appendStepSummary(
+      buildAiStepSummary({
+        headline: "✅ REVIEW SCOPE CLEAN",
+        note: "Workflow отработал; изменений в области review нет.",
+        result: "success",
+        findings: "0",
+        diffChars: "0",
+      }),
+    );
 
     return;
   }
@@ -1347,19 +1447,28 @@ ${buildReviewConclusion(
       published.html_url,
   );
 
-  appendStepSummary(`
-## AI Review
+  const reviewHeadline =
+    verified.comments.length === 0
+      ? "✅ ДОКАЗУЕМЫХ НАРУШЕНИЙ НЕ НАЙДЕНО"
+      : verified.comments.some((comment) =>
+            ["P1", "P2"].includes(comment.priority),
+        )
+        ? "❌ ТРЕБУЕТСЯ ДОРАБОТКА"
+        : "⚠️ ЕСТЬ НЕБЛОКИРУЮЩИЕ ЗАМЕЧАНИЯ";
 
-| Параметр | Значение |
-| --- | --- |
-| PR | #${pullNumber} |
-| Commit | \`${expectedHeadSha.slice(0, 7)}\` |
-| Модель | \`${model}\` |
-| Проверено diff | ${prepared.diff.length} символов |
-| Подтверждённых замечаний | **${verified.comments.length}** |
-| Результат | ✅ [Review опубликован](${published.html_url}) |
-| Токены | ${usageText} |
-`);
+  appendStepSummary(
+    buildAiStepSummary({
+      headline: reviewHeadline,
+      note:
+        "Результат опубликован в Pull Request после второго валидационного прохода.",
+      result: "published",
+      modelName: model,
+      diffChars: `${prepared.diff.length} символов`,
+      findings: String(verified.comments.length),
+      usage: usageText,
+      reviewUrl: published.html_url,
+    }),
+  );
 
 }
 
@@ -1369,14 +1478,13 @@ main().catch(
       "AI-review не выполнен: " +
         error.message,
     );
-    appendStepSummary(`
-## AI Review
-
-| Параметр | Значение |
-| --- | --- |
-| Результат | ❌ Ошибка |
-| Причина | ${String(error.message).replaceAll("|", "\\|")} |
-`);
+    appendStepSummary(
+      buildAiStepSummary({
+        headline: "❌ AI REVIEW FAILED",
+        note: String(error.message),
+        result: "failure",
+      }),
+    );
 
     process.exitCode = 1;
   },
