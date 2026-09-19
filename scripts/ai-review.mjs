@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 
 import {
   annotatePatch,
@@ -50,6 +50,16 @@ function readProjectFile(path) {
     new URL(`../${path}`, import.meta.url),
     "utf8",
   );
+}
+
+function appendStepSummary(markdown) {
+  const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+
+  if (!summaryPath) {
+    return;
+  }
+
+  appendFileSync(summaryPath, `${markdown.trim()}\n`);
 }
 
 function truncate(value, maxLength) {
@@ -895,7 +905,7 @@ async function verifyComments({
   };
 
   const system = `
-Ты второй независимый senior QA reviewer.
+Ты второй независимый reviewer.
 
 Твоя задача — защищать автора PR от ложных AI-замечаний.
 
@@ -1089,14 +1099,16 @@ async function main() {
         `/pulls/${pullNumber}`,
     );
 
-  if (
-    pull.state !== "open" ||
-    pull.draft
-  ) {
-    console.log(
-      "PR закрыт или находится " +
-        "в draft — AI-review пропущен.",
-    );
+  if (pull.state !== "open") {
+    console.log("PR закрыт — AI-review пропущен.");
+    appendStepSummary(`
+## AI Review
+
+| Параметр | Значение |
+| --- | --- |
+| PR | #${pullNumber} |
+| Результат | ⏭️ PR закрыт, review не выполнялся |
+`);
 
     return;
   }
@@ -1162,6 +1174,15 @@ async function main() {
         "которые входят в область " +
         "AI-review — пропускаем.",
     );
+    appendStepSummary(`
+## AI Review
+
+| Параметр | Значение |
+| --- | --- |
+| PR | #${pullNumber} |
+| Commit | \`${expectedHeadSha.slice(0, 7)}\` |
+| Результат | ✅ Workflow отработал; изменений в области CODEX-review нет |
+`);
 
     return;
   }
@@ -1325,6 +1346,21 @@ ${buildReviewConclusion(
     "AI-review опубликован: " +
       published.html_url,
   );
+
+  appendStepSummary(`
+## AI Review
+
+| Параметр | Значение |
+| --- | --- |
+| PR | #${pullNumber} |
+| Commit | \`${expectedHeadSha.slice(0, 7)}\` |
+| Модель | \`${model}\` |
+| Проверено diff | ${prepared.diff.length} символов |
+| Подтверждённых замечаний | **${verified.comments.length}** |
+| Результат | ✅ [Review опубликован](${published.html_url}) |
+| Токены | ${usageText} |
+`);
+
 }
 
 main().catch(
@@ -1333,6 +1369,14 @@ main().catch(
       "AI-review не выполнен: " +
         error.message,
     );
+    appendStepSummary(`
+## AI Review
+
+| Параметр | Значение |
+| --- | --- |
+| Результат | ❌ Ошибка |
+| Причина | ${String(error.message).replaceAll("|", "\\|")} |
+`);
 
     process.exitCode = 1;
   },
