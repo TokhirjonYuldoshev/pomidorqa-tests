@@ -10,20 +10,25 @@ test.describe("Слоты: правила MVP", () => {
   test("дату в прошлом форма не отправляет", async ({ appFactory }) => {
     const app = await appFactory();
     const user = makeUser("slot-past", makeRunId("slot-past"));
-
-    await registerUserViaApi(app.context.request, user);
-    await app.slotsPage.goto();
-
     const pastDate = slotFormValues(-48 * 60 * 60 * 1000).date;
 
-    await app.slotsPage.submitSlot("12:00", pastDate);
+    await test.step("Открываем слоты зарегистрированного участника", async () => {
+      await registerUserViaApi(app.context.request, user);
+      await app.slotsPage.goto();
+    });
 
-    expect(
-      await app.slotsPage.dateInput.evaluate(
-        (input) => input.validity.valid,
-      ),
-    ).toBe(false);
-    await expect(app.slotsPage.slotCards).toHaveCount(0);
+    await test.step("Пытаемся отправить дату в прошлом", async () => {
+      await app.slotsPage.submitSlot("12:00", pastDate);
+    });
+
+    await test.step("Форма блокирует прошлую дату и слот не создаётся", async () => {
+      expect(
+        await app.slotsPage.dateInput.evaluate(
+          (input) => input.validity.valid,
+        ),
+      ).toBe(false);
+      await expect(app.slotsPage.slotCards).toHaveCount(0);
+    });
   });
 
   test("свободный слот можно удалить, соседний остаётся", async ({
@@ -32,20 +37,28 @@ test.describe("Слоты: правила MVP", () => {
     const app = await appFactory();
     const user = makeUser("slot-delete", makeRunId("slot-delete"));
 
-    await registerUserViaApi(app.context.request, user);
-    await app.slotsPage.goto();
-    await app.slotsPage.addSlot("09:00");
-    await app.slotsPage.addSlot("10:00");
+    await test.step("Создаём два свободных слота", async () => {
+      await registerUserViaApi(app.context.request, user);
+      await app.slotsPage.goto();
+      await app.slotsPage.addSlot("09:00");
+      await app.slotsPage.addSlot("10:00");
+    });
 
-    await expect(
-      app.slotsPage.slotCard("09:00"),
-    ).toHaveAttribute("data-slot-status", "free");
+    await test.step("Первый слот имеет статус free", async () => {
+      await expect(
+        app.slotsPage.slotCard("09:00"),
+      ).toHaveAttribute("data-slot-status", "free");
+    });
 
-    await app.slotsPage.deleteSlot("09:00");
-    await app.page.reload();
+    await test.step("Удаляем первый слот и обновляем страницу", async () => {
+      await app.slotsPage.deleteSlot("09:00");
+      await app.page.reload();
+    });
 
-    await expect(app.slotsPage.slotCard("09:00")).toHaveCount(0);
-    await expect(app.slotsPage.slotCard("10:00")).toBeVisible();
+    await test.step("Удалённый слот исчез, соседний остался", async () => {
+      await expect(app.slotsPage.slotCard("09:00")).toHaveCount(0);
+      await expect(app.slotsPage.slotCard("10:00")).toBeVisible();
+    });
   });
 
   test("забронированный слот имеет status booked и не удаляется из UI", async ({
@@ -60,48 +73,52 @@ test.describe("Слоты: правила MVP", () => {
     const hostApp = await appFactory();
     const guestApp = await appFactory();
 
-    await registerUserViaApi(hostApp.context.request, host);
-    await hostApp.profilePage.goto();
-    await hostApp.profilePage.addSkill(skill, "can_help");
-    await hostApp.slotsPage.goto();
-    await hostApp.slotsPage.addSlot("11:00");
+    await test.step("Хост публикует навык и свободный слот", async () => {
+      await registerUserViaApi(hostApp.context.request, host);
+      await hostApp.profilePage.goto();
+      await hostApp.profilePage.addSkill(skill, "can_help");
+      await hostApp.slotsPage.goto();
+      await hostApp.slotsPage.addSlot("11:00");
+    });
 
-    await expect(
-      hostApp.slotsPage.slotCard("11:00"),
-    ).toHaveAttribute("data-slot-status", "free");
+    await test.step("До бронирования слот имеет статус free", async () => {
+      await expect(
+        hostApp.slotsPage.slotCard("11:00"),
+      ).toHaveAttribute("data-slot-status", "free");
+    });
 
-    await registerUserViaApi(guestApp.context.request, guest);
-    await guestApp.bookingPage.goToCatalog();
-    await guestApp.bookingPage.searchCatalog(skill);
-    await guestApp.bookingPage.waitForPersonInCatalog(
-      host.name,
-      skill,
-    );
-    await guestApp.bookingPage.openPerson(host.name);
-    await guestApp.bookingPage.pickOnlyAvailableSlot();
-    await guestApp.bookingPage.confirmBooking();
+    await test.step("Гость бронирует слот хоста", async () => {
+      await registerUserViaApi(guestApp.context.request, guest);
+      await guestApp.bookingPage.goToCatalog();
+      await guestApp.bookingPage.searchCatalog(skill);
+      await guestApp.bookingPage.waitForPersonInCatalog(
+        host.name,
+        skill,
+      );
+      await guestApp.bookingPage.openPerson(host.name);
+      await guestApp.bookingPage.pickOnlyAvailableSlot();
+      await guestApp.bookingPage.confirmBooking();
+    });
 
-    expect(
-      await guestApp.bookingPage.waitForBookingResult(),
-    ).toEqual({ status: "success" });
+    await test.step("Бронирование подтверждено", async () => {
+      expect(
+        await guestApp.bookingPage.waitForBookingResult(),
+      ).toEqual({ status: "success" });
+    });
 
-    await expect
-      .poll(
-        async () => {
-          await hostApp.page.reload();
-          return hostApp.slotsPage
-            .slotCard("11:00")
-            .getAttribute("data-slot-status");
-        },
-        {
-          timeout: 15_000,
-          intervals: [500, 1_000, 2_000],
-        },
-      )
-      .toBe("booked");
+    await test.step("Хост обновляет список слотов", async () => {
+      await hostApp.page.reload();
+    });
 
-    await expect(
-      hostApp.slotsPage.slotDeleteButton("11:00"),
-    ).toHaveCount(0);
+    await test.step("Слот стал booked и недоступен для удаления", async () => {
+      await expect(
+        hostApp.slotsPage.slotCard("11:00"),
+      ).toHaveAttribute("data-slot-status", "booked", {
+        timeout: 15_000,
+      });
+      await expect(
+        hostApp.slotsPage.slotDeleteButton("11:00"),
+      ).toHaveCount(0);
+    });
   });
 });
