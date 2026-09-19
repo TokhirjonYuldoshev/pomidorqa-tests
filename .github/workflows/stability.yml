@@ -126,11 +126,25 @@ jobs:
             node scripts/test-metrics.mjs test-results/results.json --markdown || true
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Upload stability machine reports
+        continue-on-error: true
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: stability-machine-report-${{ github.run_id }}
+          path: |
+            test-results/results.json
+            test-results/results.xml
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Generate Allure report
+        continue-on-error: true
         if: ${{ always() }}
         run: npm run allure:generate
 
       - name: Upload stability Allure report
+        continue-on-error: true
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -140,6 +154,7 @@ jobs:
           retention-days: 14
 
       - name: Upload stability HTML report
+        continue-on-error: true
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -149,6 +164,7 @@ jobs:
           retention-days: 14
 
       - name: Upload stability diagnostics
+        continue-on-error: true
         if: ${{ steps.stability_run.outcome == 'failure' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:

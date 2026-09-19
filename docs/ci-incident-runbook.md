@@ -78,7 +78,7 @@ Nightly ищет изменения, возникшие после слияни�
 
 ## Ошибка отчётности после зелёных тестов
 
-Если лог browser job содержит успешный итог Playwright, например `100 passed`, а красный статус появился позже на `actions/upload-artifact`, генерации отчёта или внешнем transport step, это не E2E-регрессия.
+Если основная проверка уже имеет успешный итог, а ошибка появилась позже на `actions/upload-artifact`, генерации диагностического отчёта или другом внешнем transport step, это не продуктовая регрессия. Правило одинаково для основного Playwright CI, Nightly, Stability, Accessibility, Lighthouse, Visual и Registration Contract Smoke.
 
 Порядок:
 

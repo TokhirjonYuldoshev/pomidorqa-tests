@@ -87,7 +87,7 @@ npm run regression:metrics
 - AI Review Dashboard с моделью, changed/reviewed/ignored files, размером diff, deterministic findings, связанными requirement ID, upstream CI, trusted reviewer revision, policy fingerprint, числом findings, распределением P1/P2/P3, token usage и ссылкой на опубликованный review;
 - отдельные Telegram jobs для основного CI и AI Review.
 
-Artifacts нужны для расследования и не меняют фактический pass/fail. Генерация Allure и upload диагностических artifacts в основном browser CI являются non-blocking: сетевой сбой GitHub artifact storage должен оставаться наблюдаемой проблемой отчётности, а не превращать `100 passed` в ложное E2E-падение. Machine-readable отчёты могут из-за этого отсутствовать в `CI Summary`; в таком случае Summary явно показывает недоступный browser report.
+Artifacts нужны для расследования и не меняют фактический pass/fail. Upload диагностических artifacts во всех custom workflows, а также генерация отчётов после завершения основной проверки, выполняются как non-blocking transport steps. Это правило распространяется на основной CI, Nightly, Stability, Accessibility, Lighthouse, Visual и Registration Contract Smoke. Сетевой сбой GitHub artifact storage остаётся наблюдаемой проблемой отчётности и не превращает успешную проверку в ложный regression signal. Machine-readable отчёты могут из-за этого отсутствовать; такой случай расследуется как reporting degradation, а не как изменение фактического test result.
 
 ## Изменения зависимостей
 
