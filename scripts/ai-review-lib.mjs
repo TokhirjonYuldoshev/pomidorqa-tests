@@ -191,7 +191,6 @@ export function mergeReviewFindings(primary, secondary, maxItems = 5) {
       finding.path,
       finding.line,
       finding.rule,
-      finding.title,
     ].join(":");
 
     if (seen.has(key)) {
