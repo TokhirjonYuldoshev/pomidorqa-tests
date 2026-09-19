@@ -128,6 +128,14 @@ export function findDeterministicFindings(preparedFiles) {
   const findings = [];
 
   for (const file of preparedFiles) {
+    const isPlaywrightCode =
+      file.filename.startsWith("tests/") &&
+      /\.(?:ts|tsx)$/.test(file.filename);
+
+    if (!isPlaywrightCode) {
+      continue;
+    }
+
     for (const entry of file.addedEntries ?? []) {
       for (const rule of DETERMINISTIC_RULES) {
         if (!rule.pattern.test(entry.text)) {
