@@ -62,6 +62,25 @@ function appendStepSummary(markdown) {
   appendFileSync(summaryPath, `${markdown.trim()}\n`);
 }
 
+function writeStepOutput(name, value) {
+  const outputPath = process.env.GITHUB_OUTPUT;
+
+  if (!outputPath) {
+    return;
+  }
+
+  const normalized = String(value ?? "").replaceAll("\n", " ");
+  appendFileSync(outputPath, `${name}=${normalized}\n`);
+}
+
+function countPriorities(comments = []) {
+  return {
+    p1: comments.filter((comment) => comment.priority === "P1").length,
+    p2: comments.filter((comment) => comment.priority === "P2").length,
+    p3: comments.filter((comment) => comment.priority === "P3").length,
+  };
+}
+
 function summaryCell(value) {
   return String(value ?? "")
     .replaceAll("|", "\\|")
@@ -77,6 +96,10 @@ function buildAiStepSummary({
   findings = "—",
   usage = "—",
   reviewUrl = "",
+  p1 = "—",
+  p2 = "—",
+  p3 = "—",
+  reviewedFiles = "—",
 }) {
   const runUrl =
     `${process.env.GITHUB_SERVER_URL || "https://github.com"}/` +
@@ -110,6 +133,7 @@ _Automated CODEX-scoped review • trusted reviewer from \`main\`_
 <tr><td>Commit</td><td><code>${summaryCell(expectedHeadSha.slice(0, 7))}</code></td></tr>
 <tr><td>Результат</td><td>${summaryCell(result)}</td></tr>
 <tr><td>Замечания</td><td><strong>${summaryCell(findings)}</strong></td></tr>
+<tr><td>P1 / P2 / P3</td><td>${summaryCell(p1)} / ${summaryCell(p2)} / ${summaryCell(p3)}</td></tr>
 </tbody>
 </table>
 </td>
@@ -120,6 +144,7 @@ _Automated CODEX-scoped review • trusted reviewer from \`main\`_
 <tbody>
 <tr><td>Модель</td><td><code>${summaryCell(modelName)}</code></td></tr>
 <tr><td>Проверено изменений</td><td>${summaryCell(diffChars)}</td></tr>
+<tr><td>Файлов в scope</td><td>${summaryCell(reviewedFiles)}</td></tr>
 <tr><td>Правила</td><td><code>CODEX.md</code> + <code>REVIEW.md</code></td></tr>
 <tr><td>Повторная проверка</td><td>второй проход модели</td></tr>
 </tbody>
@@ -242,6 +267,28 @@ const geminiBaseUrl = (
 const model =
   process.env.GEMINI_MODEL ||
   DEFAULT_MODEL;
+
+function publishReviewOutputs({
+  state,
+  comments = [],
+  reviewUrl = "",
+  diffChars = 0,
+  reviewedFiles = 0,
+  usage = null,
+}) {
+  const counts = countPriorities(comments);
+
+  writeStepOutput("review_state", state);
+  writeStepOutput("findings_total", comments.length);
+  writeStepOutput("p1_count", counts.p1);
+  writeStepOutput("p2_count", counts.p2);
+  writeStepOutput("p3_count", counts.p3);
+  writeStepOutput("review_url", reviewUrl);
+  writeStepOutput("diff_chars", diffChars);
+  writeStepOutput("reviewed_files", reviewedFiles);
+  writeStepOutput("model", model);
+  writeStepOutput("tokens_total", usage?.totalTokens ?? 0);
+}
 
 const codex =
   readProjectFile("CODEX.md");
@@ -383,6 +430,7 @@ function prepareDiff(files) {
 
   return {
     diff,
+    reviewedFiles: prepared.length,
 
     addedLinesByPath:
       new Map(
@@ -401,9 +449,9 @@ function buildReviewPrompts({
   diff,
 }) {
   const system = `
-Ты строгий, но доброжелательный senior QA Automation reviewer проекта PomidorQA на Playwright + TypeScript.
+Ты выполняешь автоматизированное ревью проекта PomidorQA на Playwright + TypeScript.
 
-Твоя задача — проверить Pull Request только по переданным CODEX.md, REVIEW.md и diff.
+Проверь Pull Request только по переданным CODEX.md, REVIEW.md и diff.
 
 БЕЗОПАСНОСТЬ И ГРАНИЦЫ:
 
