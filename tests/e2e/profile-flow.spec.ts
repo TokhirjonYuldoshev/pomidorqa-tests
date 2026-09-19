@@ -368,7 +368,7 @@ test.describe("Профиль: поля, навыки и изоляция дан
     hostApp,
   }) => {
     const runId = makeUniqueToken();
-    const canHelpSkill = `Mentor-${runId}`;
+    const canHelpSkill = `CanHelp-${runId}`;
     const wantToLearnSkill = `Learn-${runId}`;
 
     await test.step("Добавляем по одному навыку каждого типа", async () => {
