@@ -36,13 +36,16 @@ npm run regression:metrics
 | `E2E / Chromium` | пользовательские сценарии в Chromium |
 | `E2E / Firefox` | пользовательские сценарии в Firefox |
 | `E2E / WebKit` | пользовательские сценарии в WebKit |
+| `Regression Gate` | агрегированный итог Quality + Unit + API + E2E matrix; не заменяет исходные checks |
 | `Security / npm audit` | отсутствие блокирующих npm-уязвимостей |
 | `Security / dependency change review` | согласованность изменений зависимостей и lockfile |
 | `Security / code quality` | независимую статическую проверку кода |
 
 Внутри Quality выполняется `npm run coverage:check`. Он блокирует PR, если отсутствует любой из 50 requirement ID, встречается недопустимый/дублирующийся статус, матрица ссылается на несуществующий spec-файл или цифры README расходятся с матрицей.
 
-Если одна из этих проверок красная, связанное изменение не готово к слиянию.
+`Regression Gate` выполняется после browser matrix и даёт один стабильный итог функционального CI. При расследовании источником истины остаётся конкретный исходный job: Quality, Unit, API или соответствующий браузер.
+
+Если одна из обязательных проверок красная, связанное изменение не готово к слиянию.
 
 ## Диагностические проверки
 
@@ -54,6 +57,7 @@ npm run regression:metrics
 | Nightly E2E Regression | регрессии внешнего стенда вне конкретного PR |
 | Stability Check | повторные прогоны с `retries=0` |
 | Registration Contract Smoke | ручная проверка контракта регистрации |
+| AI Review | CODEX-scoped проверка PR после зелёного CI с отдельным Actions Summary и Telegram job |
 | Telegram Notification Test | ручная диагностика уведомлений |
 
 Диагностический сигнал не подменяет обязательную проверку. `CI Summary` служит обзорным dashboard и агрегирует machine-readable browser reports, но источником pass/fail остаются сами jobs.
@@ -79,7 +83,8 @@ npm run regression:metrics
 - итог Registration Contract Smoke;
 - GitHub Actions Summary;
 - агрегированный CI Dashboard по Chromium / Firefox / WebKit;
-- AI Review Dashboard с моделью, scope, числом findings и ссылкой на опубликованный review.
+- AI Review Dashboard с моделью, scope, размером diff, числом findings, распределением P1/P2/P3, token usage и ссылкой на опубликованный review;
+- отдельные Telegram jobs для основного CI и AI Review.
 
 Artifacts нужны для расследования и не меняют фактический pass/fail.
 
