@@ -133,7 +133,7 @@ docs/                     инженерная документация
 
 `main` защищён ruleset `Protect main`. Разрешено только слияние через Pull Request и **squash merge**. Обязательны разрешённые обсуждения и актуальные проверки относительно последнего `main`.
 
-Quality job дополнительно запускает `npm run coverage:check`: скрипт проверяет наличие всех 50 requirement ID, допустимые статусы, существование test-файлов из матрицы и совпадение цифр `README.md` с `docs/coverage-matrix.md`. После этого `scripts/ai-review-self-check.mjs` детерминированно проверяет patch parsing, CODEX preflight, requirement traceability и дедупликацию AI Review. Поэтому процент покрытия нельзя случайно рассинхронизировать простой правкой документации, а reviewer policy engine проверяется до browser E2E.
+Quality job дополнительно запускает три машинных инварианта: `npm run coverage:check` проверяет все 50 requirement ID и синхронизацию coverage; `scripts/ai-review-self-check.mjs` проверяет policy engine AI Review; `npm run ci:policy` валидирует 10 workflow-файлов — SHA-pinning GitHub Actions, `retries=0`, browser matrix `max-parallel: 2`, обязательные browser/gate/summary/Telegram сигналы, trusted checkout AI Review и non-blocking diagnostic artifact uploads. Поэтому ключевые правила CI нельзя незаметно ослабить простой правкой YAML.
 
 Обязательные проверки:
 
@@ -207,11 +207,12 @@ E2E_BROWSER=webkit npm run test:e2e
 
 | Команда | Назначение |
 | --- | --- |
-| `npm run verify:local` | быстрый локальный gate: Node 24 + ESLint + TypeScript + Unit + API |
+| `npm run verify:local` | быстрый локальный gate: Node 24 + ESLint + TypeScript + coverage + CI policy + Unit + API |
 | `npm run gate` | полный gate: runtime + lint + typecheck + Unit + API + E2E |
 | `npm run regression:metrics` | полный Playwright-прогон и инженерная сводка метрик |
 | `npm run metrics` | разобрать последний JSON-отчёт Playwright |
 | `npm run coverage:check` | проверить 50/50 требований, статусы, test references и синхронизацию README ↔ matrix |
+| `npm run ci:policy` | проверить инварианты GitHub Actions: pinned actions, retries, matrix load, trusted review и diagnostic transport |
 | `npm run lint` | статический анализ ESLint |
 | `npm run typecheck` | проверка типов TypeScript |
 | `npm run test:unit` | Unit |
