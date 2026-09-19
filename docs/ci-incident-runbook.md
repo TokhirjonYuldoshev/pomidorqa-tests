@@ -79,6 +79,19 @@ Nightly ищет изменения, возникшие после слияни�
 
 Reference incident: в post-merge CI #262 attempt 1 Chromium завершил `100 passed (5.4m)`, после чего `Upload Playwright HTML report` упал на `Failed to FinalizeArtifact: ... ECONNRESET`. Это был сбой финализации artifact в GitHub storage, а не падение сценария PomidorQA. Повторный attempt 2 дал уже другую причину: 4 сценария не смогли создать тестовые аккаунты из-за `connect ECONNREFUSED 51.250.30.12:443` на `POST https://aiqa.su/api/pomidorqa/test/accounts`. Эти attempts нельзя объединять в одну «flaky test» причину: первый относится к reporting transport, второй — к доступности внешнего live-стенда.
 
+## Временная недоступность Gemini
+
+Если Gemini после ограниченного retry возвращает 408/429/5xx или network error, это внешний model-provider incident, а не дефект PR.
+
+AI Review должен перейти в `degraded` mode:
+
+- непроверенные модельные кандидаты не публикуются;
+- детерминированный CODEX preflight сохраняется;
+- Summary и Telegram явно показывают degraded state;
+- отсутствие deterministic findings не формулируется как полный «чистый» AI verdict.
+
+Нетранзиентная ошибка reviewer-кода, схемы, GitHub API или координат комментариев остаётся настоящим failure и не маскируется degraded mode.
+
 ## Ошибка только Telegram
 
 Если обязательные проверки зелёные, а уведомление не отправилось, результат тестов остаётся неизменным. Диагностируется только транспорт уведомления. То же правило действует для отдельной Telegram job в AI Review.

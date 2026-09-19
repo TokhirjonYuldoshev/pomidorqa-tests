@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { appendFileSync, readFileSync } from "node:fs";
 
 import {
@@ -158,6 +159,8 @@ _Автоматическая проверка diff по \`CODEX.md\` и \`REVIE
 <tr><td>Требования</td><td>${summaryCell(impactedRequirements)}</td></tr>
 <tr><td>Детерминированные findings</td><td>${summaryCell(deterministicFindings)}</td></tr>
 <tr><td>Upstream CI</td><td>${summaryCell(upstreamRun)}</td></tr>
+<tr><td>Reviewer revision</td><td><code>${summaryCell(reviewerSha.slice(0, 12) || "unknown")}</code></td></tr>
+<tr><td>Policy fingerprint</td><td><code>${summaryCell(policyFingerprint)}</code></td></tr>
 <tr><td>Правила</td><td><code>CODEX.md</code> + <code>REVIEW.md</code></td></tr>
 <tr><td>Повторная проверка</td><td>второй проход модели</td></tr>
 </tbody>
@@ -237,6 +240,19 @@ function sleep(ms) {
   });
 }
 
+function isTransientGeminiError(error) {
+  const message =
+    error instanceof Error
+      ? error.message
+      : String(error);
+
+  return (
+    /Gemini API (?:408|429|500|502|503|504)/.test(message) ||
+    /Gemini API network error/.test(message) ||
+    /Gemini API исчерпал допустимое число попыток/.test(message)
+  );
+}
+
 function getRetryDelayMs(attempt) {
   const exponentialDelay = Math.min(
     GEMINI_INITIAL_BACKOFF_MS *
@@ -313,6 +329,8 @@ function publishReviewOutputs({
   writeStepOutput("model", model);
   writeStepOutput("tokens_total", usage?.totalTokens ?? 0);
   writeStepOutput("upstream_run_id", upstreamRunId);
+  writeStepOutput("reviewer_sha", reviewerSha);
+  writeStepOutput("policy_fingerprint", policyFingerprint);
 }
 
 const codex =
@@ -329,6 +347,21 @@ const coverageMatrix =
 
 const upstreamRunId =
   process.env.AI_REVIEW_UPSTREAM_RUN_ID || "";
+
+const reviewerSha =
+  process.env.AI_REVIEW_REVIEWER_SHA || "";
+
+const policyFingerprint =
+  createHash("sha256")
+    .update(codex)
+    .update("\0")
+    .update(checklist)
+    .update("\0")
+    .update(requirementsSpec)
+    .update("\0")
+    .update(coverageMatrix)
+    .digest("hex")
+    .slice(0, 16);
 
 const ruleNumbers =
   extractRuleNumbers(codex);
@@ -1450,17 +1483,43 @@ async function main() {
       "символов.",
   );
 
-  const generated =
-    await requestReview({
-      pull,
+  let modelDegradedReason = "";
+  let generated;
 
-      diff:
-        prepared.diff,
+  try {
+    generated =
+      await requestReview({
+        pull,
 
-      addedLinesByPath:
-        prepared
-          .addedLinesByPath,
-    });
+        diff:
+          prepared.diff,
+
+        addedLinesByPath:
+          prepared
+            .addedLinesByPath,
+      });
+  } catch (error) {
+    if (!isTransientGeminiError(error)) {
+      throw error;
+    }
+
+    modelDegradedReason =
+      error instanceof Error
+        ? error.message
+        : String(error);
+
+    console.warn(
+      "Основной Gemini-проход временно недоступен. " +
+        "Продолжаем только с детерминированным preflight.",
+    );
+
+    generated = {
+      review: {
+        comments: [],
+      },
+      usage: null,
+    };
+  }
 
   const coordinateValid =
     generated.review.comments
@@ -1489,14 +1548,37 @@ async function main() {
     );
   }
 
-  const verified =
-    await verifyComments({
-      diff:
-        prepared.diff,
+  let verified = {
+    comments: [],
+    usage: null,
+  };
 
-      comments:
-        coordinateValid,
-    });
+  if (coordinateValid.length) {
+    try {
+      verified =
+        await verifyComments({
+          diff:
+            prepared.diff,
+
+          comments:
+            coordinateValid,
+        });
+    } catch (error) {
+      if (!isTransientGeminiError(error)) {
+        throw error;
+      }
+
+      modelDegradedReason =
+        error instanceof Error
+          ? error.message
+          : String(error);
+
+      console.warn(
+        "Verifier Gemini временно недоступен. " +
+          "Непроверенные модельные кандидаты не публикуются.",
+      );
+    }
+  }
 
   const finalFindings =
     mergeReviewFindings(
@@ -1562,20 +1644,34 @@ async function main() {
 
       : "Статистика токенов недоступна.";
 
+  const conclusion =
+    modelDegradedReason
+      ? finalFindings.length
+        ? "**Итог: модель временно недоступна.** " +
+          "Опубликованы только детерминированные findings; " +
+          "непроверенные модельные кандидаты отброшены."
+        : "**Итог: модель временно недоступна.** " +
+          "Детерминированный preflight не нашёл нарушений; " +
+          "полный модельный review не выполнен."
+      : buildReviewConclusion(
+          finalFindings,
+        );
+
   const body =
 `${reviewMarker(
   expectedHeadSha,
 )}
 ## Общий вывод AI-reviewer
 
-${buildReviewConclusion(
-  finalFindings,
-)}
+${conclusion}
 
 Приоритеты: P1 — ${priorityCounts.p1}, P2 — ${priorityCounts.p2}, P3 — ${priorityCounts.p3}.
 Детерминированные проверки: ${deterministicFindings.length}.
 Traceability требований: ${impactedRequirementText}.
 Upstream CI: ${upstreamRunText}.
+Reviewer revision: \`${reviewerSha.slice(0, 12) || "unknown"}\`.
+Policy fingerprint: \`${policyFingerprint}\`.
+Состояние модели: ${modelDegradedReason ? "degraded" : "ok"}.
 
 ---
 Модель: \`${model}\`. ${usageText}`;
@@ -1643,19 +1739,23 @@ Upstream CI: ${upstreamRunText}.
   );
 
   const reviewHeadline =
-    finalFindings.length === 0
-      ? "✅ ДОКАЗУЕМЫХ НАРУШЕНИЙ НЕ НАЙДЕНО"
-      : finalFindings.some((comment) =>
-            ["P1", "P2"].includes(comment.priority),
-        )
-        ? "❌ ТРЕБУЕТСЯ ДОРАБОТКА"
-        : "⚠️ ЕСТЬ НЕБЛОКИРУЮЩИЕ ЗАМЕЧАНИЯ";
+    modelDegradedReason
+      ? "⚠️ MODEL DEGRADED — ВЫПОЛНЕН ДЕТЕРМИНИРОВАННЫЙ PREFLIGHT"
+      : finalFindings.length === 0
+        ? "✅ ДОКАЗУЕМЫХ НАРУШЕНИЙ НЕ НАЙДЕНО"
+        : finalFindings.some((comment) =>
+              ["P1", "P2"].includes(comment.priority),
+          )
+          ? "❌ ТРЕБУЕТСЯ ДОРАБОТКА"
+          : "⚠️ ЕСТЬ НЕБЛОКИРУЮЩИЕ ЗАМЕЧАНИЯ";
 
   appendStepSummary(
     buildAiStepSummary({
       headline: reviewHeadline,
       note:
-        "Результат опубликован в Pull Request после второго валидационного прохода.",
+        modelDegradedReason
+          ? "Gemini временно недоступен; опубликован только детерминированный результат."
+          : "Результат опубликован в Pull Request после второго валидационного прохода.",
       result: "Опубликовано",
       modelName: model,
       diffChars: `${prepared.diff.length} символов`,
@@ -1675,7 +1775,10 @@ Upstream CI: ${upstreamRunText}.
   );
 
   publishReviewOutputs({
-    state: "published",
+    state:
+      modelDegradedReason
+        ? "degraded"
+        : "published",
     comments: finalFindings,
     reviewUrl: published.html_url,
     diffChars: prepared.diff.length,
