@@ -4,7 +4,7 @@
 Исходники PomidorQA в этот репозиторий не входят, поэтому матрица измеряет **requirement coverage**,
 а не code coverage продукта.
 
-Срез: **19.09.2026**, ветка `hw16-coverage-100`, стенд `https://aiqa.su/pomidorqa`.
+Срез: **19.09.2026**, ветка `main`, стенд `https://aiqa.su/pomidorqa`.
 
 ## Правила статусов
 
