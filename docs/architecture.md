@@ -151,7 +151,7 @@ Telegram Notification
 
 Accessibility, Lighthouse и Visual Regression находятся в отдельных workflows и не смешиваются с функциональными E2E.
 
-Workflow-архитектура имеет собственный исполняемый контракт: `scripts/ci-policy-self-check.mjs` проверяет pinning actions, запрет `pull_request_target`, `retries=0`, browser concurrency, обязательные итоговые сигналы, trusted-main AI Review и отделение diagnostic transport от pass/fail. Проверка запускается внутри Quality до E2E.
+CI-архитектура имеет собственный исполняемый контракт: `scripts/ci-policy-self-check.mjs` проверяет pinning actions, запрет `pull_request_target`, `retries=0`, browser concurrency, локальный E2E worker cap, обязательные итоговые сигналы, trusted-main AI Review и отделение diagnostic transport от pass/fail. Проверка охватывает workflow YAML и безопасный E2E shortcut из `package.json`, затем запускается внутри Quality до E2E.
 
 Nightly проверяет внешний стенд по расписанию. Stability повторяет выбранные сценарии без retries. Registration Contract Smoke и Telegram Notification Test запускаются вручную для узкой диагностики.
 
