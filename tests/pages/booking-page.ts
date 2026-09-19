@@ -250,6 +250,16 @@ export class BookingPage {
     return this.pastBookings.filter({ hasText: name });
   }
 
+  pastBookingCancelButton(name: string): Locator {
+    return this.pastBookingByParticipant(name).getByRole("button", {
+      name: "Отменить",
+    });
+  }
+
+  async openFirstAvailableDay(): Promise<void> {
+    await this.availableDayButtons.first().click();
+  }
+
   async submitCancel(name: string): Promise<void> {
     const responsePromise = this.page.waitForResponse(
       (response) =>
