@@ -15,6 +15,7 @@
 | Accessibility / Lighthouse / Visual | отчёт соответствующего workflow |
 | Nightly | браузерная матрица планового запуска |
 | Registration Contract Smoke | ручной запуск и `summary.json` |
+| отчёты / artifacts | конкретный upload/generate step; сначала отделить test result от transport failure |
 | Telegram | отдельная job уведомления или диагностический workflow |
 
 ## Последовательность
@@ -63,6 +64,21 @@ Accessibility, Lighthouse и Visual Regression разбираются по со�
 
 Nightly ищет изменения, возникшие после слияния или на внешнем стенде. Красный Nightly не является основанием ослаблять проверки Pull Request.
 
+## Ошибка отчётности после зелёных тестов
+
+Если лог browser job содержит успешный итог Playwright, например `100 passed`, а красный статус появился позже на `actions/upload-artifact`, генерации отчёта или внешнем transport step, это не E2E-регрессия.
+
+Порядок:
+
+1. Зафиксировать строку итогового результата Playwright.
+2. Найти первый реально упавший post-test step.
+3. Классифицировать его как reporting / artifact transport.
+4. Не менять тест, локаторы, timeout или retries.
+5. Проверить наличие machine-readable report и других уже загруженных artifacts.
+6. Если транспорт отчётов необязательный, он не должен переписывать test result.
+
+Reference incident: в post-merge CI #262 Chromium завершил `100 passed (5.4m)`, после чего `Upload Playwright HTML report` упал на `Failed to FinalizeArtifact: ... ECONNRESET`. Это был сбой финализации artifact в GitHub storage, а не падение сценария PomidorQA.
+
 ## Ошибка только Telegram
 
 Если обязательные проверки зелёные, а уведомление не отправилось, результат тестов остаётся неизменным. Диагностируется только транспорт уведомления. То же правило действует для отдельной Telegram job в AI Review.
@@ -74,7 +90,7 @@ Nightly ищет изменения, возникшие после слияни�
 | SEV-1 | подтверждена критичная регрессия основного пользовательского пути на live-стенде |
 | SEV-2 | обязательная проверка `main` сломана |
 | SEV-3 | Nightly или нефункциональная регрессия при здоровом основном CI |
-| SEV-4 | ошибка отчётности/уведомления без функциональной регрессии |
+| SEV-4 | ошибка отчётности, artifact transport или уведомления без функциональной регрессии |
 
 ## Инцидент закрыт, когда
 
