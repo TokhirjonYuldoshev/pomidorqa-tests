@@ -68,12 +68,15 @@ E2E в основном CI выполняются с `workers=4` на брауз
 - Performance Smoke / Lighthouse — технические показатели публичных страниц;
 - Visual Regression — сравнение внешнего вида;
 - Security & Quality Gates — зависимости и статические проверки.
+- AI Review — CODEX-scoped diff review с deterministic preflight, вторым проходом и requirement traceability; не заменяет функциональные checks.
 
 ## Обязательные проверки перед слиянием
 
 Точный список задаётся ruleset `Protect main` и приведён в `docs/quality-gates.md`. Он включает Quality, Unit, API, три браузерных E2E и три security checks. После функциональной browser matrix отдельный `Regression Gate` агрегирует Quality + Unit + API + E2E в один итоговый сигнал для наблюдаемости, не заменяя исходные checks.
 
 Telegram не является источником истины: он только доставляет уже известный результат. Для основного CI и AI Review уведомление вынесено в отдельную job, поэтому транспортный сбой виден отдельно от результата тестов или review.
+
+То же разделение применяется к отчётности: Playwright test result и transport artifacts — разные сигналы. Ошибка upload/generate после успешного test run не должна маскироваться как продуктовая или тестовая регрессия.
 
 ## Плановые и диагностические запуски
 

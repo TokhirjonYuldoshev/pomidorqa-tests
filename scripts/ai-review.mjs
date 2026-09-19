@@ -4,8 +4,11 @@ import {
   annotatePatch,
   buildReviewConclusion,
   extractRuleNumbers,
+  findDeterministicFindings,
+  findImpactedRequirements,
   hasReviewForCommit,
   isReviewedPath,
+  mergeReviewFindings,
   parseStructuredReview,
   reviewMarker,
   toGitHubComments,
@@ -100,6 +103,11 @@ function buildAiStepSummary({
   p2 = "—",
   p3 = "—",
   reviewedFiles = "—",
+  changedFiles = "—",
+  ignoredFiles = "—",
+  deterministicFindings = "—",
+  impactedRequirements = "—",
+  upstreamRun = "—",
 }) {
   const runUrl =
     `${process.env.GITHUB_SERVER_URL || "https://github.com"}/` +
@@ -144,7 +152,12 @@ _Автоматическая проверка diff по \`CODEX.md\` и \`REVIE
 <tbody>
 <tr><td>Модель</td><td><code>${summaryCell(modelName)}</code></td></tr>
 <tr><td>Проверено изменений</td><td>${summaryCell(diffChars)}</td></tr>
+<tr><td>Файлов PR</td><td>${summaryCell(changedFiles)}</td></tr>
 <tr><td>Файлов в scope</td><td>${summaryCell(reviewedFiles)}</td></tr>
+<tr><td>Вне scope</td><td>${summaryCell(ignoredFiles)}</td></tr>
+<tr><td>Требования</td><td>${summaryCell(impactedRequirements)}</td></tr>
+<tr><td>Детерминированные findings</td><td>${summaryCell(deterministicFindings)}</td></tr>
+<tr><td>Upstream CI</td><td>${summaryCell(upstreamRun)}</td></tr>
 <tr><td>Правила</td><td><code>CODEX.md</code> + <code>REVIEW.md</code></td></tr>
 <tr><td>Повторная проверка</td><td>второй проход модели</td></tr>
 </tbody>
@@ -274,6 +287,10 @@ function publishReviewOutputs({
   reviewUrl = "",
   diffChars = 0,
   reviewedFiles = 0,
+  changedFiles = 0,
+  ignoredFiles = 0,
+  deterministicFindings = 0,
+  impactedRequirements = [],
   usage = null,
 }) {
   const counts = countPriorities(comments);
@@ -286,8 +303,16 @@ function publishReviewOutputs({
   writeStepOutput("review_url", reviewUrl);
   writeStepOutput("diff_chars", diffChars);
   writeStepOutput("reviewed_files", reviewedFiles);
+  writeStepOutput("changed_files", changedFiles);
+  writeStepOutput("ignored_files", ignoredFiles);
+  writeStepOutput("deterministic_findings", deterministicFindings);
+  writeStepOutput(
+    "requirements_impacted",
+    impactedRequirements.map((item) => item.id).join(","),
+  );
   writeStepOutput("model", model);
   writeStepOutput("tokens_total", usage?.totalTokens ?? 0);
+  writeStepOutput("upstream_run_id", upstreamRunId);
 }
 
 const codex =
@@ -295,6 +320,15 @@ const codex =
 
 const checklist =
   readProjectFile("REVIEW.md");
+
+const requirementsSpec =
+  readProjectFile("requirements.md");
+
+const coverageMatrix =
+  readProjectFile("docs/coverage-matrix.md");
+
+const upstreamRunId =
+  process.env.AI_REVIEW_UPSTREAM_RUN_ID || "";
 
 const ruleNumbers =
   extractRuleNumbers(codex);
@@ -431,6 +465,10 @@ function prepareDiff(files) {
   return {
     diff,
     reviewedFiles: prepared.length,
+    changedFiles: files.length,
+    ignoredFiles: files.length - relevant.length,
+    reviewedPaths: prepared.map((file) => file.filename),
+    preparedFiles: prepared,
 
     addedLinesByPath:
       new Map(
@@ -460,7 +498,9 @@ function buildReviewPrompts({
 - не придумывай контекст вне переданных данных;
 - анализируй только добавленные строки, отмеченные +N;
 - CI уже завершился успешно: не утверждай, что тесты, typecheck или lint падают;
-- CODEX.md — закрытый список требований;
+- CODEX.md — закрытый список правил для inline-комментариев;
+- requirements.md и coverage matrix — контекст продукта и traceability, а не дополнительный список нарушений;
+- known defect / partial / out of scope из coverage matrix не являются сами по себе дефектом PR;
 - комментарий обязан ссылаться на реально существующий номер правила CODEX.md;
 - не превращай вкусовые предпочтения и улучшения "на будущее" в дефект;
 - не требуй архитектуру, которую CODEX.md не требует;
@@ -534,6 +574,26 @@ ${codex}
 ${checklist}
 
 </review_checklist>
+
+
+СПЕЦИФИКАЦИЯ ПРОДУКТА
+(контекст для понимания ожидаемого поведения, не отдельный источник inline-нарушений)
+
+<requirements>
+
+${requirementsSpec}
+
+</requirements>
+
+
+МАТРИЦА ПОКРЫТИЯ
+(контекст traceability и известных ограничений)
+
+<coverage_matrix>
+
+${coverageMatrix}
+
+</coverage_matrix>
 
 
 DIFF С НОМЕРАМИ НОВЫХ СТРОК
@@ -1318,6 +1378,37 @@ async function main() {
       await getPullFiles(),
     );
 
+  const deterministicFindings =
+    findDeterministicFindings(
+      prepared.preparedFiles,
+    );
+
+  const impactedRequirements =
+    findImpactedRequirements(
+      coverageMatrix,
+      prepared.reviewedPaths,
+    );
+
+  const impactedRequirementText =
+    impactedRequirements.length
+      ? impactedRequirements
+          .map((item) => item.id)
+          .join(", ")
+      : "нет прямой связи по coverage matrix";
+
+  const upstreamRunText =
+    upstreamRunId
+      ? `run ${upstreamRunId}`
+      : "ручной запуск";
+
+  console.log(
+    "AI-review scope: " +
+      `${prepared.reviewedFiles}/` +
+      `${prepared.changedFiles} files; ` +
+      `deterministic=${deterministicFindings.length}; ` +
+      `requirements=${impactedRequirementText}.`,
+  );
+
   if (
     !prepared.diff.trim()
   ) {
@@ -1337,9 +1428,18 @@ async function main() {
         p2: "0",
         p3: "0",
         reviewedFiles: "0",
+        changedFiles: String(prepared.changedFiles),
+        ignoredFiles: String(prepared.ignoredFiles),
+        deterministicFindings: "0",
+        impactedRequirements: "нет",
+        upstreamRun: upstreamRunText,
       }),
     );
-    publishReviewOutputs({ state: "scope_clean" });
+    publishReviewOutputs({
+      state: "scope_clean",
+      changedFiles: prepared.changedFiles,
+      ignoredFiles: prepared.ignoredFiles,
+    });
 
     return;
   }
@@ -1398,9 +1498,16 @@ async function main() {
         coordinateValid,
     });
 
+  const finalFindings =
+    mergeReviewFindings(
+      deterministicFindings,
+      verified.comments,
+      MAX_INLINE_COMMENTS,
+    );
+
   const comments =
     toGitHubComments(
-      verified.comments,
+      finalFindings,
       prepared
         .addedLinesByPath,
       ruleNumbers,
@@ -1431,6 +1538,10 @@ async function main() {
       state: "stale",
       diffChars: prepared.diff.length,
       reviewedFiles: prepared.reviewedFiles,
+      changedFiles: prepared.changedFiles,
+      ignoredFiles: prepared.ignoredFiles,
+      deterministicFindings: deterministicFindings.length,
+      impactedRequirements,
       usage,
     });
 
@@ -1439,7 +1550,7 @@ async function main() {
 
   const priorityCounts =
     countPriorities(
-      verified.comments,
+      finalFindings,
     );
 
   const usageText =
@@ -1458,10 +1569,13 @@ async function main() {
 ## Общий вывод AI-reviewer
 
 ${buildReviewConclusion(
-  verified.comments,
+  finalFindings,
 )}
 
 Приоритеты: P1 — ${priorityCounts.p1}, P2 — ${priorityCounts.p2}, P3 — ${priorityCounts.p3}.
+Детерминированные проверки: ${deterministicFindings.length}.
+Traceability требований: ${impactedRequirementText}.
+Upstream CI: ${upstreamRunText}.
 
 ---
 Модель: \`${model}\`. ${usageText}`;
@@ -1486,9 +1600,13 @@ ${buildReviewConclusion(
     );
     publishReviewOutputs({
       state: "dry_run",
-      comments: verified.comments,
+      comments: finalFindings,
       diffChars: prepared.diff.length,
       reviewedFiles: prepared.reviewedFiles,
+      changedFiles: prepared.changedFiles,
+      ignoredFiles: prepared.ignoredFiles,
+      deterministicFindings: deterministicFindings.length,
+      impactedRequirements,
       usage,
     });
 
@@ -1525,9 +1643,9 @@ ${buildReviewConclusion(
   );
 
   const reviewHeadline =
-    verified.comments.length === 0
+    finalFindings.length === 0
       ? "✅ ДОКАЗУЕМЫХ НАРУШЕНИЙ НЕ НАЙДЕНО"
-      : verified.comments.some((comment) =>
+      : finalFindings.some((comment) =>
             ["P1", "P2"].includes(comment.priority),
         )
         ? "❌ ТРЕБУЕТСЯ ДОРАБОТКА"
@@ -1541,22 +1659,31 @@ ${buildReviewConclusion(
       result: "Опубликовано",
       modelName: model,
       diffChars: `${prepared.diff.length} символов`,
-      findings: String(verified.comments.length),
+      findings: String(finalFindings.length),
       usage: usageText,
       reviewUrl: published.html_url,
       p1: String(priorityCounts.p1),
       p2: String(priorityCounts.p2),
       p3: String(priorityCounts.p3),
       reviewedFiles: String(prepared.reviewedFiles),
+      changedFiles: String(prepared.changedFiles),
+      ignoredFiles: String(prepared.ignoredFiles),
+      deterministicFindings: String(deterministicFindings.length),
+      impactedRequirements: impactedRequirementText,
+      upstreamRun: upstreamRunText,
     }),
   );
 
   publishReviewOutputs({
     state: "published",
-    comments: verified.comments,
+    comments: finalFindings,
     reviewUrl: published.html_url,
     diffChars: prepared.diff.length,
     reviewedFiles: prepared.reviewedFiles,
+    changedFiles: prepared.changedFiles,
+    ignoredFiles: prepared.ignoredFiles,
+    deterministicFindings: deterministicFindings.length,
+    impactedRequirements,
     usage,
   });
 

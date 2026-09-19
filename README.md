@@ -50,7 +50,7 @@
 | Архитектура | Page Object Model, fixtures, helpers, уникальные тестовые данные |
 | Подготовка данных | создание тестовых аккаунтов через API там, где UI-регистрация не является предметом проверки |
 | Очистка данных | централизованное удаление созданных тестовых аккаунтов перед закрытием `BrowserContext` |
-| Отчёты | Playwright HTML, Allure, JSON/JUnit, trace, screenshots, video; единый Actions Dashboard агрегирует три браузера, failures, slowest tests, artifacts и coverage |
+| Отчёты | Playwright HTML, Allure, JSON/JUnit, trace, screenshots, video; транспорт отчётов не подменяет результат тестов, а Actions Dashboard агрегирует три браузера, failures, slowest tests, artifacts и coverage |
 | Доступность | axe-core / WCAG |
 | Производительность | Lighthouse |
 | Визуальные проверки | сравнение скриншотов в Chromium |
@@ -58,7 +58,7 @@
 | Стабильность | повторные прогоны с `retries=0` и отдельной таблицей метрик |
 | Traceability | автоматическая проверка 50 requirement ID, статусов, test-ссылок и синхронизации README ↔ matrix |
 | Regression Gate | агрегирует Quality + Unit + API + E2E matrix в один понятный итоговый сигнал перед Summary |
-| AI Review | Gemini-review после зелёного PR CI + ручной запуск; trusted-main архитектура, второй валидационный проход, P1/P2/P3-метрики, отдельная Telegram job и собственный Actions Dashboard |
+| AI Review | Gemini-review после зелёного PR CI + ручной запуск; trusted-main архитектура, детерминированный preflight, второй валидационный проход, traceability requirement ID, P1/P2/P3-метрики, upstream CI provenance, отдельная Telegram job и собственный Actions Dashboard |
 | Плановые проверки | Nightly E2E |
 | Уведомления | Telegram как вспомогательный канал, не источник результата тестов |
 
@@ -133,7 +133,7 @@ docs/                     инженерная документация
 
 `main` защищён ruleset `Protect main`. Разрешено только слияние через Pull Request и **squash merge**. Обязательны разрешённые обсуждения и актуальные проверки относительно последнего `main`.
 
-Quality job дополнительно запускает `npm run coverage:check`: скрипт проверяет наличие всех 50 requirement ID, допустимые статусы, существование test-файлов из матрицы и совпадение цифр `README.md` с `docs/coverage-matrix.md`. Поэтому процент покрытия нельзя случайно рассинхронизировать простой правкой документации.
+Quality job дополнительно запускает `npm run coverage:check`: скрипт проверяет наличие всех 50 requirement ID, допустимые статусы, существование test-файлов из матрицы и совпадение цифр `README.md` с `docs/coverage-matrix.md`. После этого `scripts/ai-review-self-check.mjs` детерминированно проверяет patch parsing, CODEX preflight, requirement traceability и дедупликацию AI Review. Поэтому процент покрытия нельзя случайно рассинхронизировать простой правкой документации, а reviewer policy engine проверяется до browser E2E.
 
 Обязательные проверки:
 
@@ -156,7 +156,7 @@ Quality job дополнительно запускает `npm run coverage:chec
 - **Accessibility Audit** — axe-core и WCAG;
 - **Performance Smoke / Lighthouse** — производительность и технические показатели публичных страниц;
 - **Visual Regression** — визуальные изменения login/register;
-- **AI Review** — CODEX-scoped review после успешного PR CI; workflow использует доверенный код из `main`, выполняет второй проход для отсечения ложных замечаний, публикует приоритеты P1/P2/P3 и отправляет отдельное Telegram-уведомление; поддерживаются draft PR и ручной запуск по номеру PR;
+- **AI Review** — CODEX-scoped review после успешного PR CI; workflow использует доверенный код из `main`, выполняет детерминированный preflight для однозначных запретов Кодекса, второй проход для отсечения ложных замечаний, показывает связанные requirement ID по coverage matrix, P1/P2/P3, upstream CI и отправляет отдельное Telegram-уведомление; поддерживаются draft PR и ручной запуск по номеру PR;
 - **Nightly E2E Regression** — плановая проверка внешнего стенда;
 - **Stability Check** — повторные запуски без retries;
 - **Registration Contract Smoke** — ручная проверка `POST /pomidorqa/auth/register → 303 → /pomidorqa`;
@@ -166,7 +166,9 @@ Quality job дополнительно запускает `npm run coverage:chec
 
 ## Отчёты и диагностика
 
-Playwright формирует HTML, Allure, JSON и JUnit. При ошибках сохраняются trace, screenshots, video и `test-results`. Каждый browser job публикует собственные метрики, `Regression Gate` агрегирует обязательные функциональные сигналы, а финальный `CI Summary` скачивает machine-readable отчёты Chromium/Firefox/WebKit и строит единый Actions Dashboard: статус gates, номер attempt, 50/50 requirement audit, test inventory, browser matrix, expected/unexpected failures, flaky/retries, slowest scenarios, data-discipline и прямые ссылки на artifacts.
+Playwright формирует HTML, Allure, JSON и JUnit. При ошибках сохраняются trace, screenshots, video и `test-results`. Загрузка и генерация диагностических отчётов выполняются как non-blocking steps: если GitHub artifact storage временно отвечает сетевой ошибкой, успешные тесты не превращаются в ложное E2E-падение. Пример причины, из-за которой это разделение введено: в post-merge CI #262 attempt 1 Chromium завершил `100 passed`, а исходный job стал красным только при финализации HTML artifact из-за `ECONNRESET`. Attempt 2 позже показал уже независимый сбой live-стенда — `ECONNREFUSED` на test-account API; разные attempts классифицируются по фактической первой причине, а не объединяются под общим словом «flaky».
+
+Каждый browser job публикует собственные метрики, `Regression Gate` агрегирует обязательные функциональные сигналы, а финальный `CI Summary` скачивает machine-readable отчёты Chromium/Firefox/WebKit и строит единый Actions Dashboard: статус gates, номер attempt, 50/50 requirement audit, test inventory, browser matrix, expected/unexpected failures, flaky/retries, slowest scenarios, data-discipline и прямые ссылки на artifacts. Отсутствующий artifact остаётся диагностическим ухудшением и виден в Summary, но не переписывает фактический test result.
 
 Telegram используется только для доставки результата. Если отправка уведомления не удалась, это не меняет фактический статус тестов или проверки безопасности.
 

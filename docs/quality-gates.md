@@ -40,7 +40,7 @@ npm run regression:metrics
 | `Security / dependency change review` | согласованность изменений зависимостей и lockfile |
 | `Security / code quality` | независимую статическую проверку кода |
 
-Внутри Quality выполняется `npm run coverage:check`. Он блокирует PR, если отсутствует любой из 50 requirement ID, встречается недопустимый/дублирующийся статус, матрица ссылается на несуществующий spec-файл или цифры README расходятся с матрицей.
+Внутри Quality выполняется `npm run coverage:check`. Он блокирует PR, если отсутствует любой из 50 requirement ID, встречается недопустимый/дублирующийся статус, матрица ссылается на несуществующий spec-файл или цифры README расходятся с матрицей. Там же выполняется `node scripts/ai-review-self-check.mjs`: он проверяет patch annotation, детерминированные CODEX findings, requirement traceability и дедупликацию reviewer findings без изменения Playwright test inventory.
 
 ### Агрегированный Regression Gate
 
@@ -58,7 +58,7 @@ npm run regression:metrics
 | Nightly E2E Regression | регрессии внешнего стенда вне конкретного PR |
 | Stability Check | повторные прогоны с `retries=0` |
 | Registration Contract Smoke | ручная проверка контракта регистрации |
-| AI Review | CODEX-scoped проверка PR после зелёного CI с отдельным Actions Summary и Telegram job |
+| AI Review | CODEX-scoped проверка PR после зелёного CI: deterministic preflight, второй валидационный проход, requirement traceability, Actions Summary и отдельная Telegram job |
 | Telegram Notification Test | ручная диагностика уведомлений |
 
 Диагностический сигнал не подменяет обязательную проверку. `CI Summary` служит обзорным dashboard и агрегирует machine-readable browser reports, но источником pass/fail остаются сами jobs.
@@ -84,10 +84,10 @@ npm run regression:metrics
 - итог Registration Contract Smoke;
 - GitHub Actions Summary;
 - агрегированный CI Dashboard по Chromium / Firefox / WebKit;
-- AI Review Dashboard с моделью, scope, размером diff, числом findings, распределением P1/P2/P3, token usage и ссылкой на опубликованный review;
+- AI Review Dashboard с моделью, changed/reviewed/ignored files, размером diff, deterministic findings, связанными requirement ID, upstream CI, числом findings, распределением P1/P2/P3, token usage и ссылкой на опубликованный review;
 - отдельные Telegram jobs для основного CI и AI Review.
 
-Artifacts нужны для расследования и не меняют фактический pass/fail.
+Artifacts нужны для расследования и не меняют фактический pass/fail. Генерация Allure и upload диагностических artifacts в основном browser CI являются non-blocking: сетевой сбой GitHub artifact storage должен оставаться наблюдаемой проблемой отчётности, а не превращать `100 passed` в ложное E2E-падение. Machine-readable отчёты могут из-за этого отсутствовать в `CI Summary`; в таком случае Summary явно показывает недоступный browser report.
 
 ## Изменения зависимостей
 

@@ -104,7 +104,7 @@ Fixtures владеют жизненным циклом `BrowserContext`. `appFa
 
 ## Зачем Allure
 
-Playwright HTML удобен для просмотра конкретного запуска, а Allure даёт второй формат отчётности и историю шагов/результатов. В CI отчёты сохраняются как artifacts, а trace/screenshots/video помогают восстановить технический контекст ошибки.
+Playwright HTML удобен для просмотра конкретного запуска, а Allure даёт второй формат отчётности и историю шагов/результатов. В CI отчёты сохраняются как artifacts, а trace/screenshots/video помогают восстановить технический контекст ошибки. Если тесты уже завершились успешно, временная ошибка artifact storage классифицируется как проблема отчётности, а не как E2E-регрессия; reporting steps не должны переписывать test result.
 
 ## Зачем отдельные нефункциональные workflows
 
@@ -112,7 +112,7 @@ Accessibility, Lighthouse и Visual Regression измеряют другие с�
 
 ## Как работает AI Review
 
-После успешного PR CI отдельный workflow запускает Gemini-review по CODEX-scoped diff. Он не исполняет код PR: код проверки и правила берутся из доверенной ветки `main`, а изменения PR читаются через GitHub API. Scope включает тесты, `src`, `scripts`, workflows, документацию и ключевые конфигурационные файлы. Draft PR тоже проверяются; при необходимости review можно запустить вручную по номеру PR. Второй проход модели отбрасывает неподтверждённые замечания перед публикацией. Actions Summary показывает модель, commit, размер diff, число файлов, findings и P1/P2/P3; отдельная Telegram job доставляет итог и ссылку на опубликованный review.
+После успешного PR CI отдельный workflow запускает Gemini-review по CODEX-scoped diff. Он не исполняет код PR: код проверки и правила берутся из доверенной ветки `main`, а изменения PR читаются через GitHub API. До модели выполняется детерминированный preflight для однозначных запретов `CODEX.md` (`waitForTimeout`, `force: true`, `.only`, `page.pause`). Модель дополнительно получает `requirements.md` и coverage matrix как контекст, а изменённые test-файлы автоматически связываются с requirement ID по evidence-колонке. Второй проход отбрасывает неподтверждённые замечания. Actions Summary показывает upstream CI, changed/reviewed/ignored files, requirement traceability, deterministic findings, модель, diff, P1/P2/P3 и token usage; отдельная Telegram job доставляет тот же диагностический контекст.
 
 ## Зачем Nightly
 
