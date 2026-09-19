@@ -49,6 +49,11 @@ jobs:
       review_url: ${{ steps.review.outputs.review_url }}
       diff_chars: ${{ steps.review.outputs.diff_chars }}
       reviewed_files: ${{ steps.review.outputs.reviewed_files }}
+      changed_files: ${{ steps.review.outputs.changed_files }}
+      ignored_files: ${{ steps.review.outputs.ignored_files }}
+      deterministic_findings: ${{ steps.review.outputs.deterministic_findings }}
+      requirements_impacted: ${{ steps.review.outputs.requirements_impacted }}
+      upstream_run_id: ${{ steps.review.outputs.upstream_run_id }}
       model: ${{ steps.review.outputs.model }}
       tokens_total: ${{ steps.review.outputs.tokens_total }}
 
@@ -103,6 +108,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+          AI_REVIEW_UPSTREAM_RUN_ID: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.id || '' }}
 
 
   notify:
@@ -131,6 +137,11 @@ jobs:
           REVIEW_URL: ${{ needs.review.outputs.review_url }}
           DIFF_CHARS: ${{ needs.review.outputs.diff_chars }}
           REVIEWED_FILES: ${{ needs.review.outputs.reviewed_files }}
+          CHANGED_FILES: ${{ needs.review.outputs.changed_files }}
+          IGNORED_FILES: ${{ needs.review.outputs.ignored_files }}
+          DETERMINISTIC_FINDINGS: ${{ needs.review.outputs.deterministic_findings }}
+          REQUIREMENTS_IMPACTED: ${{ needs.review.outputs.requirements_impacted }}
+          UPSTREAM_RUN_ID: ${{ needs.review.outputs.upstream_run_id }}
           MODEL: ${{ needs.review.outputs.model }}
           TOKENS_TOTAL: ${{ needs.review.outputs.tokens_total }}
         run: |
@@ -158,7 +169,25 @@ jobs:
             *) STATE="${REVIEW_STATE:-нет данных}" ;;
           esac
 
+          escape_html() {
+            local text="$1"
+            text="${text//&/&amp;}"
+            text="${text//</&lt;}"
+            text="${text//>/&gt;}"
+            printf '%s' "$text"
+          }
+
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          if [[ -n "$UPSTREAM_RUN_ID" ]]; then
+            UPSTREAM_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${UPSTREAM_RUN_ID}"
+            UPSTREAM_LINE="<a href=\"${UPSTREAM_URL}\">Upstream CI #${UPSTREAM_RUN_ID}</a>"
+          else
+            UPSTREAM_LINE="Upstream CI: ручной запуск"
+          fi
+
+          MODEL_HTML="$(escape_html "${MODEL:-неизвестно}")"
+          REQUIREMENTS_HTML="$(escape_html "${REQUIREMENTS_IMPACTED:-нет}")"
 
           if [[ -n "$PR_NUMBER" ]]; then
             PR_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/pull/${PR_NUMBER}"
@@ -185,11 +214,16 @@ jobs:
           P1 / P2 / P3: <b>${P1_COUNT:-0} / ${P2_COUNT:-0} / ${P3_COUNT:-0}</b>
 
           <b>Область</b>
-          Файлов: ${REVIEWED_FILES:-0}
+          В PR: ${CHANGED_FILES:-0}
+          В review scope: ${REVIEWED_FILES:-0}
+          Вне scope: ${IGNORED_FILES:-0}
           Diff: ${DIFF_CHARS:-0} символов
-          Модель: <code>${MODEL:-неизвестно}</code>
+          Детерминированные findings: ${DETERMINISTIC_FINDINGS:-0}
+          Требования: <code>${REQUIREMENTS_HTML}</code>
+          Модель: <code>${MODEL_HTML}</code>
           Токены: ${TOKENS_TOTAL:-0}
 
+          ${UPSTREAM_LINE}
           ${REVIEW_LINE}
           <a href="${RUN_URL}">Открыть AI Review в GitHub Actions</a>
           EOF
