@@ -14,9 +14,9 @@ test.describe("Слоты: правила MVP", () => {
     await registerUserViaApi(app.context.request, user);
     await app.slotsPage.goto();
 
-    const yesterday = slotFormValues(-24 * 60 * 60 * 1000).date;
+    const pastDate = slotFormValues(-48 * 60 * 60 * 1000).date;
 
-    await app.slotsPage.submitSlot("12:00", yesterday);
+    await app.slotsPage.submitSlot("12:00", pastDate);
 
     expect(
       await app.slotsPage.dateInput.evaluate(
