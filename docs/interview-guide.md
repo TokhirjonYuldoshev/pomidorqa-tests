@@ -112,7 +112,7 @@ Accessibility, Lighthouse и Visual Regression измеряют другие с�
 
 ## Как работает AI Review
 
-После успешного PR CI отдельный workflow запускает Gemini-review по CODEX-scoped diff. Он не исполняет код PR: код проверки и правила берутся из доверенной ветки `main`, а изменения PR читаются через GitHub API. До модели выполняется детерминированный preflight для однозначных запретов `CODEX.md` (`waitForTimeout`, `force: true`, `.only`, `page.pause`). Модель дополнительно получает `requirements.md` и coverage matrix как контекст, а изменённые test-файлы автоматически связываются с requirement ID по evidence-колонке. Второй проход отбрасывает неподтверждённые замечания. Actions Summary показывает upstream CI, changed/reviewed/ignored files, requirement traceability, deterministic findings, модель, diff, P1/P2/P3 и token usage; отдельная Telegram job доставляет тот же диагностический контекст.
+После успешного PR CI отдельный workflow запускает Gemini-review по CODEX-scoped diff. Он не исполняет код PR: код проверки и правила берутся из доверенной ветки `main`, а изменения PR читаются через GitHub API. До модели выполняется детерминированный preflight для однозначных запретов `CODEX.md` (`waitForTimeout`, `force: true`, `.only`, `page.pause`). Модель дополнительно получает `requirements.md` и coverage matrix как контекст, а изменённые test-файлы автоматически связываются с requirement ID по evidence-колонке. Второй проход отбрасывает неподтверждённые замечания. Actions Summary показывает upstream CI, changed/reviewed/ignored files, requirement traceability, deterministic findings, модель, diff, P1/P2/P3, trusted reviewer revision, policy fingerprint и token usage; отдельная Telegram job доставляет тот же диагностический контекст.
 
 ## Зачем Nightly
 
