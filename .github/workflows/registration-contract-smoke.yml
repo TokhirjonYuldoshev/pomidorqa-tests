@@ -47,8 +47,8 @@ jobs:
         if: ${{ always() }}
         run: |
           if [[ ! -f .qa-artifacts/registration-contract/summary.json ]]; then
-            echo "## Registration Contract Smoke" >> "$GITHUB_STEP_SUMMARY"
-            echo "Summary artifact was not created." >> "$GITHUB_STEP_SUMMARY"
+            echo "## Контракт регистрации" >> "$GITHUB_STEP_SUMMARY"
+            echo "Файл результата не создан." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
 
@@ -59,15 +59,15 @@ jobs:
           );
 
           const icon = result.status === 'passed' ? '✅' : '❌';
-          console.log('## Registration Contract Smoke');
+          console.log('## Контракт регистрации');
           console.log('');
-          console.log(`${icon} Result: **${result.status}**`);
-          console.log(`- Base URL: \`${result.baseUrl}\``);
-          console.log(`- Expected: \`${result.expected.requestMethod} ${result.expected.requestPath} -> ${result.expected.responseStatus}\``);
-          console.log(`- Actual status: \`${result.actual.responseStatus ?? 'n/a'}\``);
-          console.log(`- Final path: \`${result.actual.finalPath ?? 'n/a'}\``);
+          console.log(`${icon} Результат: **${result.status}**`);
+          console.log(`- Стенд: \`${result.baseUrl}\``);
+          console.log(`- Ожидалось: \`${result.expected.requestMethod} ${result.expected.requestPath} -> ${result.expected.responseStatus}\``);
+          console.log(`- Фактический статус: \`${result.actual.responseStatus ?? 'n/a'}\``);
+          console.log(`- Итоговый путь: \`${result.actual.finalPath ?? 'n/a'}\``);
           if (result.error) {
-            console.log(`- Error: ${result.error}`);
+            console.log(`- Ошибка: ${result.error}`);
           }
           NODE
 
@@ -80,3 +80,66 @@ jobs:
           include-hidden-files: true
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Send registration contract result to Telegram
+        if: ${{ always() }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          if [[ -z "$TELEGRAM_BOT_TOKEN" || -z "$TELEGRAM_CHAT_ID" ]]; then
+            echo "::notice::Telegram secrets не настроены; уведомление о контракте регистрации пропущено."
+            exit 0
+          fi
+
+          RESULT_TEXT="$JOB_STATUS"
+          BASE_URL="${{ inputs.base_url }}"
+          ACTUAL_STATUS="n/a"
+          FINAL_PATH="n/a"
+
+          if [[ -f .qa-artifacts/registration-contract/summary.json ]]; then
+            RESULT_TEXT="$(jq -r '.status // "unknown"' .qa-artifacts/registration-contract/summary.json)"
+            BASE_URL="$(jq -r '.baseUrl // "'"$BASE_URL"'"' .qa-artifacts/registration-contract/summary.json)"
+            ACTUAL_STATUS="$(jq -r '.actual.responseStatus // "n/a"' .qa-artifacts/registration-contract/summary.json)"
+            FINAL_PATH="$(jq -r '.actual.finalPath // "n/a"' .qa-artifacts/registration-contract/summary.json)"
+          fi
+
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          MESSAGE=$(cat <<EOF
+          <b>PomidorQA • Контракт регистрации</b>
+
+          Результат: <b>${RESULT_TEXT}</b>
+          Стенд: <code>${BASE_URL}</code>
+          HTTP: <code>${ACTUAL_STATUS}</code>
+          Итоговый путь: <code>${FINAL_PATH}</code>
+
+          <a href="${RUN_URL}">Открыть проверку в GitHub Actions</a>
+          EOF
+          )
+
+          HTTP_CODE="$(
+            curl \
+              --silent \
+              --show-error \
+              --retry 2 \
+              --retry-all-errors \
+              --connect-timeout 10 \
+              --max-time 20 \
+              --output /tmp/telegram-registration-contract.json \
+              --write-out '%{http_code}' \
+              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+              --data-urlencode "text=${MESSAGE}" \
+              --data-urlencode "parse_mode=HTML" \
+              --data-urlencode "disable_web_page_preview=true" \
+              "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              || true
+          )"
+
+          if [[ "$HTTP_CODE" != "200" ]]; then
+            echo "::warning::Telegram не подтвердил доставку Registration Contract notification (HTTP ${HTTP_CODE:-transport-error})."
+            exit 0
+          fi
+
+          echo "Registration Contract result отправлен в Telegram."

@@ -135,6 +135,11 @@ const actor =
 const event = eventLabel(
   process.env.GITHUB_EVENT_NAME,
 );
+const runner =
+  (process.env.RUNNER_OS || "Linux") +
+  " / " +
+  (process.env.RUNNER_ARCH || "X64");
+const nodeVersion = process.version;
 
 const valueOrDash = (value) =>
   value === null || value === undefined
@@ -149,7 +154,7 @@ const info = counts?.info;
 const total = counts?.total;
 
 const markdown = `
-# 🛡️ Безопасность и качество
+# Безопасность и качество
 
 _Проверка зависимостей, цепочки поставки и статического качества_
 
@@ -157,16 +162,14 @@ _Проверка зависимостей, цепочки поставки и �
 
 > ${note}
 
-[▶️ Открыть запуск](${runUrl}) ·
-[📦 Материалы проверки](${artifactsUrl}) ·
-[✈️ Telegram](https://t.me/Tokhirjon_QA_Bot)
+<p><a href="${runUrl}">Открыть запуск</a> · <a href="${artifactsUrl}">Материалы проверки</a> · <a href="https://t.me/Tokhirjon_QA_Bot">Telegram</a></p>
 
 ---
 
 <table>
 <tr>
 <td valign="top" width="50%">
-<h3>🛡️ 1. Проверки</h3>
+<h3>1. Проверки</h3>
 <table>
 <thead><tr><th>Проверка</th><th>Статус</th></tr></thead>
 <tbody>
@@ -177,7 +180,7 @@ _Проверка зависимостей, цепочки поставки и �
 </table>
 </td>
 <td valign="top" width="50%">
-<h3>🔎 2. Найденные уязвимости</h3>
+<h3>2. Найденные уязвимости</h3>
 <table>
 <thead><tr><th>Уровень</th><th>Количество</th></tr></thead>
 <tbody>
@@ -193,7 +196,7 @@ _Проверка зависимостей, цепочки поставки и �
 </tr>
 <tr>
 <td valign="top" width="50%">
-<h3>📦 3. Материалы и политика</h3>
+<h3>3. Материалы и политика</h3>
 <table>
 <thead><tr><th>Параметр</th><th>Значение</th></tr></thead>
 <tbody>
@@ -201,12 +204,13 @@ _Проверка зависимостей, цепочки поставки и �
 <tr><td>npm audit JSON</td><td><a href="${artifactsUrl}">Открыть artifact</a></td></tr>
 <tr><td>CycloneDX SBOM</td><td><a href="${artifactsUrl}">Открыть artifact</a></td></tr>
 <tr><td>Хранение</td><td>14 дней</td></tr>
-<tr><td>Низкие уровни</td><td>не скрываются, остаются в отчёте</td></tr>
+<tr><td>Runner</td><td>${escapeHtml(runner)}</td></tr>
+<tr><td>Node.js</td><td><code>${escapeHtml(nodeVersion)}</code></td></tr>
 </tbody>
 </table>
 </td>
 <td valign="top" width="50%">
-<h3>🚀 4. Запуск</h3>
+<h3>4. Запуск</h3>
 <table>
 <thead><tr><th>Поле</th><th>Значение</th></tr></thead>
 <tbody>

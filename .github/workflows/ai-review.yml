@@ -77,6 +77,7 @@ jobs:
           echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Review Pull Request diff
+        id: review
         run: node scripts/ai-review.mjs
         env:
           AI_REVIEW_ALLOW_PUBLISH: "true"
@@ -85,3 +86,64 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+
+      - name: Send AI Review result to Telegram
+        if: ${{ always() && steps.target.outputs.pr_number != '' }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          REVIEW_RESULT: ${{ steps.review.outcome }}
+          PR_NUMBER: ${{ steps.target.outputs.pr_number }}
+          HEAD_SHA: ${{ steps.target.outputs.head_sha }}
+        run: |
+          if [[ -z "$TELEGRAM_BOT_TOKEN" || -z "$TELEGRAM_CHAT_ID" ]]; then
+            echo "::notice::Telegram secrets не настроены; AI Review notification пропущено."
+            exit 0
+          fi
+
+          case "$REVIEW_RESULT" in
+            success) RESULT="✅ Успешно" ;;
+            failure) RESULT="❌ Ошибка" ;;
+            cancelled) RESULT="⏹️ Отменено" ;;
+            skipped) RESULT="⏭️ Пропущено" ;;
+            *) RESULT="$REVIEW_RESULT" ;;
+          esac
+
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          PR_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/pull/${PR_NUMBER}"
+
+          MESSAGE=$(cat <<EOF
+          <b>PomidorQA • AI Review</b>
+
+          Результат: <b>${RESULT}</b>
+          PR: <a href="${PR_URL}">#${PR_NUMBER}</a>
+          Commit: <code>${HEAD_SHA:0:7}</code>
+
+          <a href="${RUN_URL}">Открыть AI Review в GitHub Actions</a>
+          EOF
+          )
+
+          HTTP_CODE="$(
+            curl \
+              --silent \
+              --show-error \
+              --retry 2 \
+              --retry-all-errors \
+              --connect-timeout 10 \
+              --max-time 20 \
+              --output /tmp/telegram-ai-review.json \
+              --write-out '%{http_code}' \
+              --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+              --data-urlencode "text=${MESSAGE}" \
+              --data-urlencode "parse_mode=HTML" \
+              --data-urlencode "disable_web_page_preview=true" \
+              "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+              || true
+          )"
+
+          if [[ "$HTTP_CODE" != "200" ]]; then
+            echo "::warning::Telegram не подтвердил доставку AI Review notification (HTTP ${HTTP_CODE:-transport-error})."
+            exit 0
+          fi
+
+          echo "AI Review result отправлен в Telegram."
