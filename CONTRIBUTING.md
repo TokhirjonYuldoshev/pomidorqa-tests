@@ -73,7 +73,7 @@ npm run test:e2e
 - `waitForTimeout`, `force: true`, `.only`, `skip` и `page.pause()` не используются для маскировки проблем;
 - `retries=0` не ослабляется без документированной причины.
 
-Подробные правила курса находятся в [CODEX.md](CODEX.md), а чек-лист ревью — в [REVIEW.md](REVIEW.md).
+Обязательные правила проекта находятся в [CODEX.md](CODEX.md), а чек-лист ревью — в [REVIEW.md](REVIEW.md).
 
 ## Что должно быть в Pull Request
 
