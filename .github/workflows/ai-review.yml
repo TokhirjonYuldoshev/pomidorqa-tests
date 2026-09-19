@@ -16,7 +16,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
 
 concurrency:
   group: ai-review-${{ inputs.pr_number || github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.id || github.run_id }}
@@ -34,6 +33,24 @@ jobs:
       )
     runs-on: ubuntu-latest
     timeout-minutes: 7
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    outputs:
+      pr_number: ${{ steps.target.outputs.pr_number }}
+      head_sha: ${{ steps.target.outputs.head_sha }}
+      review_state: ${{ steps.review.outputs.review_state }}
+      findings_total: ${{ steps.review.outputs.findings_total }}
+      p1_count: ${{ steps.review.outputs.p1_count }}
+      p2_count: ${{ steps.review.outputs.p2_count }}
+      p3_count: ${{ steps.review.outputs.p3_count }}
+      review_url: ${{ steps.review.outputs.review_url }}
+      diff_chars: ${{ steps.review.outputs.diff_chars }}
+      reviewed_files: ${{ steps.review.outputs.reviewed_files }}
+      model: ${{ steps.review.outputs.model }}
+      tokens_total: ${{ steps.review.outputs.tokens_total }}
 
     steps:
       # Privileged workflow: secrets and write token are available here.
@@ -87,38 +104,93 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
 
+
+  notify:
+    name: Telegram Notification
+    if: ${{ always() && needs.review.result != 'skipped' }}
+    needs: [review]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      contents: read
+
+    steps:
       - name: Send AI Review result to Telegram
-        if: ${{ always() && steps.target.outputs.pr_number != '' }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          REVIEW_RESULT: ${{ steps.review.outcome }}
-          PR_NUMBER: ${{ steps.target.outputs.pr_number }}
-          HEAD_SHA: ${{ steps.target.outputs.head_sha }}
+          REVIEW_JOB_RESULT: ${{ needs.review.result }}
+          REVIEW_STATE: ${{ needs.review.outputs.review_state }}
+          PR_NUMBER: ${{ needs.review.outputs.pr_number }}
+          HEAD_SHA: ${{ needs.review.outputs.head_sha }}
+          FINDINGS_TOTAL: ${{ needs.review.outputs.findings_total }}
+          P1_COUNT: ${{ needs.review.outputs.p1_count }}
+          P2_COUNT: ${{ needs.review.outputs.p2_count }}
+          P3_COUNT: ${{ needs.review.outputs.p3_count }}
+          REVIEW_URL: ${{ needs.review.outputs.review_url }}
+          DIFF_CHARS: ${{ needs.review.outputs.diff_chars }}
+          REVIEWED_FILES: ${{ needs.review.outputs.reviewed_files }}
+          MODEL: ${{ needs.review.outputs.model }}
+          TOKENS_TOTAL: ${{ needs.review.outputs.tokens_total }}
         run: |
           if [[ -z "$TELEGRAM_BOT_TOKEN" || -z "$TELEGRAM_CHAT_ID" ]]; then
             echo "::notice::Telegram secrets не настроены; AI Review notification пропущено."
             exit 0
           fi
 
-          case "$REVIEW_RESULT" in
+          case "$REVIEW_JOB_RESULT" in
             success) RESULT="✅ Успешно" ;;
             failure) RESULT="❌ Ошибка" ;;
             cancelled) RESULT="⏹️ Отменено" ;;
             skipped) RESULT="⏭️ Пропущено" ;;
-            *) RESULT="$REVIEW_RESULT" ;;
+            *) RESULT="⚠️ ${REVIEW_JOB_RESULT:-неизвестно}" ;;
+          esac
+
+          case "$REVIEW_STATE" in
+            published) STATE="Review опубликован" ;;
+            already_reviewed) STATE="Commit уже проверен" ;;
+            scope_clean) STATE="Изменений в scope нет" ;;
+            stale) STATE="Результат устарел и не опубликован" ;;
+            skipped) STATE="Review пропущен" ;;
+            failed) STATE="Review завершился ошибкой" ;;
+            dry_run) STATE="Dry run" ;;
+            *) STATE="${REVIEW_STATE:-нет данных}" ;;
           esac
 
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
-          PR_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/pull/${PR_NUMBER}"
+
+          if [[ -n "$PR_NUMBER" ]]; then
+            PR_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/pull/${PR_NUMBER}"
+            PR_LINE="<a href=\"${PR_URL}\">PR #${PR_NUMBER}</a>"
+          else
+            PR_LINE="PR не определён"
+          fi
+
+          REVIEW_LINE=""
+          if [[ -n "$REVIEW_URL" ]]; then
+            REVIEW_LINE="<a href=\"${REVIEW_URL}\">Открыть опубликованный review</a>"
+          fi
 
           MESSAGE=$(cat <<EOF
           <b>PomidorQA • AI Review</b>
 
-          Результат: <b>${RESULT}</b>
-          PR: <a href="${PR_URL}">#${PR_NUMBER}</a>
+          <b>${RESULT}</b>
+          ${PR_LINE}
           Commit: <code>${HEAD_SHA:0:7}</code>
+          Состояние: <b>${STATE}</b>
 
+          <b>Результат проверки</b>
+          Замечания: <b>${FINDINGS_TOTAL:-0}</b>
+          P1 / P2 / P3: <b>${P1_COUNT:-0} / ${P2_COUNT:-0} / ${P3_COUNT:-0}</b>
+
+          <b>Область</b>
+          Файлов: ${REVIEWED_FILES:-0}
+          Diff: ${DIFF_CHARS:-0} символов
+          Модель: <code>${MODEL:-неизвестно}</code>
+          Токены: ${TOKENS_TOTAL:-0}
+
+          ${REVIEW_LINE}
           <a href="${RUN_URL}">Открыть AI Review в GitHub Actions</a>
           EOF
           )
