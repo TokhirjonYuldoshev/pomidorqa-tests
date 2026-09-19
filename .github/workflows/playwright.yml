@@ -265,6 +265,7 @@ jobs:
           UNIT: ${{ needs.unit.result }}
           API: ${{ needs.api.result }}
           E2E: ${{ needs.e2e.result }}
+          REGRESSION_GATE: ${{ needs.regression_gate.result }}
         run: |
           if [[ -z "$TELEGRAM_BOT_TOKEN" || -z "$TELEGRAM_CHAT_ID" ]]; then
             echo "::notice::Telegram secrets are not configured; notification skipped."
