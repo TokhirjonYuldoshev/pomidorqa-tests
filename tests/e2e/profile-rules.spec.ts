@@ -46,13 +46,17 @@ test.describe("Профиль и навыки: требования MVP", () => 
   }) => {
     const skill = `Duplicate-${makeRunId("duplicate-skill")}`;
 
-    await hostApp.profilePage.addSkill(skill, "can_help");
-    await hostApp.profilePage.submitSkill(skill, "can_help");
-    await hostApp.page.reload();
+    await test.step("Добавляем навык и повторяем добавление того же типа", async () => {
+      await hostApp.profilePage.addSkill(skill, "can_help");
+      await hostApp.profilePage.submitSkill(skill, "can_help");
+      await hostApp.page.reload();
+    });
 
-    await expect(
-      hostApp.profilePage.skillItem(skill, "can_help"),
-    ).toHaveCount(1);
+    await test.step("После обновления остаётся одна запись навыка", async () => {
+      await expect(
+        hostApp.profilePage.skillItem(skill, "can_help"),
+      ).toHaveCount(1);
+    });
   });
 
   test("одинаковый текст навыка разрешён в двух разных типах", async ({
@@ -60,15 +64,19 @@ test.describe("Профиль и навыки: требования MVP", () => 
   }) => {
     const skill = `BothTypes-${makeRunId("both-types")}`;
 
-    await hostApp.profilePage.addSkill(skill, "can_help");
-    await hostApp.profilePage.submitSkill(skill, "want_to_learn");
-    await hostApp.page.reload();
+    await test.step("Добавляем одинаковый текст в оба типа навыков", async () => {
+      await hostApp.profilePage.addSkill(skill, "can_help");
+      await hostApp.profilePage.submitSkill(skill, "want_to_learn");
+      await hostApp.page.reload();
+    });
 
-    await expect(
-      hostApp.profilePage.skillsSection("can_help"),
-    ).toContainText(skill);
-    await expect(
-      hostApp.profilePage.skillsSection("want_to_learn"),
-    ).toContainText(skill);
+    await test.step("Оба типа содержат независимые записи навыка", async () => {
+      await expect(
+        hostApp.profilePage.skillsSection("can_help"),
+      ).toContainText(skill);
+      await expect(
+        hostApp.profilePage.skillsSection("want_to_learn"),
+      ).toContainText(skill);
+    });
   });
 });
