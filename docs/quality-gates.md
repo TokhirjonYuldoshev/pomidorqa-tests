@@ -84,7 +84,7 @@ npm run regression:metrics
 - итог Registration Contract Smoke;
 - GitHub Actions Summary;
 - агрегированный CI Dashboard по Chromium / Firefox / WebKit;
-- AI Review Dashboard с моделью, changed/reviewed/ignored files, размером diff, deterministic findings, связанными requirement ID, upstream CI, числом findings, распределением P1/P2/P3, token usage и ссылкой на опубликованный review;
+- AI Review Dashboard с моделью, changed/reviewed/ignored files, размером diff, deterministic findings, связанными requirement ID, upstream CI, trusted reviewer revision, policy fingerprint, числом findings, распределением P1/P2/P3, token usage и ссылкой на опубликованный review;
 - отдельные Telegram jobs для основного CI и AI Review.
 
 Artifacts нужны для расследования и не меняют фактический pass/fail. Генерация Allure и upload диагностических artifacts в основном browser CI являются non-blocking: сетевой сбой GitHub artifact storage должен оставаться наблюдаемой проблемой отчётности, а не превращать `100 passed` в ложное E2E-падение. Machine-readable отчёты могут из-за этого отсутствовать в `CI Summary`; в таком случае Summary явно показывает недоступный browser report.
