@@ -112,7 +112,7 @@ function buildAiStepSummary({
   return `
 # Сводка AI Review
 
-_Automated CODEX-scoped review • trusted reviewer from \`main\`_
+_Автоматическая проверка diff по `CODEX.md` и `REVIEW.md` • код проверки из доверенной `main`_
 
 ## ${headline}
 
@@ -157,11 +157,11 @@ _Automated CODEX-scoped review • trusted reviewer from \`main\`_
 
 | Контроль | Значение |
 | --- | --- |
-| Reviewer code | trusted \`main\` |
+| Код проверки | доверенная `main` |
 | Выполнение кода PR | **не выполняется** |
 | Зависимости PR | **не устанавливаются** |
 | Комментарии | только добавленные строки |
-| Max comments | \`5\` |
+| Максимум комментариев | `5` |
 | Токены | ${summaryCell(usage)} |
 `;
 }
@@ -1570,7 +1570,7 @@ main().catch(
     );
     appendStepSummary(
       buildAiStepSummary({
-        headline: "❌ AI REVIEW FAILED",
+        headline: "❌ AI REVIEW ЗАВЕРШИЛСЯ ОШИБКОЙ",
         note: String(error.message),
         result: "Ошибка",
       }),
