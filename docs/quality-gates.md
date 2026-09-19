@@ -58,7 +58,7 @@ npm run regression:metrics
 | Nightly E2E Regression | регрессии внешнего стенда вне конкретного PR |
 | Stability Check | повторные прогоны с `retries=0` |
 | Registration Contract Smoke | ручная проверка контракта регистрации |
-| AI Review | CODEX-scoped проверка PR после зелёного CI: deterministic preflight, второй валидационный проход, requirement traceability, Actions Summary и отдельная Telegram job |
+| AI Review | CODEX-scoped проверка PR после зелёного CI: deterministic preflight только по Playwright-коду, второй валидационный проход, requirement traceability, provenance, degraded mode, Actions Summary и отдельная Telegram job |
 | Telegram Notification Test | ручная диагностика уведомлений |
 
 Диагностический сигнал не подменяет обязательную проверку. `CI Summary` служит обзорным dashboard и агрегирует machine-readable browser reports, но источником pass/fail остаются сами jobs.
