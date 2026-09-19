@@ -45,6 +45,7 @@ jobs:
         run: npm audit --audit-level=high --json | tee npm-audit.json
 
       - name: Upload npm audit evidence
+        continue-on-error: true
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -54,6 +55,7 @@ jobs:
           retention-days: 14
 
       - name: Upload npm CycloneDX SBOM evidence
+        continue-on-error: true
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
