@@ -201,7 +201,6 @@ jobs:
           UNIT: ${{ needs.unit.result }}
           API: ${{ needs.api.result }}
           E2E: ${{ needs.e2e.result }}
-          REGRESSION_GATE: ${{ needs.regression_gate.result }}
         run: |
           printf '%-30s %s\n' "Quality / lint + typecheck" "$QUALITY"
           printf '%-30s %s\n' "Unit tests" "$UNIT"
