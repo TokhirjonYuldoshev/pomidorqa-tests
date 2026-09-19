@@ -58,7 +58,7 @@
 | Стабильность | повторные прогоны с `retries=0` и отдельной таблицей метрик |
 | Traceability | автоматическая проверка 50 requirement ID, статусов, test-ссылок и синхронизации README ↔ matrix |
 | Regression Gate | агрегирует Quality + Unit + API + E2E matrix в один понятный итоговый сигнал перед Summary |
-| AI Review | Gemini-review после зелёного PR CI + ручной запуск; trusted-main архитектура, детерминированный preflight, второй валидационный проход, traceability requirement ID, P1/P2/P3-метрики, upstream CI provenance, отдельная Telegram job и собственный Actions Dashboard |
+| AI Review | Gemini-review после зелёного PR CI + ручной запуск; trusted-main архитектура, детерминированный preflight, второй валидационный проход, traceability requirement ID, P1/P2/P3, upstream CI, reviewer revision, policy fingerprint, отдельная Telegram job и Actions Dashboard |
 | Плановые проверки | Nightly E2E |
 | Уведомления | Telegram как вспомогательный канал, не источник результата тестов |
 
@@ -156,7 +156,7 @@ Quality job дополнительно запускает `npm run coverage:chec
 - **Accessibility Audit** — axe-core и WCAG;
 - **Performance Smoke / Lighthouse** — производительность и технические показатели публичных страниц;
 - **Visual Regression** — визуальные изменения login/register;
-- **AI Review** — CODEX-scoped review после успешного PR CI; workflow использует доверенный код из `main`, выполняет детерминированный preflight для однозначных запретов Кодекса, второй проход для отсечения ложных замечаний, показывает связанные requirement ID по coverage matrix, P1/P2/P3, upstream CI и отправляет отдельное Telegram-уведомление; поддерживаются draft PR и ручной запуск по номеру PR;
+- **AI Review** — CODEX-scoped review после успешного PR CI; workflow использует доверенный код из `main`, выполняет детерминированный preflight для однозначных запретов Кодекса, второй проход для отсечения ложных замечаний, показывает связанные requirement ID по coverage matrix, P1/P2/P3, upstream CI, trusted reviewer revision и policy fingerprint и отправляет отдельное Telegram-уведомление; поддерживаются draft PR и ручной запуск по номеру PR;
 - **Nightly E2E Regression** — плановая проверка внешнего стенда;
 - **Stability Check** — повторные запуски без retries;
 - **Registration Contract Smoke** — ручная проверка `POST /pomidorqa/auth/register → 303 → /pomidorqa`;
