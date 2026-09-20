@@ -219,7 +219,12 @@ test.describe("Каталог: семантика поиска", () => {
           await guestApp.bookingPage.searchCatalog(
             missingSkill,
           );
+        },
+      );
 
+      await test.step(
+        "Проверка: Гость: меняет запрос на несуществующий",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(host.name),
           ).toHaveCount(0);
@@ -322,13 +327,14 @@ test.describe("Каталог: семантика поиска", () => {
         },
       );
 
-      await test.step(
-        "Карточка содержит найденный навык со спецсимволами",
-        async () => {
-          const hostCard =
-            guestApp.bookingPage.personCard(host.name);
+      const hostCard =
+        guestApp.bookingPage.personCard(host.name);
 
+      await test.step(
+        "Проверка: Карточка содержит найденный навык со спецсимволами",
+        async () => {
           await expect(hostCard).toHaveCount(1);
+          
           await expect(hostCard).toContainText(skill);
         },
       );
@@ -376,7 +382,12 @@ test.describe("Каталог: семантика поиска", () => {
             control.name,
             skill,
           );
+        },
+      );
 
+      await test.step(
+        "Проверка: Контроль: поиск загружен, участник без навыка отсутствует",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(target.name),
           ).toHaveCount(0);
@@ -402,7 +413,12 @@ test.describe("Каталог: семантика поиска", () => {
             skill,
             CATALOG_RESULT_TIMEOUT,
           );
+        },
+      );
 
+      await test.step(
+        "Проверка: После добавления навыка участник появляется в поиске",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(target.name),
           ).toHaveCount(1);
@@ -469,7 +485,12 @@ test.describe("Каталог: семантика поиска", () => {
             host.name,
             skillA,
           );
+        },
+      );
 
+      await test.step(
+        "Проверка: Исходный навык по-прежнему находит того же участника",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(host.name),
           ).toHaveCount(1);

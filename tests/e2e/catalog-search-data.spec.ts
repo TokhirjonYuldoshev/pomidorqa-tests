@@ -125,13 +125,14 @@ test.describe("Каталог: данные и фильтрация", () => {
         },
       );
 
-      await test.step(
-        "В каталоге нет дублей одной и той же карточки",
-        async () => {
-          const hostCard =
-            guestApp.bookingPage.personCard(host.name);
+      const hostCard =
+        guestApp.bookingPage.personCard(host.name);
 
+      await test.step(
+        "Проверка: В каталоге нет дублей одной и той же карточки",
+        async () => {
           await expect(hostCard).toBeVisible();
+          
           await expect(hostCard).toHaveCount(1);
         },
       );
@@ -225,6 +226,12 @@ test.describe("Каталог: данные и фильтрация", () => {
             host.name,
             canHelpSkill,
           );
+        },
+      );
+
+      await test.step(
+        "Проверка: Контроль: по can_help участник находится",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(host.name),
           ).toHaveCount(1);
@@ -235,9 +242,16 @@ test.describe("Каталог: данные и фильтрация", () => {
         "По want_to_learn участник не должен попадать в выдачу",
         async () => {
           await guestApp.bookingPage.goToCatalog();
+          
           await guestApp.bookingPage.searchCatalog(
             wantToLearnSkill,
           );
+        },
+      );
+
+      await test.step(
+        "Проверка: По want_to_learn участник не должен попадать в выдачу",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(host.name),
           ).toHaveCount(0);

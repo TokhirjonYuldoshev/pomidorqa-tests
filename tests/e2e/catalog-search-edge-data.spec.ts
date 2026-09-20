@@ -112,7 +112,12 @@ test.describe("Каталог: дополнительные граничные �
             oldName,
             skill,
           );
+        },
+      );
 
+      await test.step(
+        "Проверка: Контроль: до изменения видно старое имя",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(oldName),
           ).toHaveCount(1);

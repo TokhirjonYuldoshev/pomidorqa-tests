@@ -70,13 +70,16 @@ test.describe("Каталог: восстановление доступност
         },
       );
 
-      await test.step(
-        "Первое бронирование единственного слота успешно",
-        async () => {
-          const result =
-            await firstBookerApp.bookingPage.waitForBookingResult();
+      const firstBookingResult = await test.step(
+        "Получаем данные для проверки: Первое бронирование единственного слота успешно",
+        async () =>
+          firstBookerApp.bookingPage.waitForBookingResult(),
+      );
 
-          expect(result.status).toBe("success");
+      await test.step(
+        "Проверка: Первое бронирование единственного слота успешно",
+        async () => {
+          expect(firstBookingResult.status).toBe("success");
         },
       );
 
@@ -103,13 +106,23 @@ test.describe("Каталог: восстановление доступност
         "Первый пользователь: отменяет встречу с хостом",
         async () => {
           await firstBookerApp.bookingPage.goToBookings();
+        },
+      );
 
+      await test.step(
+        "Проверка 1: Первый пользователь: отменяет встречу с хостом",
+        async () => {
           await expect(
             firstBookerApp.bookingPage.upcomingBookingByParticipant(
               host.name,
             ),
           ).toBeVisible({ timeout: 10_000 });
+        },
+      );
 
+      await test.step(
+        "Действие 2: Первый пользователь: отменяет встречу с хостом",
+        async () => {
           await firstBookerApp.bookingPage.cancelBookingWith(
             host.name,
           );
@@ -120,13 +133,20 @@ test.describe("Каталог: восстановление доступност
         "После отмены участник снова появляется в каталоге",
         async () => {
           await secondBookerApp.bookingPage.goToCatalog();
+          
           await secondBookerApp.bookingPage.searchCatalog(skill);
+          
           await secondBookerApp.bookingPage.waitForPersonInCatalog(
             host.name,
             skill,
             CATALOG_RESULT_TIMEOUT,
           );
+        },
+      );
 
+      await test.step(
+        "Проверка: После отмены участник снова появляется в каталоге",
+        async () => {
           await expect(
             secondBookerApp.bookingPage.personCard(host.name),
           ).toHaveCount(1);
@@ -142,13 +162,16 @@ test.describe("Каталог: восстановление доступност
         },
       );
 
-      await test.step(
-        "Повторное бронирование освобождённого слота успешно",
-        async () => {
-          const result =
-            await secondBookerApp.bookingPage.waitForBookingResult();
+      const secondBookingResult = await test.step(
+        "Получаем данные для проверки: Повторное бронирование освобождённого слота успешно",
+        async () =>
+          secondBookerApp.bookingPage.waitForBookingResult(),
+      );
 
-          expect(result.status).toBe("success");
+      await test.step(
+        "Проверка: Повторное бронирование освобождённого слота успешно",
+        async () => {
+          expect(secondBookingResult.status).toBe("success");
         },
       );
 
@@ -156,7 +179,12 @@ test.describe("Каталог: восстановление доступност
         "Второй пользователь видит новую встречу с тем же хостом",
         async () => {
           await secondBookerApp.bookingPage.goToBookings();
+        },
+      );
 
+      await test.step(
+        "Проверка: Второй пользователь видит новую встречу с тем же хостом",
+        async () => {
           await expect(
             secondBookerApp.bookingPage.upcomingBookingByParticipant(
               host.name,
