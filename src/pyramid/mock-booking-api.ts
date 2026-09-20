@@ -48,7 +48,7 @@ export class BookingStore {
   }
 
   /**
-   * Регистрация нового участника (сценарий 4 из ДЗ). Email — уникальный ключ,
+   * Регистрация нового участника. Email — уникальный ключ,
    * как и в реальной регистрации PomidorQA через Supabase Auth.
    */
   registerParticipant(name: string, email: string): Participant {
@@ -62,7 +62,7 @@ export class BookingStore {
   /**
    * Очередь на конкретный слот имитирует `FOR UPDATE` из реальной SQL-функции:
    * второй одновременный вызов на тот же слот дожидается первого и видит уже актуальный статус.
-   * Это гарантирует, что при гонке подтверждённой останется ровно одна бронь (сценарий 6 из ДЗ).
+   * Это гарантирует, что при конкурентной гонке подтверждённой останется ровно одна бронь.
    */
   bookSlot(slotId: string, userId: string): Promise<Booking> {
     const previous = this.queues.get(slotId) ?? Promise.resolve();
