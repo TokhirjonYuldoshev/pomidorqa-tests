@@ -40,6 +40,9 @@ jobs:
       - name: ESLint
         run: npm run lint
 
+      - name: Validate CODEX invariants
+        run: npm run codex:check
+
       - name: TypeScript typecheck
         run: npm run typecheck
 
