@@ -30,7 +30,7 @@ npm run regression:metrics
 
 | Проверка GitHub | Что подтверждает |
 | --- | --- |
-| `Quality / lint + typecheck` | ESLint, машинную проверку CODEX-инвариантов, TypeScript и автоматическую валидацию requirement coverage |
+| `Quality / lint + typecheck` | ESLint, TypeScript и автоматическая валидация requirement coverage |
 | `Unit tests` | чистую бизнес-логику |
 | `API tests` | локальные HTTP-контракты и live test API регистрации PomidorQA |
 | `E2E / Chromium` | пользовательские сценарии в Chromium |
@@ -40,7 +40,7 @@ npm run regression:metrics
 | `Security / dependency change review` | согласованность изменений зависимостей и lockfile |
 | `Security / code quality` | независимую статическую проверку кода |
 
-Внутри Quality выполняются `npm run codex:check` и `npm run coverage:check`. `codex:check` блокирует PR при смешивании action/assertion внутри `test.step`, UI-регистрации вне registration-specific coverage, прямых локаторах в E2E spec, запрещённых `waitForTimeout` / `force: true` / `.only` / `skip` / `page.pause()` и прямом создании `BrowserContext` в spec. `coverage:check` блокирует PR, если отсутствует любой из 50 requirement ID, встречается недопустимый/дублирующийся статус, матрица ссылается на несуществующий spec-файл или цифры README расходятся с матрицей. Там же выполняется `node scripts/ai-review-self-check.mjs`, который проверяет reviewer policy engine, и `npm run ci:policy`, который машинно фиксирует CI-инварианты: 10 custom workflows, полный SHA pin для remote actions, отсутствие `pull_request_target`, `retries=0`, основной E2E `workers=4` + `max-parallel: 2`, локальный `test:e2e:fast` не выше 4 workers, обязательные browser/gate/summary/Telegram сигналы, trusted `main` checkout AI Review и non-blocking artifact transport.
+Внутри Quality выполняется `npm run coverage:check`. Он блокирует PR, если отсутствует любой из 50 requirement ID, встречается недопустимый/дублирующийся статус, матрица ссылается на несуществующий spec-файл или цифры README расходятся с матрицей. Там же выполняется `node scripts/ai-review-self-check.mjs`, который проверяет reviewer policy engine, и `npm run ci:policy`, который машинно фиксирует CI-инварианты: 10 custom workflows, полный SHA pin для remote actions, отсутствие `pull_request_target`, `retries=0`, основной E2E `workers=4` + `max-parallel: 2`, локальный `test:e2e:fast` не выше 4 workers, обязательные browser/gate/summary/Telegram сигналы, trusted `main` checkout AI Review и non-blocking artifact transport.
 
 ### Агрегированный Regression Gate
 
