@@ -46,7 +46,7 @@ npx playwright install chromium firefox webkit
 npm run verify:local
 ```
 
-Она включает проверку Node.js 24, ESLint, машинную проверку CODEX-инвариантов, TypeScript, requirement coverage, CI workflow policy, Unit и API.
+Она включает проверку Node.js 24, ESLint, TypeScript, requirement coverage, CI workflow policy, Unit и API.
 
 E2E запускается отдельно:
 
