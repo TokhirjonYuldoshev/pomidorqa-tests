@@ -1,6 +1,6 @@
 import { expect, test } from "../fixtures/app-fixtures";
 import { makeRunId } from "../helpers/test-data";
-import { makeUser, registerUser } from "../helpers/user";
+import { makeUser, registerUserViaApi } from "../helpers/user";
 
 test.describe("Бронирование встречи", () => {
   test(
@@ -16,9 +16,12 @@ test.describe("Бронирование встречи", () => {
       const guest2 = makeUser("guest2", runId);
 
       await test.step(
-        "Хост: регистрируется и публикует навык",
+        "Хост: создаёт аккаунт через API и публикует навык",
         async () => {
-          await registerUser(hostApp.page, host);
+          await registerUserViaApi(
+            hostApp.context.request,
+            host,
+          );
           await hostApp.profilePage.goto();
           await hostApp.profilePage.addSkill(
             skillTag,
@@ -36,9 +39,12 @@ test.describe("Бронирование встречи", () => {
       );
 
       await test.step(
-        "Гость: регистрируется и открывает карточку хоста",
+        "Гость: создаёт аккаунт через API и открывает карточку хоста",
         async () => {
-          await registerUser(guestApp.page, guest);
+          await registerUserViaApi(
+            guestApp.context.request,
+            guest,
+          );
           await guestApp.bookingPage.searchCatalog(skillTag);
           await guestApp.bookingPage.openPerson(host.name);
         },
@@ -61,9 +67,12 @@ test.describe("Бронирование встречи", () => {
       );
 
       await test.step(
-        "Гость2: открывает тот же слот до подтверждения гостя",
+        "Гость2: создаёт аккаунт через API и открывает тот же слот",
         async () => {
-          await registerUser(guest2App.page, guest2);
+          await registerUserViaApi(
+            guest2App.context.request,
+            guest2,
+          );
           await guest2App.bookingPage.searchCatalog(skillTag);
           await guest2App.bookingPage.openPerson(host.name);
           await guest2App.bookingPage.pickOnlyAvailableSlot();
