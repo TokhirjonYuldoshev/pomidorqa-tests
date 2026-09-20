@@ -44,7 +44,7 @@ test("владелец и гость видят слот во времени в�
 
   await test.step("Гость видит время и пояс владельца", async () => {
     await expect(
-      guestApp.bookingPage.availableTimeButtons.first(),
+      guestApp.bookingPage.availableTimeButton(slotTime),
     ).toHaveText(slotTime);
     await expect(
       guestApp.bookingPage.calendarTimezoneHint,
