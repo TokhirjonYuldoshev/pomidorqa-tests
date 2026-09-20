@@ -240,10 +240,16 @@ test.describe("Каталог: дополнительные граничные �
         "Гость: сначала получает пустую выдачу",
         async () => {
           await guestApp.bookingPage.goToCatalog();
+          
           await guestApp.bookingPage.searchCatalog(
             missingSkill,
           );
+        },
+      );
 
+      await test.step(
+        "Проверка: Гость: сначала получает пустую выдачу",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(host.name),
           ).toHaveCount(0);
@@ -300,7 +306,12 @@ test.describe("Каталог: дополнительные граничные �
             hostA.name,
             skill,
           );
+        },
+      );
 
+      await test.step(
+        "Проверка: Контроль: первый участник уже находится",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(hostA.name),
           ).toHaveCount(1);
@@ -495,7 +506,12 @@ test.describe("Каталог: дополнительные граничные �
             host.name,
             skill,
           );
+        },
+      );
 
+      await test.step(
+        "Проверка: После повторного добавления участник снова находится",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(host.name),
           ).toHaveCount(1);
