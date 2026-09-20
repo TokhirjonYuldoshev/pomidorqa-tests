@@ -21,12 +21,16 @@ test.describe("Слоты: правила MVP", () => {
       await app.slotsPage.submitSlot("12:00", pastDate);
     });
 
-    await test.step("Форма блокирует прошлую дату и слот не создаётся", async () => {
-      expect(
-        await app.slotsPage.dateInput.evaluate(
+    const pastDateIsValid = await test.step(
+      "Считываем browser validation прошлой даты",
+      async () =>
+        app.slotsPage.dateInput.evaluate(
           (input) => input.validity.valid,
         ),
-      ).toBe(false);
+    );
+
+    await test.step("Форма блокирует прошлую дату и слот не создаётся", async () => {
+      expect(pastDateIsValid).toBe(false);
       await expect(app.slotsPage.slotCards).toHaveCount(0);
     });
   });
@@ -100,10 +104,13 @@ test.describe("Слоты: правила MVP", () => {
       await guestApp.bookingPage.confirmBooking();
     });
 
+    const bookingResult = await test.step(
+      "Ожидаем результат бронирования",
+      async () => guestApp.bookingPage.waitForBookingResult(),
+    );
+
     await test.step("Бронирование подтверждено", async () => {
-      expect(
-        await guestApp.bookingPage.waitForBookingResult(),
-      ).toEqual({ status: "success" });
+      expect(bookingResult).toEqual({ status: "success" });
     });
 
     await test.step("Хост обновляет список слотов", async () => {

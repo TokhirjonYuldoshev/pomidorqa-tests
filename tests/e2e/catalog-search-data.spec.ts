@@ -199,8 +199,10 @@ test.describe("Каталог: данные и фильтрация", () => {
       const canHelpSkill = `CanHelp-${runId}`;
       const wantToLearnSkill = `WantToLearn-${runId}`;
       const host = makeUser("skill-type-host", runId);
+      const control = makeUser("skill-type-control", runId);
 
       const hostApp = await appFactory();
+      const controlApp = await appFactory();
       const guestApp = await appFactory();
 
       await registerUserViaApi(
@@ -217,6 +219,17 @@ test.describe("Каталог: данные и фильтрация", () => {
         "want_to_learn",
       );
       await addFutureSlot(hostApp, host.name);
+
+      await registerUserViaApi(
+        controlApp.context.request,
+        control,
+      );
+      await controlApp.profilePage.goto();
+      await controlApp.profilePage.addSkill(
+        wantToLearnSkill,
+        "can_help",
+      );
+      await addFutureSlot(controlApp, control.name);
 
       await test.step(
         "Контроль: по can_help участник находится",
@@ -239,19 +252,25 @@ test.describe("Каталог: данные и фильтрация", () => {
       );
 
       await test.step(
-        "По want_to_learn участник не должен попадать в выдачу",
+        "По want_to_learn запросу дожидаемся контрольного can_help участника",
         async () => {
           await guestApp.bookingPage.goToCatalog();
-          
           await guestApp.bookingPage.searchCatalog(
+            wantToLearnSkill,
+          );
+          await guestApp.bookingPage.waitForPersonInCatalog(
+            control.name,
             wantToLearnSkill,
           );
         },
       );
 
       await test.step(
-        "Проверка: По want_to_learn участник не должен попадать в выдачу",
+        "Проверка: want_to_learn участник не попадает в стабильную выдачу",
         async () => {
+          await expect(
+            guestApp.bookingPage.personCard(control.name),
+          ).toHaveCount(1);
           await expect(
             guestApp.bookingPage.personCard(host.name),
           ).toHaveCount(0);

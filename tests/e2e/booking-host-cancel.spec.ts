@@ -35,10 +35,13 @@ test("хост отменяет встречу, и отмену видят об�
     await guestApp.bookingPage.confirmBooking();
   });
 
+  const bookingResult = await test.step(
+    "Ожидаем результат бронирования",
+    async () => guestApp.bookingPage.waitForBookingResult(),
+  );
+
   await test.step("Бронирование гостя подтверждено", async () => {
-    expect(
-      await guestApp.bookingPage.waitForBookingResult(),
-    ).toEqual({ status: "success" });
+    expect(bookingResult).toEqual({ status: "success" });
   });
 
   await test.step("Хост открывает свои встречи", async () => {

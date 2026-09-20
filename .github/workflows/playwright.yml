@@ -37,11 +37,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: TypeScript typecheck
+        run: npm run typecheck
+
       - name: ESLint
         run: npm run lint
 
-      - name: TypeScript typecheck
-        run: npm run typecheck
+      - name: Validate repository content policy
+        run: npm run content:check
 
       - name: Validate requirement coverage matrix
         run: npm run coverage:check

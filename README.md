@@ -69,6 +69,40 @@ Browser matrix использует `workers=4` внутри каждого job,
 | Visual | screenshot regression публичных страниц |
 | Security | npm audit, dependency review, CycloneDX SBOM |
 
+## Автоматизация и quality workflows
+
+В репозитории работают **10 отдельных GitHub Actions workflows**. Основной функциональный CI и security gates являются обязательными сигналами для `main`; остальные workflows дают независимые сигналы по доступности, производительности, визуальной стабильности, устойчивости и диагностике.
+
+| Workflow | Когда запускается | Что подтверждает |
+| --- | --- | --- |
+| [Playwright QA Automation CI](.github/workflows/playwright.yml) | push / PR / вручную | Quality, Unit, API, 100 E2E в Chromium/Firefox/WebKit, Regression Gate и итоговую сводку |
+| [Security & Quality Gates](.github/workflows/security.yml) | push / PR / вручную | npm audit, dependency review, статический security/code-quality сигнал и SBOM |
+| [Accessibility Audit](.github/workflows/accessibility.yml) | push / PR / расписание / вручную | axe-core / WCAG проверки |
+| [Performance Smoke / Lighthouse](.github/workflows/performance.yml) | push / PR / расписание / вручную | Lighthouse-проверки публичных страниц |
+| [Visual Regression](.github/workflows/visual.yml) | push / PR / расписание / вручную | screenshot regression публичных страниц |
+| [Nightly E2E Regression](.github/workflows/nightly.yml) | расписание / вручную | плановую cross-browser регрессию внешнего стенда с `retries=0` |
+| [Playwright Stability Check](.github/workflows/stability.yml) | расписание / вручную | повторные прогоны выбранного сценария с `retries=0` |
+| [AI Review](.github/workflows/ai-review.yml) | после PR CI / вручную | deterministic preflight и review diff по правилам проекта из доверенного `main` |
+| [Registration Contract Smoke](.github/workflows/registration-contract-smoke.yml) | вручную | точный HTTP-контракт регистрации и redirect |
+| [Telegram Notification Test](.github/workflows/telegram-test.yml) | вручную | работоспособность канала CI-уведомлений |
+
+Отдельно [Dependabot](.github/dependabot.yml) поддерживает обновления зависимостей. Актуальные запуски, статусы и диагностические artifacts доступны в [GitHub Actions](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions).
+
+Дополнительные security, accessibility, performance, visual, stability и AI checks расширяют инженерный сигнал, но не подменяют функциональную матрицу. Requirement coverage по-прежнему считается только от 50 требований: дополнительная проверка не повышает число `automated`, если она не доказывает конкретное требование.
+
+### Локальная проверка
+
+Проект использует Node.js 24. Базовый воспроизводимый набор команд:
+
+```bash
+npm ci
+npm run verify:local
+npm run test:e2e
+npm run gate
+```
+
+`verify:local` проверяет runtime, TypeScript, ESLint, tracked-tree policy, requirement coverage, CI policy, Unit и API. `gate` выполняет тот же набор и затем полный E2E. Отчёты Playwright/Allure и machine-readable результаты формируются CI и сохраняются как диагностические artifacts.
+
 ## Архитектура
 
 ```text

@@ -18,7 +18,7 @@
 npm run gate
 ```
 
-Он запускает runtime check, lint, typecheck, проверку матрицы покрытия, Unit, API и E2E в fail-fast цепочке: дорогой браузерный уровень начинается только после дешёвых статических и нижележащих проверок.
+Он запускает runtime check, typecheck, lint, проверку tracked-tree policy, проверку матрицы покрытия, Unit, API и E2E в fail-fast цепочке: дорогой браузерный уровень начинается только после дешёвых статических и нижележащих проверок.
 
 Для полного прогона с JSON-метриками используется:
 
@@ -30,7 +30,7 @@ npm run regression:metrics
 
 | Проверка GitHub | Что подтверждает |
 | --- | --- |
-| `Quality / lint + typecheck` | ESLint, TypeScript и автоматическая валидация requirement coverage |
+| `Quality / lint + typecheck` | TypeScript, ESLint, tracked-tree policy и автоматическая валидация requirement coverage |
 | `Unit tests` | чистую бизнес-логику |
 | `API tests` | локальные HTTP-контракты и live test API регистрации PomidorQA |
 | `E2E / Chromium` | пользовательские сценарии в Chromium |
@@ -40,7 +40,7 @@ npm run regression:metrics
 | `Security / dependency change review` | согласованность изменений зависимостей и lockfile |
 | `Security / code quality` | независимую статическую проверку кода |
 
-Внутри Quality выполняется `npm run coverage:check`. Он блокирует PR, если отсутствует любой из 50 requirement ID, встречается недопустимый/дублирующийся статус, матрица ссылается на несуществующий spec-файл или цифры README расходятся с матрицей. Там же выполняется `node scripts/ai-review-self-check.mjs`, который проверяет reviewer policy engine, и `npm run ci:policy`, который машинно фиксирует CI-инварианты: 10 custom workflows, полный SHA pin для remote actions, отсутствие `pull_request_target`, `retries=0`, основной E2E `workers=4` + `max-parallel: 2`, локальный `test:e2e:fast` не выше 4 workers, обязательные browser/gate/summary/Telegram сигналы, trusted `main` checkout AI Review и non-blocking artifact transport.
+Внутри Quality выполняется `npm run content:check`: он блокирует возврат нежелательного framing в current tracked tree, контролирует единственную provenance-ссылку и финальный provenance-раздел README. Затем `npm run coverage:check` блокирует PR, если отсутствует любой из 50 requirement ID, встречается недопустимый/дублирующийся статус, матрица ссылается на несуществующий spec-файл или цифры README расходятся с матрицей. Там же выполняется `node scripts/ai-review-self-check.mjs`, который проверяет reviewer policy engine, и `npm run ci:policy`, который машинно фиксирует CI-инварианты: 10 custom workflows, полный SHA pin для remote actions, отсутствие `pull_request_target`, `retries=0`, основной E2E `workers=4` + `max-parallel: 2`, локальный `test:e2e:fast` не выше 4 workers, обязательные browser/gate/summary/Telegram сигналы, trusted `main` checkout AI Review и non-blocking artifact transport.
 
 ### Агрегированный Regression Gate
 

@@ -36,10 +36,13 @@ test.describe("Бронирование: состояние слота и мод
       await guestApp.bookingPage.confirmBooking();
     });
 
+    const bookingResult = await test.step(
+      "Ожидаем результат бронирования",
+      async () => guestApp.bookingPage.waitForBookingResult(),
+    );
+
     await test.step("Бронирование подтверждено", async () => {
-      expect(
-        await guestApp.bookingPage.waitForBookingResult(),
-      ).toEqual({ status: "success" });
+      expect(bookingResult).toEqual({ status: "success" });
     });
 
     await test.step("Гость обновляет страницу участника", async () => {

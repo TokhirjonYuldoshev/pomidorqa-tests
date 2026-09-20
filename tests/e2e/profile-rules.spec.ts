@@ -32,12 +32,16 @@ test.describe("Профиль и навыки: требования MVP", () => 
       await hostApp.profilePage.attemptSaveProfile();
     });
 
-    await test.step("Браузерная валидация блокирует пустое имя", async () => {
-      expect(
-        await hostApp.profilePage.nameInput.evaluate(
+    const emptyNameIsValid = await test.step(
+      "Считываем browser validation пустого имени",
+      async () =>
+        hostApp.profilePage.nameInput.evaluate(
           (input) => input.validity.valid,
         ),
-      ).toBe(false);
+    );
+
+    await test.step("Браузерная валидация блокирует пустое имя", async () => {
+      expect(emptyNameIsValid).toBe(false);
     });
   });
 
