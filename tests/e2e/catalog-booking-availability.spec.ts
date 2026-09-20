@@ -178,13 +178,20 @@ test.describe("Каталог: доступность после брониро�
         "Участник остаётся в каталоге, пока есть второй свободный слот",
         async () => {
           await observerApp.bookingPage.goToCatalog();
+          
           await observerApp.bookingPage.searchCatalog(skill);
+          
           await observerApp.bookingPage.waitForPersonInCatalog(
             host.name,
             skill,
             CATALOG_RESULT_TIMEOUT,
           );
+        },
+      );
 
+      await test.step(
+        "Проверка: Участник остаётся в каталоге, пока есть второй свободный слот",
+        async () => {
           await expect(
             observerApp.bookingPage.personCard(host.name),
           ).toHaveCount(1);
