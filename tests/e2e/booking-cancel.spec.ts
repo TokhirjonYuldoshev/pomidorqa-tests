@@ -1,6 +1,7 @@
 import { expect, test } from "../fixtures/app-fixtures";
 import { makeRunId } from "../helpers/test-data";
-import { makeUser, registerUser } from "../helpers/user";
+import { makeUser, registerUserViaApi } from "../helpers/user";
+import { AuthPage } from "../pages/auth-page";
 import type { BookingPage } from "../pages/booking-page";
 
 async function expectBookingCancelledFor(
@@ -33,14 +34,32 @@ test(
     const skillTag = `Cancel-${runId}`;
     const hostUser = makeUser("host", runId);
     const guestUser = makeUser("guest", runId);
+    const hostAuthPage = new AuthPage(hostApp.page);
+    const guestAuthPage = new AuthPage(guestApp.page);
 
     await test.step(
-      "Хост: регистрируется и добавляет уникальный навык",
+      "Arrange: создаём аккаунты хоста и гостя через API",
       async () => {
-        await registerUser(hostApp.page, hostUser);
+        await registerUserViaApi(
+          hostApp.context.request,
+          hostUser,
+        );
+        await registerUserViaApi(
+          guestApp.context.request,
+          guestUser,
+        );
+      },
+    );
 
+    await test.step(
+      "Хост: входит и добавляет уникальный навык",
+      async () => {
+        await hostAuthPage.gotoLogin();
+        await hostAuthPage.login(
+          hostUser.email,
+          hostUser.password,
+        );
         await hostApp.profilePage.goto();
-
         await hostApp.profilePage.addSkill(
           skillTag,
           "can_help",
@@ -58,12 +77,14 @@ test(
     );
 
     await test.step(
-      "Гость: регистрируется и находит хоста по уникальному навыку",
+      "Гость: входит и находит хоста по уникальному навыку",
       async () => {
-        await registerUser(guestApp.page, guestUser);
-
+        await guestAuthPage.gotoLogin();
+        await guestAuthPage.login(
+          guestUser.email,
+          guestUser.password,
+        );
         await guestApp.bookingPage.searchCatalog(skillTag);
-
         await guestApp.bookingPage.openPerson(
           hostUser.name,
         );
@@ -95,17 +116,20 @@ test(
       },
     );
 
+    const bookingResult = await test.step(
+      "Получаем данные для проверки: Бронирование прошло успешно",
+      async () =>
+        guestApp.bookingPage.waitForBookingResult(),
+    );
+
+    const failureMessage =
+      bookingResult.status === "error"
+        ? `Бронирование не удалось: ${bookingResult.message}`
+        : "Бронирование должно завершиться успешно";
+
     await test.step(
-      "Бронирование прошло успешно",
+      "Проверка: Бронирование прошло успешно",
       async () => {
-        const bookingResult =
-          await guestApp.bookingPage.waitForBookingResult();
-
-        const failureMessage =
-          bookingResult.status === "error"
-            ? `Бронирование не удалось: ${bookingResult.message}`
-            : "Бронирование должно завершиться успешно";
-
         expect(
           bookingResult.status,
           failureMessage,
