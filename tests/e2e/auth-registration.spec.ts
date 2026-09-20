@@ -44,18 +44,27 @@ test.describe("Регистрация: требования MVP", () => {
       await registerPage.submit();
     });
 
-    await test.step("Имя, email и пароль обязательны", async () => {
-      expect(
-        await registerPage.nameInput.evaluate((input) => input.validity.valid),
-      ).toBe(false);
-      expect(
-        await registerPage.emailInput.evaluate((input) => input.validity.valid),
-      ).toBe(false);
-      expect(
-        await registerPage.passwordInput.evaluate(
+    const requiredFieldValidity = await test.step(
+      "Считываем browser validation обязательных полей",
+      async () => ({
+        name: await registerPage.nameInput.evaluate(
           (input) => input.validity.valid,
         ),
-      ).toBe(false);
+        email: await registerPage.emailInput.evaluate(
+          (input) => input.validity.valid,
+        ),
+        password: await registerPage.passwordInput.evaluate(
+          (input) => input.validity.valid,
+        ),
+      }),
+    );
+
+    await test.step("Имя, email и пароль обязательны", async () => {
+      expect(requiredFieldValidity).toEqual({
+        name: false,
+        email: false,
+        password: false,
+      });
     });
 
     await test.step("Заполняем валидные имя/email и короткий пароль", async () => {
@@ -67,12 +76,16 @@ test.describe("Регистрация: требования MVP", () => {
       await registerPage.submit();
     });
 
-    await test.step("Пароль короче восьми символов отклоняется", async () => {
-      expect(
-        await registerPage.passwordInput.evaluate(
+    const shortPasswordIsValid = await test.step(
+      "Считываем browser validation короткого пароля",
+      async () =>
+        registerPage.passwordInput.evaluate(
           (input) => input.validity.valid,
         ),
-      ).toBe(false);
+    );
+
+    await test.step("Пароль короче восьми символов отклоняется", async () => {
+      expect(shortPasswordIsValid).toBe(false);
       await expect(app.page).toHaveURL(/\/pomidorqa\/auth\/register$/);
     });
   });
