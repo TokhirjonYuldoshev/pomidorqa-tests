@@ -26,8 +26,6 @@ test(
       },
     );
 
-    let wrongPasswordError = "";
-
     await test.step(
       "Входим с верным email и неверным паролем",
       async () => {
@@ -40,15 +38,16 @@ test(
     );
 
     await test.step(
-      "Получаем нейтральную ошибку авторизации",
+      "Нейтральная ошибка авторизации видна",
       async () => {
         await expect(authPage.loginError).toBeVisible();
-        wrongPasswordError =
-          (await authPage.loginError.textContent())?.trim() ?? "";
       },
     );
 
-    let unknownEmailError = "";
+    const wrongPasswordError = await test.step(
+      "Считываем текст ошибки неверного пароля",
+      async () => (await authPage.loginError.textContent())?.trim() ?? "",
+    );
 
     await test.step(
       "Входим с неизвестным email",
@@ -62,12 +61,20 @@ test(
     );
 
     await test.step(
-      "Получаем такую же нейтральную ошибку",
+      "Нейтральная ошибка неизвестного email видна",
       async () => {
         await expect(authPage.loginError).toBeVisible();
-        unknownEmailError =
-          (await authPage.loginError.textContent())?.trim() ?? "";
+      },
+    );
 
+    const unknownEmailError = await test.step(
+      "Считываем текст ошибки неизвестного email",
+      async () => (await authPage.loginError.textContent())?.trim() ?? "",
+    );
+
+    await test.step(
+      "Ошибки одинаковые и не раскрывают неверное поле",
+      async () => {
         expect(unknownEmailError).toBe(wrongPasswordError);
         expect(unknownEmailError).toContain("Неверный");
       },

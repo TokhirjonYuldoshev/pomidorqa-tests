@@ -104,20 +104,19 @@ test.describe("Каталог: дополнительные граничные �
         skill,
       );
 
-      await test.step(
-        "Контроль: до изменения видно старое имя",
-        async () => {
-          await findParticipant(
-            guestApp,
-            oldName,
-            skill,
-          );
+      await test.step("Контроль: до изменения видно старое имя — действие", async () => {
+        await findParticipant(
+          guestApp,
+          oldName,
+          skill,
+        );
+      });
 
-          await expect(
-            guestApp.bookingPage.personCard(oldName),
-          ).toHaveCount(1);
-        },
-      );
+      await test.step("Контроль: до изменения видно старое имя — проверка", async () => {
+        await expect(
+          guestApp.bookingPage.personCard(oldName),
+        ).toHaveCount(1);
+      });
 
       await test.step(
         "Хост: сохраняет новое имя",

@@ -8,9 +8,10 @@ import { makeRunId } from "../helpers/test-data";
 import {
   deleteUserViaApi,
   makeUser,
-  registerUser,
   registerUserViaApi,
 } from "../helpers/user";
+import { AuthPage } from "../pages/auth-page";
+import { HeaderPage } from "../pages/header-page";
 
 const TEST_TIMEOUT = 120_000;
 const CATALOG_RESULT_TIMEOUT = 30_000;
@@ -78,11 +79,12 @@ test.describe("Поиск участников PomidorQA", () => {
         await test.step(
           "В выдаче видна карточка подготовленного участника",
           async () => {
-            const hostCard =
-              guestApp.bookingPage.personCard(host.name);
-
-            await expect(hostCard).toBeVisible();
-            await expect(hostCard).toHaveCount(1);
+            await expect(
+              guestApp.bookingPage.personCard(host.name),
+            ).toBeVisible();
+            await expect(
+              guestApp.bookingPage.personCard(host.name),
+            ).toHaveCount(1);
           },
         );
       } finally {
@@ -259,22 +261,24 @@ test.describe("Поиск участников PomidorQA", () => {
       await test.step(
         "В выдаче видны обе конкретные карточки",
         async () => {
-          const hostOneCard =
-            guestApp.bookingPage.personCard(hostOne.name);
-
-          const hostTwoCard =
-            guestApp.bookingPage.personCard(hostTwo.name);
-
-          await expect(hostOneCard).toBeVisible({
+          await expect(
+            guestApp.bookingPage.personCard(hostOne.name),
+          ).toBeVisible({
             timeout: CATALOG_RESULT_TIMEOUT,
           });
 
-          await expect(hostTwoCard).toBeVisible({
+          await expect(
+            guestApp.bookingPage.personCard(hostTwo.name),
+          ).toBeVisible({
             timeout: CATALOG_RESULT_TIMEOUT,
           });
 
-          await expect(hostOneCard).toHaveCount(1);
-          await expect(hostTwoCard).toHaveCount(1);
+          await expect(
+            guestApp.bookingPage.personCard(hostOne.name),
+          ).toHaveCount(1);
+          await expect(
+            guestApp.bookingPage.personCard(hostTwo.name),
+          ).toHaveCount(1);
         },
       );
     },
@@ -556,6 +560,8 @@ test.describe("Поиск участников PomidorQA", () => {
 
       const hostApp = await appFactory();
       const searcherApp = await appFactory();
+      const searcherAuthPage = new AuthPage(searcherApp.page);
+      const searcherHeader = new HeaderPage(searcherApp.page);
 
       await prepareCatalogParticipant(
         hostApp,
@@ -564,12 +570,24 @@ test.describe("Поиск участников PomidorQA", () => {
       );
 
       await test.step(
-        "Второй пользователь: регистрируется",
+        "Arrange: создаём второго пользователя через API и выполняем вход",
         async () => {
-          await registerUser(
-            searcherApp.page,
+          await registerUserViaApi(
+            searcherApp.context.request,
             searcher,
           );
+          await searcherAuthPage.gotoLogin();
+          await searcherAuthPage.login(
+            searcher.email,
+            searcher.password,
+          );
+        },
+      );
+
+      await test.step(
+        "Второй пользователь авторизован",
+        async () => {
+          await expect(searcherHeader.logoutButton).toBeVisible();
         },
       );
 
@@ -587,14 +605,15 @@ test.describe("Поиск участников PomidorQA", () => {
       await test.step(
         "Авторизованный пользователь видит карточку другого участника",
         async () => {
-          const hostCard =
-            searcherApp.bookingPage.personCard(host.name);
-
-          await expect(hostCard).toBeVisible({
+          await expect(
+            searcherApp.bookingPage.personCard(host.name),
+          ).toBeVisible({
             timeout: CATALOG_RESULT_TIMEOUT,
           });
 
-          await expect(hostCard).toHaveCount(1);
+          await expect(
+            searcherApp.bookingPage.personCard(host.name),
+          ).toHaveCount(1);
         },
       );
     },

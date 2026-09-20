@@ -175,7 +175,7 @@ test.describe("Каталог: доступность после брониро�
       );
 
       await test.step(
-        "Участник остаётся в каталоге, пока есть второй свободный слот",
+        "Участник остаётся в каталоге, пока есть второй свободный слот — действие",
         async () => {
           await observerApp.bookingPage.goToCatalog();
           await observerApp.bookingPage.searchCatalog(skill);
@@ -184,7 +184,12 @@ test.describe("Каталог: доступность после брониро�
             skill,
             CATALOG_RESULT_TIMEOUT,
           );
+        },
+      );
 
+      await test.step(
+        "Участник остаётся в каталоге, пока есть второй свободный слот — проверка",
+        async () => {
           await expect(
             observerApp.bookingPage.personCard(host.name),
           ).toHaveCount(1);

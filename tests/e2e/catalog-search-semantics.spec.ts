@@ -213,18 +213,17 @@ test.describe("Каталог: семантика поиска", () => {
         },
       );
 
-      await test.step(
-        "Гость: меняет запрос на несуществующий",
-        async () => {
-          await guestApp.bookingPage.searchCatalog(
-            missingSkill,
-          );
+      await test.step("Гость: меняет запрос на несуществующий — действие", async () => {
+        await guestApp.bookingPage.searchCatalog(
+          missingSkill,
+        );
+      });
 
-          await expect(
-            guestApp.bookingPage.personCard(host.name),
-          ).toHaveCount(0);
-        },
-      );
+      await test.step("Гость: меняет запрос на несуществующий — проверка", async () => {
+        await expect(
+          guestApp.bookingPage.personCard(host.name),
+        ).toHaveCount(0);
+      });
 
       await test.step(
         "Гость: вводит исходный навык и нажимает Enter",
@@ -325,11 +324,12 @@ test.describe("Каталог: семантика поиска", () => {
       await test.step(
         "Карточка содержит найденный навык со спецсимволами",
         async () => {
-          const hostCard =
-            guestApp.bookingPage.personCard(host.name);
-
-          await expect(hostCard).toHaveCount(1);
-          await expect(hostCard).toContainText(skill);
+          await expect(
+            guestApp.bookingPage.personCard(host.name),
+          ).toHaveCount(1);
+          await expect(
+            guestApp.bookingPage.personCard(host.name),
+          ).toContainText(skill);
         },
       );
     },
@@ -369,14 +369,19 @@ test.describe("Каталог: семантика поиска", () => {
       );
 
       await test.step(
-        "Контроль: поиск загружен, участник без навыка отсутствует",
+        "Контроль: поиск загружен, участник без навыка отсутствует — действие",
         async () => {
           await searchAndWait(
             guestApp,
             control.name,
             skill,
           );
+        },
+      );
 
+      await test.step(
+        "Контроль: поиск загружен, участник без навыка отсутствует — проверка",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(target.name),
           ).toHaveCount(0);
@@ -395,14 +400,19 @@ test.describe("Каталог: семантика поиска", () => {
       );
 
       await test.step(
-        "После добавления навыка участник появляется в поиске",
+        "После добавления навыка участник появляется в поиске — действие",
         async () => {
           await guestApp.bookingPage.waitForPersonInCatalog(
             target.name,
             skill,
             CATALOG_RESULT_TIMEOUT,
           );
+        },
+      );
 
+      await test.step(
+        "После добавления навыка участник появляется в поиске — проверка",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(target.name),
           ).toHaveCount(1);
@@ -462,14 +472,19 @@ test.describe("Каталог: семантика поиска", () => {
       );
 
       await test.step(
-        "Исходный навык по-прежнему находит того же участника",
+        "Исходный навык по-прежнему находит того же участника — действие",
         async () => {
           await searchAndWait(
             guestApp,
             host.name,
             skillA,
           );
+        },
+      );
 
+      await test.step(
+        "Исходный навык по-прежнему находит того же участника — проверка",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(host.name),
           ).toHaveCount(1);

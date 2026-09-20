@@ -236,19 +236,18 @@ test.describe("Каталог: дополнительные граничные �
         skill,
       );
 
-      await test.step(
-        "Гость: сначала получает пустую выдачу",
-        async () => {
-          await guestApp.bookingPage.goToCatalog();
-          await guestApp.bookingPage.searchCatalog(
-            missingSkill,
-          );
+      await test.step("Гость: сначала получает пустую выдачу — действие", async () => {
+        await guestApp.bookingPage.goToCatalog();
+        await guestApp.bookingPage.searchCatalog(
+          missingSkill,
+        );
+      });
 
-          await expect(
-            guestApp.bookingPage.personCard(host.name),
-          ).toHaveCount(0);
-        },
-      );
+      await test.step("Гость: сначала получает пустую выдачу — проверка", async () => {
+        await expect(
+          guestApp.bookingPage.personCard(host.name),
+        ).toHaveCount(0);
+      });
 
       await test.step(
         "Гость: затем ищет существующий навык",
@@ -292,20 +291,19 @@ test.describe("Каталог: дополнительные граничные �
         "12:00",
       );
 
-      await test.step(
-        "Контроль: первый участник уже находится",
-        async () => {
-          await findParticipant(
-            guestApp,
-            hostA.name,
-            skill,
-          );
+      await test.step("Контроль: первый участник уже находится — действие", async () => {
+        await findParticipant(
+          guestApp,
+          hostA.name,
+          skill,
+        );
+      });
 
-          await expect(
-            guestApp.bookingPage.personCard(hostA.name),
-          ).toHaveCount(1);
-        },
-      );
+      await test.step("Контроль: первый участник уже находится — проверка", async () => {
+        await expect(
+          guestApp.bookingPage.personCard(hostA.name),
+        ).toHaveCount(1);
+      });
 
       await prepareCatalogParticipant(
         hostBApp,
@@ -488,14 +486,19 @@ test.describe("Каталог: дополнительные граничные �
       );
 
       await test.step(
-        "После повторного добавления участник снова находится",
+        "После повторного добавления участник снова находится — действие",
         async () => {
           await findParticipant(
             guestApp,
             host.name,
             skill,
           );
+        },
+      );
 
+      await test.step(
+        "После повторного добавления участник снова находится — проверка",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(host.name),
           ).toHaveCount(1);

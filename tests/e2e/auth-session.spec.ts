@@ -76,8 +76,11 @@ test.describe("Авторизация и сессия", () => {
         user,
       );
 
-      await test.step("Пользователь входит в аккаунт", async () => {
+      await test.step("Пользователь входит в аккаунт — действие", async () => {
         await loginUser(loginApp, user);
+      });
+
+      await test.step("Пользователь входит в аккаунт — проверка", async () => {
         await expect(loginApp.page).toHaveURL(CATALOG_URL);
       });
 
@@ -85,17 +88,19 @@ test.describe("Авторизация и сессия", () => {
         await loginApp.page.reload();
       });
 
-      await test.step(
-        "После reload сессия остаётся авторизованной",
-        async () => {
-          await expect(header.logoutButton).toBeVisible();
+      await test.step("После reload сессия остаётся авторизованной — проверка 1", async () => {
+        await expect(header.logoutButton).toBeVisible();
+      });
 
-          await loginApp.profilePage.goto();
-          await expect(
-            loginApp.profilePage.nameInput,
-          ).toHaveValue(user.name);
-        },
-      );
+      await test.step("После reload сессия остаётся авторизованной — действие", async () => {
+        await loginApp.profilePage.goto();
+      });
+
+      await test.step("После reload сессия остаётся авторизованной — проверка 2", async () => {
+        await expect(
+          loginApp.profilePage.nameInput,
+        ).toHaveValue(user.name);
+      });
     },
   );
 
@@ -113,8 +118,11 @@ test.describe("Авторизация и сессия", () => {
         user,
       );
 
-      await test.step("Пользователь входит в аккаунт", async () => {
+      await test.step("Пользователь входит в аккаунт — действие", async () => {
         await loginUser(loginApp, user);
+      });
+
+      await test.step("Пользователь входит в аккаунт — проверка", async () => {
         await expect(header.logoutButton).toBeVisible();
       });
 
@@ -130,9 +138,15 @@ test.describe("Авторизация и сессия", () => {
       );
 
       await test.step(
-        "Прямой переход в профиль после logout отправляет на login",
+        "Прямой переход в профиль после logout отправляет на login — действие",
         async () => {
           await loginApp.page.goto(ROUTES.profile);
+        },
+      );
+
+      await test.step(
+        "Прямой переход в профиль после logout отправляет на login — проверка",
+        async () => {
           await expect(loginApp.page).toHaveURL(LOGIN_URL);
         },
       );
@@ -265,13 +279,19 @@ test.describe("Авторизация и сессия", () => {
       );
 
       await test.step(
-        "Arrange: создаём аккаунт и входим только в первый context",
+        "Arrange: создаём аккаунт и входим только в первый context — действие",
         async () => {
           await registerUserViaApi(
             setupApp.context.request,
             user,
           );
           await loginUser(authenticatedApp, user);
+        },
+      );
+
+      await test.step(
+        "Arrange: создаём аккаунт и входим только в первый context — проверка",
+        async () => {
           await expect(
             authenticatedHeader.logoutButton,
           ).toBeVisible();
@@ -293,9 +313,15 @@ test.describe("Авторизация и сессия", () => {
       );
 
       await test.step(
-        "Первый context по-прежнему авторизован своим пользователем",
+        "Первый context по-прежнему авторизован своим пользователем — действие",
         async () => {
           await authenticatedApp.profilePage.goto();
+        },
+      );
+
+      await test.step(
+        "Первый context по-прежнему авторизован своим пользователем — проверка",
+        async () => {
           await expect(authenticatedApp.page).toHaveURL(PROFILE_URL);
           await expect(
             authenticatedApp.profilePage.nameInput,
@@ -321,7 +347,7 @@ test.describe("Авторизация и сессия", () => {
       const sessionTwoHeader = new HeaderPage(sessionTwoApp.page);
 
       await test.step(
-        "Arrange: создаём два аккаунта и открываем две независимые сессии",
+        "Arrange: создаём два аккаунта и открываем две независимые сессии — действие",
         async () => {
           await registerUserViaApi(
             setupOneApp.context.request,
@@ -331,10 +357,14 @@ test.describe("Авторизация и сессия", () => {
             setupTwoApp.context.request,
             userTwo,
           );
-
           await loginUser(sessionOneApp, userOne);
           await loginUser(sessionTwoApp, userTwo);
+        },
+      );
 
+      await test.step(
+        "Arrange: создаём два аккаунта и открываем две независимые сессии — проверка",
+        async () => {
           await expect(
             sessionOneHeader.logoutButton,
           ).toBeVisible();
@@ -344,26 +374,38 @@ test.describe("Авторизация и сессия", () => {
         },
       );
 
+      await test.step("Первый пользователь завершает свою сессию — действие", async () => {
+        await sessionOneHeader.logout();
+      });
+
+      await test.step("Первый пользователь завершает свою сессию — проверка", async () => {
+        await expect(sessionOneHeader.loginLink).toBeVisible();
+      });
+
       await test.step(
-        "Первый пользователь завершает свою сессию",
+        "Первая сессия больше не имеет доступа к защищённому профилю — действие",
         async () => {
-          await sessionOneHeader.logout();
-          await expect(sessionOneHeader.loginLink).toBeVisible();
+          await sessionOneApp.page.goto(ROUTES.profile);
         },
       );
 
       await test.step(
-        "Первая сессия больше не имеет доступа к защищённому профилю",
+        "Первая сессия больше не имеет доступа к защищённому профилю — проверка",
         async () => {
-          await sessionOneApp.page.goto(ROUTES.profile);
           await expect(sessionOneApp.page).toHaveURL(LOGIN_URL);
         },
       );
 
       await test.step(
-        "Вторая независимая сессия остаётся авторизованной",
+        "Вторая независимая сессия остаётся авторизованной — действие",
         async () => {
           await sessionTwoApp.profilePage.goto();
+        },
+      );
+
+      await test.step(
+        "Вторая независимая сессия остаётся авторизованной — проверка",
+        async () => {
           await expect(sessionTwoApp.page).toHaveURL(PROFILE_URL);
           await expect(
             sessionTwoApp.profilePage.nameInput,

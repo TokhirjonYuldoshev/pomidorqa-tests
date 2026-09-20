@@ -59,20 +59,19 @@ test.describe("Каталог: изменения состояния", () => {
         skill,
       );
 
-      await test.step(
-        "Контроль: до удаления участник находится",
-        async () => {
-          await findParticipant(
-            guestApp,
-            host.name,
-            skill,
-          );
+      await test.step("Контроль: до удаления участник находится — действие", async () => {
+        await findParticipant(
+          guestApp,
+          host.name,
+          skill,
+        );
+      });
 
-          await expect(
-            guestApp.bookingPage.personCard(host.name),
-          ).toHaveCount(1);
-        },
-      );
+      await test.step("Контроль: до удаления участник находится — проверка", async () => {
+        await expect(
+          guestApp.bookingPage.personCard(host.name),
+        ).toHaveCount(1);
+      });
 
       await test.step(
         "Хост: удаляет навык из профиля",
@@ -120,20 +119,19 @@ test.describe("Каталог: изменения состояния", () => {
         oldSkill,
       );
 
-      await test.step(
-        "Контроль: исходный навык находится",
-        async () => {
-          await findParticipant(
-            guestApp,
-            host.name,
-            oldSkill,
-          );
+      await test.step("Контроль: исходный навык находится — действие", async () => {
+        await findParticipant(
+          guestApp,
+          host.name,
+          oldSkill,
+        );
+      });
 
-          await expect(
-            guestApp.bookingPage.personCard(host.name),
-          ).toHaveCount(1);
-        },
-      );
+      await test.step("Контроль: исходный навык находится — проверка", async () => {
+        await expect(
+          guestApp.bookingPage.personCard(host.name),
+        ).toHaveCount(1);
+      });
 
       await test.step(
         "Хост: удаляет старый навык и добавляет новый",
@@ -166,20 +164,19 @@ test.describe("Каталог: изменения состояния", () => {
         },
       );
 
-      await test.step(
-        "По новому навыку участник находится",
-        async () => {
-          await findParticipant(
-            guestApp,
-            host.name,
-            newSkill,
-          );
+      await test.step("По новому навыку участник находится — действие", async () => {
+        await findParticipant(
+          guestApp,
+          host.name,
+          newSkill,
+        );
+      });
 
-          await expect(
-            guestApp.bookingPage.personCard(host.name),
-          ).toHaveCount(1);
-        },
-      );
+      await test.step("По новому навыку участник находится — проверка", async () => {
+        await expect(
+          guestApp.bookingPage.personCard(host.name),
+        ).toHaveCount(1);
+      });
     },
   );
 
@@ -200,14 +197,19 @@ test.describe("Каталог: изменения состояния", () => {
       );
 
       await test.step(
-        "Контроль: до удаления аккаунт присутствует в каталоге",
+        "Контроль: до удаления аккаунт присутствует в каталоге — действие",
         async () => {
           await findParticipant(
             guestApp,
             host.name,
             skill,
           );
+        },
+      );
 
+      await test.step(
+        "Контроль: до удаления аккаунт присутствует в каталоге — проверка",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(host.name),
           ).toHaveCount(1);
@@ -279,18 +281,22 @@ test.describe("Каталог: изменения состояния", () => {
       );
 
       await test.step(
-        "Контроль: каталог загружен, но участник без слота отсутствует",
+        "Контроль: каталог загружен, но участник без слота отсутствует — действие",
         async () => {
           await findParticipant(
             guestApp,
             control.name,
             skill,
           );
+        },
+      );
 
+      await test.step(
+        "Контроль: каталог загружен, но участник без слота отсутствует — проверка",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(control.name),
           ).toHaveCount(1);
-
           await expect(
             guestApp.bookingPage.personCard(target.name),
           ).toHaveCount(0);
@@ -303,14 +309,19 @@ test.describe("Каталог: изменения состояния", () => {
       );
 
       await test.step(
-        "После добавления слота участник появляется в каталоге",
+        "После добавления слота участник появляется в каталоге — действие",
         async () => {
           await findParticipant(
             guestApp,
             target.name,
             skill,
           );
+        },
+      );
 
+      await test.step(
+        "После добавления слота участник появляется в каталоге — проверка",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(target.name),
           ).toHaveCount(1);
@@ -346,24 +357,27 @@ test.describe("Каталог: изменения состояния", () => {
       );
 
       await test.step(
-        "Контроль: до изменения в каталоге видны оба участника",
+        "Контроль: до изменения в каталоге видны оба участника — действие",
         async () => {
           await findParticipant(
             guestApp,
             hostA.name,
             skill,
           );
-
           await guestApp.bookingPage.waitForPersonInCatalog(
             hostB.name,
             skill,
             CATALOG_RESULT_TIMEOUT,
           );
+        },
+      );
 
+      await test.step(
+        "Контроль: до изменения в каталоге видны оба участника — проверка",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(hostA.name),
           ).toHaveCount(1);
-
           await expect(
             guestApp.bookingPage.personCard(hostB.name),
           ).toHaveCount(1);
@@ -425,25 +439,40 @@ test.describe("Каталог: изменения состояния", () => {
       );
 
       await test.step(
-        "Контроль: участник находится по обоим навыкам",
+        "Контроль: участник находится по обоим навыкам — действие 1",
         async () => {
           await findParticipant(
             guestApp,
             host.name,
             skillA,
           );
+        },
+      );
 
+      await test.step(
+        "Контроль: участник находится по обоим навыкам — проверка 1",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(host.name),
           ).toHaveCount(1);
+        },
+      );
 
+      await test.step(
+        "Контроль: участник находится по обоим навыкам — действие 2",
+        async () => {
           await guestApp.bookingPage.searchCatalog(skillB);
           await guestApp.bookingPage.waitForPersonInCatalog(
             host.name,
             skillB,
             CATALOG_RESULT_TIMEOUT,
           );
+        },
+      );
 
+      await test.step(
+        "Контроль: участник находится по обоим навыкам — проверка 2",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(host.name),
           ).toHaveCount(1);
@@ -478,14 +507,19 @@ test.describe("Каталог: изменения состояния", () => {
       );
 
       await test.step(
-        "По оставшемуся навыку участник по-прежнему находится",
+        "По оставшемуся навыку участник по-прежнему находится — действие",
         async () => {
           await findParticipant(
             guestApp,
             host.name,
             skillB,
           );
+        },
+      );
 
+      await test.step(
+        "По оставшемуся навыку участник по-прежнему находится — проверка",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(host.name),
           ).toHaveCount(1);

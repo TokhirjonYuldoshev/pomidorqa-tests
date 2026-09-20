@@ -29,8 +29,11 @@ test.describe("Профиль: поля, навыки и изоляция дан
       );
     });
 
-    await test.step("Открываем профиль тестового пользователя", async () => {
+    await test.step("Открываем профиль тестового пользователя — действие", async () => {
       await hostApp.profilePage.goto();
+    });
+
+    await test.step("Открываем профиль тестового пользователя — проверка", async () => {
       await expect(hostApp.profilePage.nameInput).toHaveValue(
         primaryUser.name,
       );
@@ -299,8 +302,11 @@ test.describe("Профиль: поля, навыки и изоляция дан
   }) => {
     const skill = `LastSkill-${makeUniqueToken()}`;
 
-    await test.step("Добавляем единственный навык", async () => {
+    await test.step("Добавляем единственный навык — действие", async () => {
       await hostApp.profilePage.addSkill(skill, "can_help");
+    });
+
+    await test.step("Добавляем единственный навык — проверка", async () => {
       await expect(
         hostApp.profilePage.canHelpSkillItem(skill),
       ).toBeVisible();

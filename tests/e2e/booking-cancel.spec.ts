@@ -1,6 +1,7 @@
 import { expect, test } from "../fixtures/app-fixtures";
 import { makeRunId } from "../helpers/test-data";
-import { makeUser, registerUser } from "../helpers/user";
+import { makeUser, registerUserViaApi } from "../helpers/user";
+import { AuthPage } from "../pages/auth-page";
 import type { BookingPage } from "../pages/booking-page";
 
 async function expectBookingCancelledFor(
@@ -35,12 +36,25 @@ test(
     const guestUser = makeUser("guest", runId);
 
     await test.step(
-      "Хост: регистрируется и добавляет уникальный навык",
+      "Arrange: создаём аккаунт хоста через API и выполняем вход",
       async () => {
-        await registerUser(hostApp.page, hostUser);
+        await registerUserViaApi(
+          hostApp.context.request,
+          hostUser,
+        );
+        const hostAuthPage = new AuthPage(hostApp.page);
+        await hostAuthPage.gotoLogin();
+        await hostAuthPage.login(
+          hostUser.email,
+          hostUser.password,
+        );
+      },
+    );
 
+    await test.step(
+      "Хост: добавляет уникальный навык",
+      async () => {
         await hostApp.profilePage.goto();
-
         await hostApp.profilePage.addSkill(
           skillTag,
           "can_help",
@@ -58,12 +72,25 @@ test(
     );
 
     await test.step(
-      "Гость: регистрируется и находит хоста по уникальному навыку",
+      "Arrange: создаём аккаунт гостя через API и выполняем вход",
       async () => {
-        await registerUser(guestApp.page, guestUser);
+        await registerUserViaApi(
+          guestApp.context.request,
+          guestUser,
+        );
+        const guestAuthPage = new AuthPage(guestApp.page);
+        await guestAuthPage.gotoLogin();
+        await guestAuthPage.login(
+          guestUser.email,
+          guestUser.password,
+        );
+      },
+    );
 
+    await test.step(
+      "Гость: находит хоста по уникальному навыку",
+      async () => {
         await guestApp.bookingPage.searchCatalog(skillTag);
-
         await guestApp.bookingPage.openPerson(
           hostUser.name,
         );
@@ -95,20 +122,19 @@ test(
       },
     );
 
+    const bookingResult = await test.step(
+      "Получаем результат бронирования",
+      async () => guestApp.bookingPage.waitForBookingResult(),
+    );
+
     await test.step(
       "Бронирование прошло успешно",
       async () => {
-        const bookingResult =
-          await guestApp.bookingPage.waitForBookingResult();
-
-        const failureMessage =
-          bookingResult.status === "error"
-            ? `Бронирование не удалось: ${bookingResult.message}`
-            : "Бронирование должно завершиться успешно";
-
         expect(
           bookingResult.status,
-          failureMessage,
+          bookingResult.status === "error"
+            ? `Бронирование не удалось: ${bookingResult.message}`
+            : "Бронирование должно завершиться успешно",
         ).toBe("success");
       },
     );

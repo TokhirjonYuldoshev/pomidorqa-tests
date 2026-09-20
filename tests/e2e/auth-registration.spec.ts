@@ -14,8 +14,11 @@ test.describe("Регистрация: требования MVP", () => {
       await registerUser(app.page, user);
     });
 
-    await test.step("Проверяем автоматически созданный профиль", async () => {
+    await test.step("Проверяем автоматически созданный профиль — действие", async () => {
       await app.profilePage.goto();
+    });
+
+    await test.step("Проверяем автоматически созданный профиль — проверка", async () => {
       await expect(app.profilePage.nameInput).toHaveValue(user.name);
       await expect(app.profilePage.timezoneSelect).toHaveValue(
         "Europe/Moscow",

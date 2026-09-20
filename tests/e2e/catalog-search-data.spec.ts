@@ -128,11 +128,12 @@ test.describe("Каталог: данные и фильтрация", () => {
       await test.step(
         "В каталоге нет дублей одной и той же карточки",
         async () => {
-          const hostCard =
-            guestApp.bookingPage.personCard(host.name);
-
-          await expect(hostCard).toBeVisible();
-          await expect(hostCard).toHaveCount(1);
+          await expect(
+            guestApp.bookingPage.personCard(host.name),
+          ).toBeVisible();
+          await expect(
+            guestApp.bookingPage.personCard(host.name),
+          ).toHaveCount(1);
         },
       );
     },
@@ -217,27 +218,33 @@ test.describe("Каталог: данные и фильтрация", () => {
       );
       await addFutureSlot(hostApp, host.name);
 
-      await test.step(
-        "Контроль: по can_help участник находится",
-        async () => {
-          await findParticipant(
-            guestApp,
-            host.name,
-            canHelpSkill,
-          );
-          await expect(
-            guestApp.bookingPage.personCard(host.name),
-          ).toHaveCount(1);
-        },
-      );
+      await test.step("Контроль: по can_help участник находится — действие", async () => {
+        await findParticipant(
+          guestApp,
+          host.name,
+          canHelpSkill,
+        );
+      });
+
+      await test.step("Контроль: по can_help участник находится — проверка", async () => {
+        await expect(
+          guestApp.bookingPage.personCard(host.name),
+        ).toHaveCount(1);
+      });
 
       await test.step(
-        "По want_to_learn участник не должен попадать в выдачу",
+        "По want_to_learn участник не должен попадать в выдачу — действие",
         async () => {
           await guestApp.bookingPage.goToCatalog();
           await guestApp.bookingPage.searchCatalog(
             wantToLearnSkill,
           );
+        },
+      );
+
+      await test.step(
+        "По want_to_learn участник не должен попадать в выдачу — проверка",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(host.name),
           ).toHaveCount(0);

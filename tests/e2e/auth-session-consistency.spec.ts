@@ -94,9 +94,15 @@ test.describe("Согласованность авторизованной се�
       const secondProfile = new ProfilePage(secondPage);
 
       await test.step(
-        "Вторая вкладка подтверждает общую авторизованную сессию",
+        "Вторая вкладка подтверждает общую авторизованную сессию — действие",
         async () => {
           await secondPage.goto(ROUTES.profile);
+        },
+      );
+
+      await test.step(
+        "Вторая вкладка подтверждает общую авторизованную сессию — проверка",
+        async () => {
           await expect(secondPage).toHaveURL(PROFILE_URL);
           await expect(secondProfile.nameInput).toHaveValue(
             user.name,
@@ -104,18 +110,24 @@ test.describe("Согласованность авторизованной се�
         },
       );
 
+      await test.step("Первая вкладка выполняет logout — действие", async () => {
+        await firstHeader.logout();
+      });
+
+      await test.step("Первая вкладка выполняет logout — проверка", async () => {
+        await expect(firstHeader.loginLink).toBeVisible();
+      });
+
       await test.step(
-        "Первая вкладка выполняет logout",
+        "Вторая вкладка после нового запроса больше не имеет доступа к профилю — действие",
         async () => {
-          await firstHeader.logout();
-          await expect(firstHeader.loginLink).toBeVisible();
+          await secondPage.goto(ROUTES.profile);
         },
       );
 
       await test.step(
-        "Вторая вкладка после нового запроса больше не имеет доступа к профилю",
+        "Вторая вкладка после нового запроса больше не имеет доступа к профилю — проверка",
         async () => {
-          await secondPage.goto(ROUTES.profile);
           await expect(secondPage).toHaveURL(LOGIN_URL);
         },
       );
@@ -149,40 +161,52 @@ test.describe("Согласованность авторизованной се�
       );
 
       await test.step(
-        "Первый пользователь входит и видит собственный профиль",
+        "Первый пользователь входит и видит собственный профиль — действие",
         async () => {
           await loginUser(sessionApp, userOne);
           await sessionApp.profilePage.goto();
+        },
+      );
+
+      await test.step(
+        "Первый пользователь входит и видит собственный профиль — проверка",
+        async () => {
           await expect(
             sessionApp.profilePage.nameInput,
           ).toHaveValue(userOne.name);
         },
       );
 
-      await test.step(
-        "Первый пользователь выходит из аккаунта",
-        async () => {
-          await header.logout();
-          await expect(header.loginLink).toBeVisible();
-        },
-      );
+      await test.step("Первый пользователь выходит из аккаунта — действие", async () => {
+        await header.logout();
+      });
+
+      await test.step("Первый пользователь выходит из аккаунта — проверка", async () => {
+        await expect(header.loginLink).toBeVisible();
+      });
+
+      await test.step("В том же context входит второй пользователь — действие", async () => {
+        await authPage.gotoLogin();
+        await authPage.login(
+          userTwo.email,
+          userTwo.password,
+        );
+      });
+
+      await test.step("В том же context входит второй пользователь — проверка", async () => {
+        await expect(sessionApp.page).toHaveURL(CATALOG_URL);
+      });
 
       await test.step(
-        "В том же context входит второй пользователь",
-        async () => {
-          await authPage.gotoLogin();
-          await authPage.login(
-            userTwo.email,
-            userTwo.password,
-          );
-          await expect(sessionApp.page).toHaveURL(CATALOG_URL);
-        },
-      );
-
-      await test.step(
-        "Профиль принадлежит второму пользователю без данных первого",
+        "Профиль принадлежит второму пользователю без данных первого — действие",
         async () => {
           await sessionApp.profilePage.goto();
+        },
+      );
+
+      await test.step(
+        "Профиль принадлежит второму пользователю без данных первого — проверка",
+        async () => {
           await expect(sessionApp.page).toHaveURL(PROFILE_URL);
           await expect(
             sessionApp.profilePage.nameInput,
