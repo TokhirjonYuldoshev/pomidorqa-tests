@@ -45,6 +45,7 @@ test.describe("Бронирование встречи", () => {
             guestApp.context.request,
             guest,
           );
+          await guestApp.bookingPage.goToCatalog();
           await guestApp.bookingPage.searchCatalog(skillTag);
           await guestApp.bookingPage.openPerson(host.name);
         },
@@ -73,6 +74,7 @@ test.describe("Бронирование встречи", () => {
             guest2App.context.request,
             guest2,
           );
+          await guest2App.bookingPage.goToCatalog();
           await guest2App.bookingPage.searchCatalog(skillTag);
           await guest2App.bookingPage.openPerson(host.name);
           await guest2App.bookingPage.pickOnlyAvailableSlot();
