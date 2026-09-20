@@ -97,7 +97,14 @@ test.describe("Согласованность авторизованной се�
         "Вторая вкладка подтверждает общую авторизованную сессию",
         async () => {
           await secondPage.goto(ROUTES.profile);
+        },
+      );
+
+      await test.step(
+        "Проверка: Вторая вкладка подтверждает общую авторизованную сессию",
+        async () => {
           await expect(secondPage).toHaveURL(PROFILE_URL);
+          
           await expect(secondProfile.nameInput).toHaveValue(
             user.name,
           );
@@ -108,6 +115,12 @@ test.describe("Согласованность авторизованной се�
         "Первая вкладка выполняет logout",
         async () => {
           await firstHeader.logout();
+        },
+      );
+
+      await test.step(
+        "Проверка: Первая вкладка выполняет logout",
+        async () => {
           await expect(firstHeader.loginLink).toBeVisible();
         },
       );
@@ -116,6 +129,12 @@ test.describe("Согласованность авторизованной се�
         "Вторая вкладка после нового запроса больше не имеет доступа к профилю",
         async () => {
           await secondPage.goto(ROUTES.profile);
+        },
+      );
+
+      await test.step(
+        "Проверка: Вторая вкладка после нового запроса больше не имеет доступа к профилю",
+        async () => {
           await expect(secondPage).toHaveURL(LOGIN_URL);
         },
       );
@@ -152,7 +171,14 @@ test.describe("Согласованность авторизованной се�
         "Первый пользователь входит и видит собственный профиль",
         async () => {
           await loginUser(sessionApp, userOne);
+          
           await sessionApp.profilePage.goto();
+        },
+      );
+
+      await test.step(
+        "Проверка: Первый пользователь входит и видит собственный профиль",
+        async () => {
           await expect(
             sessionApp.profilePage.nameInput,
           ).toHaveValue(userOne.name);
@@ -163,6 +189,12 @@ test.describe("Согласованность авторизованной се�
         "Первый пользователь выходит из аккаунта",
         async () => {
           await header.logout();
+        },
+      );
+
+      await test.step(
+        "Проверка: Первый пользователь выходит из аккаунта",
+        async () => {
           await expect(header.loginLink).toBeVisible();
         },
       );
@@ -171,10 +203,17 @@ test.describe("Согласованность авторизованной се�
         "В том же context входит второй пользователь",
         async () => {
           await authPage.gotoLogin();
+          
           await authPage.login(
             userTwo.email,
             userTwo.password,
           );
+        },
+      );
+
+      await test.step(
+        "Проверка: В том же context входит второй пользователь",
+        async () => {
           await expect(sessionApp.page).toHaveURL(CATALOG_URL);
         },
       );
@@ -183,10 +222,18 @@ test.describe("Согласованность авторизованной се�
         "Профиль принадлежит второму пользователю без данных первого",
         async () => {
           await sessionApp.profilePage.goto();
+        },
+      );
+
+      await test.step(
+        "Проверка: Профиль принадлежит второму пользователю без данных первого",
+        async () => {
           await expect(sessionApp.page).toHaveURL(PROFILE_URL);
+          
           await expect(
             sessionApp.profilePage.nameInput,
           ).toHaveValue(userTwo.name);
+          
           await expect(
             sessionApp.profilePage.nameInput,
           ).not.toHaveValue(userOne.name);
