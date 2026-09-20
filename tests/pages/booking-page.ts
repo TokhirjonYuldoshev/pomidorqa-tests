@@ -188,6 +188,12 @@ export class BookingPage {
     await this.availableTimeButtons.click();
   }
 
+  availableTimeButton(time: string): Locator {
+    return this.page
+      .getByRole("group", { name: "Время слотов" })
+      .getByRole("button", { name: time, exact: true });
+  }
+
   async pickAvailableSlotByTime(
     time: string,
     retryTimeoutMs = 10_000,
@@ -198,9 +204,7 @@ export class BookingPage {
 
     await this.selectOnlyAvailableDay(retryTimeoutMs);
 
-    const timeButton = this.page
-      .getByRole("group", { name: "Время слотов" })
-      .getByRole("button", { name: time, exact: true });
+    const timeButton = this.availableTimeButton(time);
 
     await timeButton.waitFor({
       state: "visible",
