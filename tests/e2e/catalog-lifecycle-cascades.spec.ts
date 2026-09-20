@@ -134,7 +134,7 @@ test.describe("Каталог: каскады и восстановление д
         bookerB,
       );
 
-      const status = await test.step(
+      const firstBookingStatus = await test.step(
         "Получаем данные для проверки: Первый пользователь: бронирует слот 12:00",
         async () =>
           bookParticipant(
@@ -148,7 +148,7 @@ test.describe("Каталог: каскады и восстановление д
       await test.step(
         "Проверка: Первый пользователь: бронирует слот 12:00",
         async () => {
-          expect(status).toBe("success");
+          expect(firstBookingStatus).toBe("success");
         },
       );
 
@@ -163,7 +163,7 @@ test.describe("Каталог: каскады и восстановление д
         },
       );
 
-      const status = await test.step(
+      const secondBookingStatus = await test.step(
         "Получаем данные для проверки: Второй пользователь: бронирует слот 13:00",
         async () =>
           bookParticipant(
@@ -177,7 +177,7 @@ test.describe("Каталог: каскады и восстановление д
       await test.step(
         "Проверка: Второй пользователь: бронирует слот 13:00",
         async () => {
-          expect(status).toBe("success");
+          expect(secondBookingStatus).toBe("success");
         },
       );
 
@@ -255,7 +255,7 @@ test.describe("Каталог: каскады и восстановление д
         booker,
       );
 
-      const status = await test.step(
+      const bookingStatus = await test.step(
         "Получаем данные для проверки: Гость: бронирует встречу с хостом",
         async () =>
           bookParticipant(
@@ -268,7 +268,7 @@ test.describe("Каталог: каскады и восстановление д
       await test.step(
         "Проверка: Гость: бронирует встречу с хостом",
         async () => {
-          expect(status).toBe("success");
+          expect(bookingStatus).toBe("success");
         },
       );
 
