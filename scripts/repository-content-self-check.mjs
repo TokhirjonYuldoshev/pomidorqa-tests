@@ -43,7 +43,7 @@ const trackedFiles = execFileSync("git", ["ls-files", "-z"], {
 
 const textFiles = trackedFiles.filter(
   (file) =>
-    /\\.(?:md|ts|tsx|js|mjs|cjs|json|ya?ml)$/i.test(file) &&
+    /\.(?:md|ts|tsx|js|mjs|cjs|json|ya?ml)$/i.test(file) &&
     file !== "package-lock.json",
 );
 
@@ -70,7 +70,7 @@ for (const file of textFiles) {
 
 const readme = readFileSync("README.md", "utf8");
 const readmeSourceCount = readme.split(sourceUrl).length - 1;
-const h2Headings = [...readme.matchAll(/^##\\s+(.+)$/gm)].map((match) =>
+const h2Headings = [...readme.matchAll(/^##\s+(.+)$/gm)].map((match) =>
   match[1].trim(),
 );
 const lastH2 = h2Headings.at(-1);
