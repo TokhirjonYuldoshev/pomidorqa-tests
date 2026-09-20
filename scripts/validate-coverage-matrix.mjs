@@ -48,6 +48,25 @@ function extractTestCaseRefs(evidence) {
   }));
 }
 
+const declaredTestTitlesByPath = new Map();
+
+function getDeclaredTestTitles(path) {
+  if (declaredTestTitlesByPath.has(path)) {
+    return declaredTestTitlesByPath.get(path);
+  }
+
+  const source = readFileSync(path, "utf8");
+  const titles = new Set(
+    [...source.matchAll(
+      /\btest(?:\.fail)?\s*\(\s*["'`]([^"'`]+)["'`]/g,
+    )].map((match) => match[1]),
+  );
+
+  declaredTestTitlesByPath.set(path, titles);
+
+  return titles;
+}
+
 function extractReadmeCount(readme, label) {
   const escaped = escapeRegExp(label);
   const pattern =
@@ -138,12 +157,14 @@ for (const row of rows) {
       );
     }
 
-    const testSource = readFileSync(caseRef.path, "utf8");
+    const declaredTestTitles = getDeclaredTestTitles(
+      caseRef.path,
+    );
 
-    if (!testSource.includes(caseRef.title)) {
+    if (!declaredTestTitles.has(caseRef.title)) {
       fail(
         row.id +
-          " ссылается на отсутствующий test case \"" +
+          " ссылается на отсутствующий test(...) / test.fail(...) case \"" +
           caseRef.title +
           "\" в " +
           caseRef.path,
