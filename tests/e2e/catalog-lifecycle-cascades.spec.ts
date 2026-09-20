@@ -134,16 +134,20 @@ test.describe("Каталог: каскады и восстановление д
         bookerB,
       );
 
-      await test.step(
-        "Первый пользователь: бронирует слот 12:00",
-        async () => {
-          const status = await bookParticipant(
+      const status = await test.step(
+        "Получаем данные для проверки: Первый пользователь: бронирует слот 12:00",
+        async () =>
+          bookParticipant(
             bookerAApp,
             host.name,
             skill,
             "12:00",
-          );
+          ),
+      );
 
+      await test.step(
+        "Проверка: Первый пользователь: бронирует слот 12:00",
+        async () => {
           expect(status).toBe("success");
         },
       );
@@ -159,16 +163,20 @@ test.describe("Каталог: каскады и восстановление д
         },
       );
 
-      await test.step(
-        "Второй пользователь: бронирует слот 13:00",
-        async () => {
-          const status = await bookParticipant(
+      const status = await test.step(
+        "Получаем данные для проверки: Второй пользователь: бронирует слот 13:00",
+        async () =>
+          bookParticipant(
             bookerBApp,
             host.name,
             skill,
             "13:00",
-          );
+          ),
+      );
 
+      await test.step(
+        "Проверка: Второй пользователь: бронирует слот 13:00",
+        async () => {
           expect(status).toBe("success");
         },
       );
@@ -188,13 +196,23 @@ test.describe("Каталог: каскады и восстановление д
         "Первый пользователь: отменяет свою встречу",
         async () => {
           await bookerAApp.bookingPage.goToBookings();
+        },
+      );
 
+      await test.step(
+        "Проверка 1: Первый пользователь: отменяет свою встречу",
+        async () => {
           await expect(
             bookerAApp.bookingPage.upcomingBookingByParticipant(
               host.name,
             ),
           ).toBeVisible({ timeout: 10_000 });
+        },
+      );
 
+      await test.step(
+        "Действие 2: Первый пользователь: отменяет свою встречу",
+        async () => {
           await bookerAApp.bookingPage.cancelBookingWith(
             host.name,
           );
@@ -237,15 +255,19 @@ test.describe("Каталог: каскады и восстановление д
         booker,
       );
 
-      await test.step(
-        "Гость: бронирует встречу с хостом",
-        async () => {
-          const status = await bookParticipant(
+      const status = await test.step(
+        "Получаем данные для проверки: Гость: бронирует встречу с хостом",
+        async () =>
+          bookParticipant(
             bookerApp,
             host.name,
             skill,
-          );
+          ),
+      );
 
+      await test.step(
+        "Проверка: Гость: бронирует встречу с хостом",
+        async () => {
           expect(status).toBe("success");
         },
       );
@@ -254,7 +276,12 @@ test.describe("Каталог: каскады и восстановление д
         "Контроль: активная встреча отображается у гостя",
         async () => {
           await bookerApp.bookingPage.goToBookings();
+        },
+      );
 
+      await test.step(
+        "Проверка: Контроль: активная встреча отображается у гостя",
+        async () => {
           await expect(
             bookerApp.bookingPage.upcomingBookingByParticipant(
               host.name,
