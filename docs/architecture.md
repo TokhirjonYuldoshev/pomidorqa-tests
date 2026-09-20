@@ -153,6 +153,8 @@ Accessibility, Lighthouse и Visual Regression находятся в отдел�
 
 CI-архитектура имеет собственный исполняемый контракт: `scripts/ci-policy-self-check.mjs` проверяет pinning actions, запрет `pull_request_target`, `retries=0`, browser concurrency, локальный E2E worker cap, обязательные итоговые сигналы, trusted-main AI Review и отделение diagnostic transport от pass/fail. Проверка охватывает workflow YAML и безопасный E2E shortcut из `package.json`, затем запускается внутри Quality до E2E.
 
+Отдельный `scripts/repository-content-self-check.mjs` защищает current tracked tree от нежелательного framing и контролирует provenance-инварианты README: единственную ссылку на исходную базу и финальный раздел `Происхождение кода и вклад`.
+
 Nightly проверяет внешний стенд по расписанию. Stability повторяет выбранные сценарии без retries. Registration Contract Smoke и Telegram Notification Test запускаются вручную для узкой диагностики.
 
 ## Отчёты
