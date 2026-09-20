@@ -40,9 +40,15 @@ test(
     );
 
     await test.step(
-      "Получаем нейтральную ошибку авторизации",
+      "Проверка: Получаем нейтральную ошибку авторизации",
       async () => {
         await expect(authPage.loginError).toBeVisible();
+      },
+    );
+
+    await test.step(
+      "Получаем нейтральную ошибку авторизации",
+      async () => {
         wrongPasswordError =
           (await authPage.loginError.textContent())?.trim() ?? "";
       },
@@ -62,13 +68,25 @@ test(
     );
 
     await test.step(
-      "Получаем такую же нейтральную ошибку",
+      "Проверка 1: Получаем такую же нейтральную ошибку",
       async () => {
         await expect(authPage.loginError).toBeVisible();
+      },
+    );
+
+    await test.step(
+      "Получаем такую же нейтральную ошибку",
+      async () => {
         unknownEmailError =
           (await authPage.loginError.textContent())?.trim() ?? "";
+      },
+    );
 
+    await test.step(
+      "Проверка 2: Получаем такую же нейтральную ошибку",
+      async () => {
         expect(unknownEmailError).toBe(wrongPasswordError);
+        
         expect(unknownEmailError).toContain("Неверный");
       },
     );
