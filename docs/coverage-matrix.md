@@ -4,7 +4,9 @@
 Исходники PomidorQA в этот репозиторий не входят, поэтому матрица измеряет **requirement coverage**,
 а не code coverage продукта.
 
-Срез: **19.09.2026**, ветка `main`, стенд `https://aiqa.su/pomidorqa`.
+Срез: **21.09.2026**, ветка `main`, стенд `https://aiqa.su/pomidorqa`.
+
+Для каждого требования со статусом, отличным от `out of scope`, evidence фиксируется на уровне **test-файла и точного test case** в формате «test-файл → название `test(...)`». Валидатор проверяет существование и файла, и указанного test case.
 
 ## Правила статусов
 
@@ -39,101 +41,101 @@
 
 | ID | Требование | Статус | Доказательство |
 |---|---|---|---|
-| R3.1 | Гость просматривает каталог | `automated` | `tests/e2e/catalog-search.spec.ts` |
-| R3.2 | Гость открывает страницу участника и видит свободные слоты | `automated` | `tests/e2e/guest-access.spec.ts`, `tests/e2e/slots-management.spec.ts` |
-| R3.3 | Гость не может забронировать звонок | `automated` | `tests/e2e/guest-access.spec.ts` |
-| R3.4 | Приватные страницы гостю недоступны | `automated` | `tests/e2e/auth-session.spec.ts` |
-| R3.5 | Участник редактирует профиль и навыки | `automated` | `tests/e2e/profile-flow.spec.ts`, `tests/e2e/profile-rules.spec.ts` |
-| R3.6 | Участник добавляет и удаляет свои свободные слоты | `automated` | `tests/e2e/slots-management.spec.ts`, `tests/e2e/slots-rules.spec.ts` |
-| R3.7 | Участник бронирует слоты других участников | `automated` | `tests/e2e/booking-flow.spec.ts` |
-| R3.8 | Отменить бронирование может и хост, и гость | `automated` | `tests/e2e/booking-cancel.spec.ts`, `tests/e2e/booking-host-cancel.spec.ts` |
-| R3.9 | Участник видит список своих встреч | `automated` | `tests/e2e/booking-flow.spec.ts` |
+| R3.1 | Гость просматривает каталог | `automated` | `tests/e2e/catalog-search.spec.ts` → `гость находит участника по уникальному навыку` |
+| R3.2 | Гость открывает страницу участника и видит свободные слоты | `automated` | `tests/e2e/guest-access.spec.ts` → `гость видит профиль и слот, но не может создать бронь` |
+| R3.3 | Гость не может забронировать звонок | `automated` | `tests/e2e/guest-access.spec.ts` → `гость видит профиль и слот, но не может создать бронь` |
+| R3.4 | Приватные страницы гостю недоступны | `automated` | `tests/e2e/auth-session.spec.ts` → `анонимный пользователь не может открыть профиль напрямую`; `tests/e2e/auth-session.spec.ts` → `анонимный пользователь не может открыть список встреч напрямую`; `tests/e2e/auth-session.spec.ts` → `анонимный пользователь не может открыть управление слотами напрямую` |
+| R3.5 | Участник редактирует профиль и навыки | `automated` | `tests/e2e/profile-flow.spec.ts` → `имя, telegram и о себе сохраняются одной отправкой`; `tests/e2e/profile-flow.spec.ts` → `навык могу помочь добавляется в нужный блок` |
+| R3.6 | Участник добавляет и удаляет свои свободные слоты | `automated` | `tests/e2e/slots-management.spec.ts` → `созданный слот сохраняется после reload`; `tests/e2e/slots-rules.spec.ts` → `свободный слот можно удалить, соседний остаётся` |
+| R3.7 | Участник бронирует слоты других участников | `automated` | `tests/e2e/booking-flow.spec.ts` → `основной путь и гонка двух гостей за один слот` |
+| R3.8 | Отменить бронирование может и хост, и гость | `automated` | `tests/e2e/booking-cancel.spec.ts` → `гость отменяет встречу — после reload отмену видят гость и хост`; `tests/e2e/booking-host-cancel.spec.ts` → `хост отменяет встречу, и отмену видят обе стороны` |
+| R3.9 | Участник видит список своих встреч | `automated` | `tests/e2e/booking-flow.spec.ts` → `основной путь и гонка двух гостей за один слот` |
 
 ## 4. Регистрация и вход
 
 | ID | Требование | Статус | Доказательство |
 |---|---|---|---|
-| R4.1 | Имя, email и пароль обязательны | `automated` | `tests/e2e/auth-registration.spec.ts` |
-| R4.2 | Пароль не короче 8 символов | `automated` | `tests/e2e/auth-registration.spec.ts`, `tests/api/user-registration-live.spec.ts` |
-| R4.3 | После регистрации профиль содержит имя из формы и `Europe/Moscow` | `automated` | `tests/e2e/auth-registration.spec.ts` |
-| R4.4 | Второй аккаунт на тот же email не создаётся | `automated` | `tests/api/user-registration-live.spec.ts` |
-| R4.5 | Ошибка входа одинаковая и не раскрывает неверное поле | `automated` | `tests/e2e/login-error.spec.ts` |
-| R4.6 | Успешный вход держит сессию, выход её закрывает | `automated` | `tests/e2e/auth-session.spec.ts`, `tests/e2e/auth-session-consistency.spec.ts` |
+| R4.1 | Имя, email и пароль обязательны | `automated` | `tests/e2e/auth-registration.spec.ts` → `форма блокирует пустые обязательные поля и короткий пароль` |
+| R4.2 | Пароль не короче 8 символов | `automated` | `tests/e2e/auth-registration.spec.ts` → `форма блокирует пустые обязательные поля и короткий пароль`; `tests/api/user-registration-live.spec.ts` → `короткий пароль отклоняется сервером` |
+| R4.3 | После регистрации профиль содержит имя из формы и `Europe/Moscow` | `automated` | `tests/e2e/auth-registration.spec.ts` → `после регистрации профиль получает имя и Europe/Moscow` |
+| R4.4 | Второй аккаунт на тот же email не создаётся | `automated` | `tests/api/user-registration-live.spec.ts` → `повторный email возвращает 409 email_taken` |
+| R4.5 | Ошибка входа одинаковая и не раскрывает неверное поле | `automated` | `tests/e2e/login-error.spec.ts` → `вход с неверным паролем и неизвестным email показывает одинаковую ошибку` |
+| R4.6 | Успешный вход держит сессию, выход её закрывает | `automated` | `tests/e2e/auth-session.spec.ts` → `авторизованная сессия сохраняется после перезагрузки`; `tests/e2e/auth-session.spec.ts` → `выход завершает сессию и защищённый профиль требует новый вход` |
 
 ## 5. Профиль
 
 | ID | Требование | Статус | Доказательство |
 |---|---|---|---|
-| R5.1 | Имя — обязательное поле | `automated` | `tests/e2e/profile-rules.spec.ts` |
-| R5.2 | Telegram — необязательный свободный текст | `automated` | `tests/e2e/profile-flow.spec.ts`, `tests/e2e/profile-rules.spec.ts` |
-| R5.3 | Часовой пояс выбирается из списка | `automated` | `tests/e2e/profile-flow.spec.ts` |
-| R5.4 | «О себе» — необязательное свободное описание | `automated` | `tests/e2e/profile-flow.spec.ts`, `tests/e2e/profile-rules.spec.ts` |
-| R5.5 | Время слотов показывается в часовом поясе владельца | `automated` | `tests/e2e/slot-timezone.spec.ts` |
-| R5.6 | Профиль виден другим участникам | `automated` | `tests/e2e/public-profile.spec.ts` |
+| R5.1 | Имя — обязательное поле | `automated` | `tests/e2e/profile-rules.spec.ts` → `имя обязательно, Telegram и О себе можно оставить пустыми` |
+| R5.2 | Telegram — необязательный свободный текст | `automated` | `tests/e2e/profile-flow.spec.ts` → `telegram сохраняется после перезагрузки`; `tests/e2e/profile-rules.spec.ts` → `имя обязательно, Telegram и О себе можно оставить пустыми` |
+| R5.3 | Часовой пояс выбирается из списка | `automated` | `tests/e2e/profile-flow.spec.ts` → `часовой пояс сохраняется после перезагрузки` |
+| R5.4 | «О себе» — необязательное свободное описание | `automated` | `tests/e2e/profile-flow.spec.ts` → `о себе сохраняется после перезагрузки`; `tests/e2e/profile-rules.spec.ts` → `имя обязательно, Telegram и О себе можно оставить пустыми` |
+| R5.5 | Время слотов показывается в часовом поясе владельца | `automated` | `tests/e2e/slot-timezone.spec.ts` → `владелец и гость видят слот во времени владельца` |
+| R5.6 | Профиль виден другим участникам | `automated` | `tests/e2e/public-profile.spec.ts` → `публичный профиль показывает сохранённые данные и оба типа навыков` |
 
 ## 6. Навыки
 
 | ID | Требование | Статус | Доказательство |
 |---|---|---|---|
-| R6.1 | Навык имеет тип `can_help` или `want_to_learn` | `automated` | `tests/e2e/profile-flow.spec.ts` |
-| R6.2 | Название навыка — свободный текст | `automated` | `tests/e2e/catalog-search-data.spec.ts`, `tests/e2e/catalog-search-edge-data.spec.ts`, `tests/e2e/catalog-search-boundaries.spec.ts` |
-| R6.3 | Один и тот же навык одного типа нельзя добавить повторно | `automated` | `tests/e2e/profile-rules.spec.ts` |
-| R6.4 | Тот же навык другого типа — отдельная запись | `automated` | `tests/e2e/profile-rules.spec.ts` |
-| R6.5 | Участник удаляет свой навык | `automated` | `tests/e2e/profile-flow.spec.ts` |
-| R6.6 | Пустой навык не добавляется | `automated` | `tests/e2e/profile-flow.spec.ts` |
+| R6.1 | Навык имеет тип `can_help` или `want_to_learn` | `automated` | `tests/e2e/profile-flow.spec.ts` → `навыки разных типов сохраняются независимо после reload` |
+| R6.2 | Название навыка — свободный текст | `automated` | `tests/e2e/catalog-search-data.spec.ts` → `кириллический навык находится точным запросом`; `tests/e2e/catalog-search-boundaries.spec.ts` → `многословный латинский навык находится точным запросом` |
+| R6.3 | Один и тот же навык одного типа нельзя добавить повторно | `automated` | `tests/e2e/profile-rules.spec.ts` → `повторный навык того же типа не создаёт дубль` |
+| R6.4 | Тот же навык другого типа — отдельная запись | `automated` | `tests/e2e/profile-rules.spec.ts` → `одинаковый текст навыка разрешён в двух разных типах` |
+| R6.5 | Участник удаляет свой навык | `automated` | `tests/e2e/profile-flow.spec.ts` → `удаление последнего навыка сохраняется после reload` |
+| R6.6 | Пустой навык не добавляется | `automated` | `tests/e2e/profile-flow.spec.ts` → `пустой навык не добавляется` |
 
 ## 7. Слоты доступности
 
 | ID | Требование | Статус | Доказательство |
 |---|---|---|---|
 | R7.1 | Длительность слота фиксированная — 25 минут | `out of scope` | фактический `end_time` не выдаётся доступным интерфейсом; подпись «25 минут» не доказывает серверную длительность |
-| R7.2 | Нельзя создать слот в прошлом | `partial` | `tests/e2e/slots-rules.spec.ts` проверяет client-side запрет; server-side правило через UI недостижимо |
-| R7.3 | У слота статус `free` или `booked` | `automated` | `tests/e2e/slots-rules.spec.ts` проверяет `data-slot-status` до и после бронирования |
-| R7.4 | Свой свободный слот можно удалить | `automated` | `tests/e2e/slots-rules.spec.ts` |
-| R7.5 | Забронированный слот удалить нельзя | `partial` | `tests/e2e/slots-rules.spec.ts` проверяет отсутствие UI-кнопки удаления; прямой server-side обход UI не выполняется |
+| R7.2 | Нельзя создать слот в прошлом | `partial` | `tests/e2e/slots-rules.spec.ts` → `дату в прошлом форма не отправляет` — client-side запрет; server-side правило через UI недостижимо |
+| R7.3 | У слота статус `free` или `booked` | `automated` | `tests/e2e/slots-rules.spec.ts` → `свободный слот можно удалить, соседний остаётся`; `tests/e2e/slots-rules.spec.ts` → `забронированный слот имеет status booked и не удаляется из UI` |
+| R7.4 | Свой свободный слот можно удалить | `automated` | `tests/e2e/slots-rules.spec.ts` → `свободный слот можно удалить, соседний остаётся` |
+| R7.5 | Забронированный слот удалить нельзя | `partial` | `tests/e2e/slots-rules.spec.ts` → `забронированный слот имеет status booked и не удаляется из UI` — UI запрещает удаление; прямой server-side обход UI не выполняется |
 
 ## 8. Каталог участников
 
 | ID | Требование | Статус | Доказательство |
 |---|---|---|---|
-| R8.1 | В каталоге только участники со свободным будущим слотом | `automated` | `tests/e2e/catalog-search.spec.ts`, `tests/e2e/catalog-booking-availability.spec.ts` |
-| R8.2 | Участник не видит себя в собственном каталоге | `automated` | `tests/e2e/catalog-search.spec.ts`, `tests/e2e/catalog-search-data.spec.ts` |
-| R8.3 | Поиск фильтрует только по навыкам `can_help` | **`known defect`** | `tests/e2e/catalog-search-data.spec.ts`, `tests/e2e/catalog-search-boundaries.spec.ts` — проверки по требованию помечены `test.fail()` |
-| R8.4 | По неизвестному навыку выдача пустая | `automated` | `tests/e2e/catalog-search.spec.ts` |
+| R8.1 | В каталоге только участники со свободным будущим слотом | `automated` | `tests/e2e/catalog-search.spec.ts` → `участник без будущего свободного слота не попадает в каталог`; `tests/e2e/catalog-booking-availability.spec.ts` → `после бронирования единственного слота участник исчезает из каталога` |
+| R8.2 | Участник не видит себя в собственном каталоге | `automated` | `tests/e2e/catalog-search.spec.ts` → `авторизованный пользователь не видит собственную карточку, а гость видит`; `tests/e2e/catalog-search-data.spec.ts` → `пользователь с общим навыком видит другого участника, но не себя` |
+| R8.3 | Поиск фильтрует только по навыкам `can_help` | **`known defect`** | `tests/e2e/catalog-search-data.spec.ts` → `поиск не должен находить участника только по навыку хочу разобрать`; `tests/e2e/catalog-search-boundaries.spec.ts` → `каталог учитывает общий тег только у can_help` — оба case помечены `test.fail()` |
+| R8.4 | По неизвестному навыку выдача пустая | `automated` | `tests/e2e/catalog-search.spec.ts` → `несуществующий навык возвращает пустую выдачу` |
 
 ## 9. Страница участника
 
 | ID | Требование | Статус | Доказательство |
 |---|---|---|---|
-| R9.1 | Видны имя, «о себе», оба типа навыков и свободные слоты | `automated` | `tests/e2e/public-profile.spec.ts` |
-| R9.2 | Забронированные слоты не показываются | `automated` | `tests/e2e/booking-state.spec.ts` |
+| R9.1 | Видны имя, «о себе», оба типа навыков и свободные слоты | `automated` | `tests/e2e/public-profile.spec.ts` → `публичный профиль показывает сохранённые данные и оба типа навыков` |
+| R9.2 | Забронированные слоты не показываются | `automated` | `tests/e2e/booking-state.spec.ts` → `после брони слот исчезает из публичной доступности` |
 | R9.3 | Прошедшие слоты не показываются | `out of scope` | продукт не позволяет создать слот в прошлом; ждать естественного устаревания неприемлемо для регрессии |
 
 ## 10. Бронирование звонка
 
 | ID | Требование | Статус | Доказательство |
 |---|---|---|---|
-| R10.1 | Свой слот забронировать нельзя | `automated` | `tests/api/booking-api.spec.ts` проверяет контракт `cannot_book_own_slot`; `tests/e2e/catalog-search.spec.ts` дополнительно подтверждает self-exclusion в live UI |
-| R10.2 | Забронировать можно только свободный слот в будущем | `automated` | `tests/api/booking-api.spec.ts` проверяет отказ для past и already booked; `tests/e2e/booking-flow.spec.ts` подтверждает live happy path и гонку за свободный слот |
-| R10.3 | После брони слот `booked`, бронирование `confirmed` | `automated` | `tests/e2e/slots-rules.spec.ts`, `tests/e2e/booking-flow.spec.ts` |
-| R10.4 | При гонке подтверждается ровно одна бронь, второй видит ошибку | `automated` | `tests/e2e/booking-flow.spec.ts` |
-| R10.5 | Закрытие окна подтверждения не создаёт бронь | `automated` | `tests/e2e/booking-state.spec.ts` |
+| R10.1 | Свой слот забронировать нельзя | `automated` | `tests/api/booking-api.spec.ts` → `собственный слот нельзя забронировать`; `tests/e2e/catalog-search.spec.ts` → `авторизованный пользователь не видит собственную карточку, а гость видит` |
+| R10.2 | Забронировать можно только свободный слот в будущем | `automated` | `tests/api/booking-api.spec.ts` → `слот в прошлом нельзя забронировать`; `tests/api/booking-api.spec.ts` → `занятый слот нельзя забронировать повторно`; `tests/e2e/booking-flow.spec.ts` → `основной путь и гонка двух гостей за один слот` |
+| R10.3 | После брони слот `booked`, бронирование `confirmed` | `automated` | `tests/api/booking-api.spec.ts` → `свободный слот бронируется с 201 и confirmed`; `tests/e2e/slots-rules.spec.ts` → `забронированный слот имеет status booked и не удаляется из UI` |
+| R10.4 | При гонке подтверждается ровно одна бронь, второй видит ошибку | `automated` | `tests/e2e/booking-flow.spec.ts` → `основной путь и гонка двух гостей за один слот`; `tests/api/booking-api.spec.ts` → `в гонке двух броней подтверждается ровно одна` |
+| R10.5 | Закрытие окна подтверждения не создаёт бронь | `automated` | `tests/e2e/booking-state.spec.ts` → `закрытие подтверждения не создаёт бронирование` |
 
 ## 11. Отмена бронирования
 
 | ID | Требование | Статус | Доказательство |
 |---|---|---|---|
-| R11.1 | Отменить может любой из двух участников | `automated` | `tests/e2e/booking-cancel.spec.ts`, `tests/e2e/booking-host-cancel.spec.ts` |
-| R11.2 | Отмена запрещена позднее чем за 2 часа до начала | `automated` | `tests/e2e/cancel-window.spec.ts` |
-| R11.3 | После отмены слот снова свободен и доступен другому | `automated` | `tests/e2e/catalog-booking-recovery.spec.ts` |
+| R11.1 | Отменить может любой из двух участников | `automated` | `tests/e2e/booking-cancel.spec.ts` → `гость отменяет встречу — после reload отмену видят гость и хост`; `tests/e2e/booking-host-cancel.spec.ts` → `хост отменяет встречу, и отмену видят обе стороны` |
+| R11.2 | Отмена запрещена позднее чем за 2 часа до начала | `automated` | `tests/e2e/cancel-window.spec.ts` → `за час до начала встречу отменить нельзя` |
+| R11.3 | После отмены слот снова свободен и доступен другому | `automated` | `tests/e2e/catalog-booking-recovery.spec.ts` → `после отмены освобождённый слот успешно бронируется другим пользователем` |
 
 ## 12. Мои встречи
 
 | ID | Требование | Статус | Доказательство |
 |---|---|---|---|
-| R12.1 | Показаны брони, где участник хост или гость | `automated` | `tests/e2e/booking-flow.spec.ts` |
-| R12.2 | Два списка: «Ближайшие» и «Прошедшие и отменённые» | `automated` | `tests/e2e/booking-state.spec.ts`, `tests/e2e/booking-cancel.spec.ts`, `tests/e2e/booking-host-cancel.spec.ts` проверяют ближайшие и перенос отменённой встречи во второй список |
-| R12.3 | Отменить можно только из «Ближайших» | `automated` | `tests/e2e/booking-host-cancel.spec.ts` проверяет отмену из ближайших и отсутствие кнопки у отменённой карточки |
+| R12.1 | Показаны брони, где участник хост или гость | `automated` | `tests/e2e/booking-flow.spec.ts` → `основной путь и гонка двух гостей за один слот` |
+| R12.2 | Два списка: «Ближайшие» и «Прошедшие и отменённые» | `automated` | `tests/e2e/booking-cancel.spec.ts` → `гость отменяет встречу — после reload отмену видят гость и хост`; `tests/e2e/booking-host-cancel.spec.ts` → `хост отменяет встречу, и отмену видят обе стороны` |
+| R12.3 | Отменить можно только из «Ближайших» | `automated` | `tests/e2e/booking-host-cancel.spec.ts` → `хост отменяет встречу, и отмену видят обе стороны` |
 
 ## История продуктовых расхождений
 

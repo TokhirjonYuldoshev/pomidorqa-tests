@@ -39,6 +39,34 @@ function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function extractTestCaseRefs(evidence) {
+  return [...evidence.matchAll(
+    /`(tests\/[^\`]+\.spec\.ts)`\s*→\s*`([^\`]+)`/g,
+  )].map((match) => ({
+    path: match[1],
+    title: match[2],
+  }));
+}
+
+const declaredTestTitlesByPath = new Map();
+
+function getDeclaredTestTitles(path) {
+  if (declaredTestTitlesByPath.has(path)) {
+    return declaredTestTitlesByPath.get(path);
+  }
+
+  const source = readFileSync(path, "utf8");
+  const titles = new Set(
+    [...source.matchAll(
+      /\btest(?:\.fail)?\s*\(\s*["'`]([^"'`]+)["'`]/g,
+    )].map((match) => match[1]),
+  );
+
+  declaredTestTitlesByPath.set(path, titles);
+
+  return titles;
+}
+
 function extractReadmeCount(readme, label) {
   const escaped = escapeRegExp(label);
   const pattern =
@@ -109,13 +137,39 @@ for (const row of rows) {
     fail("неизвестный статус у " + row.id + ": " + row.status);
   }
 
-  if (row.status !== "out of scope" && !row.evidence.includes("tests/")) {
+  const caseRefs = extractTestCaseRefs(row.evidence);
+
+  if (row.status !== "out of scope" && caseRefs.length === 0) {
     fail(
       row.id +
         " имеет статус " +
         row.status +
-        ", но не содержит ссылки на тест",
+        ", но не содержит точную ссылку test-файл → test case",
     );
+  }
+
+  for (const caseRef of caseRefs) {
+    if (!existsSync(caseRef.path)) {
+      fail(
+        row.id +
+          " ссылается на отсутствующий test-файл " +
+          caseRef.path,
+      );
+    }
+
+    const declaredTestTitles = getDeclaredTestTitles(
+      caseRef.path,
+    );
+
+    if (!declaredTestTitles.has(caseRef.title)) {
+      fail(
+        row.id +
+          " ссылается на отсутствующий test(...) / test.fail(...) case \"" +
+          caseRef.title +
+          "\" в " +
+          caseRef.path,
+      );
+    }
   }
 }
 
@@ -134,6 +188,19 @@ for (const id of ids) {
 const referencedTests = new Set(
   [...matrix.matchAll(/`(tests\/[^\`]+\.spec\.ts)`/g)].map(
     (match) => match[1],
+  ),
+);
+
+const concreteCaseRefs = rows.flatMap((row) =>
+  extractTestCaseRefs(row.evidence).map((caseRef) => ({
+    requirementId: row.id,
+    ...caseRef,
+  })),
+);
+
+const uniqueConcreteCaseRefs = new Set(
+  concreteCaseRefs.map(
+    (caseRef) => caseRef.path + "::" + caseRef.title,
   ),
 );
 
@@ -250,6 +317,10 @@ const summary = [
   "| Уникальных test-файлов в матрице | **" +
     referencedTests.size +
     "** |",
+  "| Уникальных точных test-case ссылок | **" +
+    uniqueConcreteCaseRefs.size +
+    "** |",
+  "| Невалидных test-case ссылок | **0** |",
   "| Отсутствующих test-файлов | **0** |",
   "| README ↔ matrix | **синхронизированы** |",
   "",
@@ -265,7 +336,9 @@ console.log(
     "; out of scope=" +
     counts["out of scope"] +
     "; test refs=" +
-    referencedTests.size,
+    referencedTests.size +
+    "; case refs=" +
+    uniqueConcreteCaseRefs.size,
 );
 
 if (summaryMode && process.env.GITHUB_STEP_SUMMARY) {
