@@ -88,6 +88,8 @@ Browser matrix использует `workers=4` внутри каждого job,
 
 Отдельно [Dependabot](.github/dependabot.yml) поддерживает обновления зависимостей. Актуальные запуски, статусы и диагностические artifacts доступны в [GitHub Actions](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions).
 
+Дополнительные security, accessibility, performance, visual, stability и AI checks расширяют инженерный сигнал, но не подменяют функциональную матрицу. Requirement coverage по-прежнему считается только от 50 требований: дополнительная проверка не повышает число `automated`, если она не доказывает конкретное требование.
+
 ### Локальная проверка
 
 Проект использует Node.js 24. Базовый воспроизводимый набор команд:
