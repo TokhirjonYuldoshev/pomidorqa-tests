@@ -29,12 +29,21 @@ test.describe("Профиль: поля, навыки и изоляция дан
       );
     });
 
-    await test.step("Открываем профиль тестового пользователя", async () => {
-      await hostApp.profilePage.goto();
-      await expect(hostApp.profilePage.nameInput).toHaveValue(
-        primaryUser.name,
-      );
-    });
+    await test.step(
+      "Открываем профиль тестового пользователя",
+      async () => {
+        await hostApp.profilePage.goto();
+      },
+    );
+
+    await test.step(
+      "Проверка: Открываем профиль тестового пользователя",
+      async () => {
+        await expect(hostApp.profilePage.nameInput).toHaveValue(
+          primaryUser.name,
+        );
+      },
+    );
   });
 
   test("имя сохраняется после перезагрузки", async ({ hostApp }) => {
@@ -299,12 +308,21 @@ test.describe("Профиль: поля, навыки и изоляция дан
   }) => {
     const skill = `LastSkill-${makeUniqueToken()}`;
 
-    await test.step("Добавляем единственный навык", async () => {
-      await hostApp.profilePage.addSkill(skill, "can_help");
-      await expect(
-        hostApp.profilePage.canHelpSkillItem(skill),
-      ).toBeVisible();
-    });
+    await test.step(
+      "Добавляем единственный навык",
+      async () => {
+        await hostApp.profilePage.addSkill(skill, "can_help");
+      },
+    );
+
+    await test.step(
+      "Проверка: Добавляем единственный навык",
+      async () => {
+        await expect(
+          hostApp.profilePage.canHelpSkillItem(skill),
+        ).toBeVisible();
+      },
+    );
 
     await test.step("Удаляем единственный навык", async () => {
       await hostApp.profilePage.removeSkill(skill);
