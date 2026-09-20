@@ -70,7 +70,7 @@ test.describe("Каталог: восстановление доступност
         },
       );
 
-      const result = await test.step(
+      const firstBookingResult = await test.step(
         "Получаем данные для проверки: Первое бронирование единственного слота успешно",
         async () =>
           firstBookerApp.bookingPage.waitForBookingResult(),
@@ -79,7 +79,7 @@ test.describe("Каталог: восстановление доступност
       await test.step(
         "Проверка: Первое бронирование единственного слота успешно",
         async () => {
-          expect(result.status).toBe("success");
+          expect(firstBookingResult.status).toBe("success");
         },
       );
 
@@ -162,7 +162,7 @@ test.describe("Каталог: восстановление доступност
         },
       );
 
-      const result = await test.step(
+      const secondBookingResult = await test.step(
         "Получаем данные для проверки: Повторное бронирование освобождённого слота успешно",
         async () =>
           secondBookerApp.bookingPage.waitForBookingResult(),
@@ -171,7 +171,7 @@ test.describe("Каталог: восстановление доступност
       await test.step(
         "Проверка: Повторное бронирование освобождённого слота успешно",
         async () => {
-          expect(result.status).toBe("success");
+          expect(secondBookingResult.status).toBe("success");
         },
       );
 
