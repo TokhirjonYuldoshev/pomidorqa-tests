@@ -14,13 +14,23 @@ test.describe("Регистрация: требования MVP", () => {
       await registerUser(app.page, user);
     });
 
-    await test.step("Проверяем автоматически созданный профиль", async () => {
-      await app.profilePage.goto();
-      await expect(app.profilePage.nameInput).toHaveValue(user.name);
-      await expect(app.profilePage.timezoneSelect).toHaveValue(
-        "Europe/Moscow",
-      );
-    });
+    await test.step(
+      "Проверяем автоматически созданный профиль",
+      async () => {
+        await app.profilePage.goto();
+      },
+    );
+
+    await test.step(
+      "Проверка: Проверяем автоматически созданный профиль",
+      async () => {
+        await expect(app.profilePage.nameInput).toHaveValue(user.name);
+        
+        await expect(app.profilePage.timezoneSelect).toHaveValue(
+          "Europe/Moscow",
+        );
+      },
+    );
   });
 
   test("форма блокирует пустые обязательные поля и короткий пароль", async ({
