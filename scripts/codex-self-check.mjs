@@ -3,164 +3,116 @@ import path from "node:path";
 import ts from "typescript";
 
 const root = process.cwd();
-const files = (dir, suffix) =>
+const walk = (dir, suffix) =>
   readdirSync(dir, { withFileTypes: true })
     .flatMap((entry) => {
-      const full = path.join(dir, entry.name);
+      const file = path.join(dir, entry.name);
       return entry.isDirectory()
-        ? files(full, suffix)
+        ? walk(file, suffix)
         : entry.isFile() && entry.name.endsWith(suffix)
-          ? [full]
+          ? [file]
           : [];
     })
     .sort();
 
-const e2e = files(path.join(root, "tests/e2e"), ".spec.ts");
-const pages = files(path.join(root, "tests/pages"), ".ts");
-const violations = [];
-const expectPattern = /\bexpect(?:\.[A-Za-z_$][\w$]*)*\s*\(/;
+const e2e = walk(path.join(root, "tests/e2e"), ".spec.ts");
+const pages = walk(path.join(root, "tests/pages"), ".ts");
+const errors = [];
+const expectRe = /\bexpect(?:\.[\w$]+)*\s*\(/;
 
-function parse(file) {
-  return ts.createSourceFile(
-    file,
-    readFileSync(file, "utf8"),
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TS,
-  );
-}
+const parse = (file, source) =>
+  ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
 
-function callbackBlock(call) {
-  const callback = call.arguments.find(
+function blockOf(call) {
+  const fn = call.arguments.find(
     (arg) => ts.isArrowFunction(arg) || ts.isFunctionExpression(arg),
   );
-  return callback && ts.isBlock(callback.body) ? callback.body : null;
+  return fn && ts.isBlock(fn.body) ? fn.body : null;
 }
 
 function hasStep(node, sourceFile) {
   let found = false;
-  const visit = (current) => {
+  const visit = (child) => {
     if (found) return;
     if (
-      ts.isCallExpression(current) &&
-      current.expression.getText(sourceFile) === "test.step"
+      ts.isCallExpression(child) &&
+      child.expression.getText(sourceFile) === "test.step"
     ) {
       found = true;
       return;
     }
-    ts.forEachChild(current, visit);
+    ts.forEachChild(child, visit);
   };
   visit(node);
   return found;
 }
 
-function add(file, sourceFile, node, rule, message) {
-  const line =
-    sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
-  violations.push(
-    `${path.relative(root, file)}:${line} [${rule}] ${message}`,
-  );
+function add(file, source, index, rule, message) {
+  const line = source.slice(0, index).split("\n").length;
+  errors.push(`${path.relative(root, file)}:${line} [${rule}] ${message}`);
 }
 
 for (const file of e2e) {
-  const sourceFile = parse(file);
-  const relative = path.normalize(path.relative(root, file));
+  const source = readFileSync(file, "utf8");
+  const sourceFile = parse(file, source);
+  const rel = path.normalize(path.relative(root, file));
 
   const visit = (node) => {
     if (ts.isCallExpression(node)) {
-      const callee = node.expression.getText(sourceFile);
+      const call = node.expression.getText(sourceFile);
+      const block = blockOf(node);
 
-      if (callee === "test") {
-        const block = callbackBlock(node);
-        if (block && !hasStep(block, sourceFile)) {
-          add(file, sourceFile, node, "CODEX-4", "test case has no test.step");
-        }
+      if (call === "test" && block && !hasStep(block, sourceFile)) {
+        add(file, source, node.getStart(), "CODEX-4", "test has no test.step");
       }
 
-      if (callee === "test.step") {
-        const block = callbackBlock(node);
-        if (block) {
-          const kinds = block.statements.map((statement) =>
-            expectPattern.test(statement.getText(sourceFile)),
-          );
-          if (kinds.some(Boolean) && kinds.some((value) => !value)) {
-            add(
-              file,
-              sourceFile,
-              node,
-              "CODEX-4",
-              "test.step mixes action/data statements with expect assertions",
-            );
-          }
+      if (call === "test.step" && block) {
+        const kinds = block.statements.map((statement) =>
+          expectRe.test(statement.getText(sourceFile)),
+        );
+        if (kinds.some(Boolean) && kinds.some((value) => !value)) {
+          add(file, source, node.getStart(), "CODEX-4", "mixed action/assertion step");
         }
       }
 
       if (
-        callee === "registerUser" &&
-        !relative.endsWith(path.normalize("tests/e2e/auth-registration.spec.ts"))
+        call === "registerUser" &&
+        !rel.endsWith(path.normalize("tests/e2e/auth-registration.spec.ts"))
       ) {
-        add(
-          file,
-          sourceFile,
-          node,
-          "CODEX-11",
-          "use registerUserViaApi for Arrange outside registration coverage",
-        );
-      }
-
-      if (/\.(getByRole|getByLabel|getByTestId|locator)$/.test(callee)) {
-        add(file, sourceFile, node, "CODEX-1", "direct locator in E2E spec");
-      }
-      if (/\.waitForTimeout$/.test(callee)) {
-        add(file, sourceFile, node, "CODEX-9", "waitForTimeout is forbidden");
-      }
-      if (/\.pause$/.test(callee)) {
-        add(file, sourceFile, node, "CODEX-9", "page.pause is forbidden");
-      }
-      if (/\.newContext$/.test(callee)) {
-        add(file, sourceFile, node, "CODEX-12", "newContext belongs in fixtures/helpers");
-      }
-      if (callee === "test.only" || callee === "test.skip") {
-        add(file, sourceFile, node, "CODEX-9", `${callee} is forbidden`);
+        add(file, source, node.getStart(), "CODEX-11", "use API Arrange");
       }
     }
-
-    if (
-      ts.isPropertyAssignment(node) &&
-      node.name.getText(sourceFile).replaceAll(/['"]/g, "") === "force" &&
-      node.initializer.kind === ts.SyntaxKind.TrueKeyword
-    ) {
-      add(file, sourceFile, node, "CODEX-9", "force: true is forbidden");
-    }
-
     ts.forEachChild(node, visit);
   };
-
   visit(sourceFile);
+
+  const rules = [
+    [/\.(getByRole|getByLabel|getByTestId|locator)\s*\(/g, "CODEX-1", "direct locator"],
+    [/\.waitForTimeout\s*\(/g, "CODEX-9", "waitForTimeout"],
+    [/\.pause\s*\(/g, "CODEX-9", "page.pause"],
+    [/\btest\.(only|skip)\s*\(/g, "CODEX-9", "focused/skipped test"],
+    [/\bforce\s*:\s*true\b/g, "CODEX-9", "force: true"],
+    [/\.newContext\s*\(/g, "CODEX-12", "newContext in spec"],
+  ];
+
+  for (const [re, rule, message] of rules) {
+    for (const match of source.matchAll(re)) {
+      add(file, source, match.index, rule, message);
+    }
+  }
 }
 
 for (const file of pages) {
-  const sourceFile = parse(file);
-  const visit = (node) => {
-    if (
-      ts.isCallExpression(node) &&
-      /^expect(?:\.[A-Za-z_$][\w$]*)*$/.test(
-        node.expression.getText(sourceFile),
-      )
-    ) {
-      add(file, sourceFile, node, "CODEX-2", "expect must not live in Page Objects");
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(sourceFile);
+  const source = readFileSync(file, "utf8");
+  const match = expectRe.exec(source);
+  if (match) add(file, source, match.index, "CODEX-2", "expect in Page Object");
 }
 
-violations.sort();
-
-if (violations.length) {
+errors.sort();
+if (errors.length) {
   console.error(
-    `CODEX self-check failed with ${violations.length} violation(s):\n${violations
-      .map((item) => `- ${item}`)
+    `CODEX self-check failed (${errors.length}):\n${errors
+      .map((error) => `- ${error}`)
       .join("\n")}`,
   );
   process.exit(1);
