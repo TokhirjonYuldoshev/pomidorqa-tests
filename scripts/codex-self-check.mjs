@@ -4,24 +4,20 @@ import ts from "typescript";
 
 const root = process.cwd();
 const walk = (dir, suffix) =>
-  readdirSync(dir, { withFileTypes: true })
-    .flatMap((entry) => {
-      const file = path.join(dir, entry.name);
-      return entry.isDirectory()
-        ? walk(file, suffix)
-        : entry.isFile() && entry.name.endsWith(suffix)
-          ? [file]
-          : [];
-    })
-    .sort();
+  readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const file = path.join(dir, entry.name);
+    return entry.isDirectory()
+      ? walk(file, suffix)
+      : entry.isFile() && entry.name.endsWith(suffix)
+        ? [file]
+        : [];
+  });
 
-const e2e = walk(path.join(root, "tests/e2e"), ".spec.ts");
-const pages = walk(path.join(root, "tests/pages"), ".ts");
+const e2e = walk(path.join(root, "tests/e2e"), ".spec.ts").sort();
 const errors = [];
 const expectRe = /\bexpect(?:\.[\w$]+)*\s*\(/;
-
-const parse = (file, source) =>
-  ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+const add = (file, rule, message) =>
+  errors.push(`${path.relative(root, file)} [${rule}] ${message}`);
 
 function blockOf(call) {
   const fn = call.arguments.find(
@@ -30,40 +26,28 @@ function blockOf(call) {
   return fn && ts.isBlock(fn.body) ? fn.body : null;
 }
 
-function hasStep(node, sourceFile) {
-  let found = false;
-  const visit = (child) => {
-    if (found) return;
-    if (
-      ts.isCallExpression(child) &&
-      child.expression.getText(sourceFile) === "test.step"
-    ) {
-      found = true;
-      return;
-    }
-    ts.forEachChild(child, visit);
-  };
-  visit(node);
-  return found;
-}
-
-function add(file, source, index, rule, message) {
-  const line = source.slice(0, index).split("\n").length;
-  errors.push(`${path.relative(root, file)}:${line} [${rule}] ${message}`);
-}
-
 for (const file of e2e) {
   const source = readFileSync(file, "utf8");
-  const sourceFile = parse(file, source);
-  const rel = path.normalize(path.relative(root, file));
+  const sourceFile = ts.createSourceFile(
+    file,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+  const relative = path.normalize(path.relative(root, file));
 
   const visit = (node) => {
     if (ts.isCallExpression(node)) {
       const call = node.expression.getText(sourceFile);
       const block = blockOf(node);
 
-      if (call === "test" && block && !hasStep(block, sourceFile)) {
-        add(file, source, node.getStart(), "CODEX-4", "test has no test.step");
+      if (
+        call === "test" &&
+        block &&
+        !block.getText(sourceFile).includes("test.step(")
+      ) {
+        add(file, "CODEX-4", "test has no test.step");
       }
 
       if (call === "test.step" && block) {
@@ -71,15 +55,15 @@ for (const file of e2e) {
           expectRe.test(statement.getText(sourceFile)),
         );
         if (kinds.some(Boolean) && kinds.some((value) => !value)) {
-          add(file, source, node.getStart(), "CODEX-4", "mixed action/assertion step");
+          add(file, "CODEX-4", "mixed action/assertion step");
         }
       }
 
       if (
         call === "registerUser" &&
-        !rel.endsWith(path.normalize("tests/e2e/auth-registration.spec.ts"))
+        !relative.endsWith(path.normalize("tests/e2e/auth-registration.spec.ts"))
       ) {
-        add(file, source, node.getStart(), "CODEX-11", "use API Arrange");
+        add(file, "CODEX-11", "use API Arrange");
       }
     }
     ts.forEachChild(node, visit);
@@ -87,25 +71,22 @@ for (const file of e2e) {
   visit(sourceFile);
 
   const rules = [
-    [/\.(getByRole|getByLabel|getByTestId|locator)\s*\(/g, "CODEX-1", "direct locator"],
-    [/\.waitForTimeout\s*\(/g, "CODEX-9", "waitForTimeout"],
-    [/\.pause\s*\(/g, "CODEX-9", "page.pause"],
-    [/\btest\.(only|skip)\s*\(/g, "CODEX-9", "focused/skipped test"],
-    [/\bforce\s*:\s*true\b/g, "CODEX-9", "force: true"],
-    [/\.newContext\s*\(/g, "CODEX-12", "newContext in spec"],
+    [/\.(getByRole|getByLabel|getByTestId|locator)\s*\(/g, "CODEX-1"],
+    [/\.waitForTimeout\s*\(/g, "CODEX-9"],
+    [/\.pause\s*\(/g, "CODEX-9"],
+    [/\btest\.(only|skip)\s*\(/g, "CODEX-9"],
+    [/\bforce\s*:\s*true\b/g, "CODEX-9"],
+    [/\.newContext\s*\(/g, "CODEX-12"],
   ];
-
-  for (const [re, rule, message] of rules) {
-    for (const match of source.matchAll(re)) {
-      add(file, source, match.index, rule, message);
-    }
+  for (const [pattern, rule] of rules) {
+    if (pattern.test(source)) add(file, rule, pattern.source);
   }
 }
 
-for (const file of pages) {
-  const source = readFileSync(file, "utf8");
-  const match = expectRe.exec(source);
-  if (match) add(file, source, match.index, "CODEX-2", "expect in Page Object");
+for (const file of walk(path.join(root, "tests/pages"), ".ts")) {
+  if (expectRe.test(readFileSync(file, "utf8"))) {
+    add(file, "CODEX-2", "expect in Page Object");
+  }
 }
 
 errors.sort();
