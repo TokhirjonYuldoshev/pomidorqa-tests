@@ -3,305 +3,169 @@ import path from "node:path";
 import ts from "typescript";
 
 const root = process.cwd();
-const e2eDir = path.join(root, "tests", "e2e");
-const pagesDir = path.join(root, "tests", "pages");
-const allowedUiRegistrationSpecs = new Set([
-  path.normalize(path.join("tests", "e2e", "auth-registration.spec.ts")),
-]);
-
-function listFiles(dir, suffix) {
-  return readdirSync(dir, { withFileTypes: true })
+const files = (dir, suffix) =>
+  readdirSync(dir, { withFileTypes: true })
     .flatMap((entry) => {
-      const absolute = path.join(dir, entry.name);
-
-      if (entry.isDirectory()) {
-        return listFiles(absolute, suffix);
-      }
-
-      return entry.isFile() && entry.name.endsWith(suffix)
-        ? [absolute]
-        : [];
+      const full = path.join(dir, entry.name);
+      return entry.isDirectory()
+        ? files(full, suffix)
+        : entry.isFile() && entry.name.endsWith(suffix)
+          ? [full]
+          : [];
     })
     .sort();
-}
 
-function relative(file) {
-  return path.normalize(path.relative(root, file));
-}
+const e2e = files(path.join(root, "tests/e2e"), ".spec.ts");
+const pages = files(path.join(root, "tests/pages"), ".ts");
+const violations = [];
+const expectPattern = /\bexpect(?:\.[A-Za-z_$][\w$]*)*\s*\(/;
 
-function lineOf(sourceFile, node) {
-  return sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
-}
-
-function isTestStepCall(node) {
-  return (
-    ts.isCallExpression(node) &&
-    ts.isPropertyAccessExpression(node.expression) &&
-    node.expression.name.text === "step" &&
-    ts.isIdentifier(node.expression.expression) &&
-    node.expression.expression.text === "test"
-  );
-}
-
-function isTestCaseCall(node) {
-  return (
-    ts.isCallExpression(node) &&
-    ts.isIdentifier(node.expression) &&
-    node.expression.text === "test"
+function parse(file) {
+  return ts.createSourceFile(
+    file,
+    readFileSync(file, "utf8"),
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
   );
 }
 
 function callbackBlock(call) {
   const callback = call.arguments.find(
-    (argument) =>
-      ts.isArrowFunction(argument) ||
-      ts.isFunctionExpression(argument),
+    (arg) => ts.isArrowFunction(arg) || ts.isFunctionExpression(arg),
   );
-
   return callback && ts.isBlock(callback.body) ? callback.body : null;
 }
 
-function containsTestStep(node) {
+function hasStep(node, sourceFile) {
   let found = false;
-
-  function visit(current) {
-    if (found) {
-      return;
-    }
-
-    if (isTestStepCall(current)) {
+  const visit = (current) => {
+    if (found) return;
+    if (
+      ts.isCallExpression(current) &&
+      current.expression.getText(sourceFile) === "test.step"
+    ) {
       found = true;
       return;
     }
-
     ts.forEachChild(current, visit);
-  }
-
+  };
   visit(node);
   return found;
 }
 
-function statementHasExpect(statement, sourceFile) {
-  return /\bexpect(?:\.[A-Za-z_$][\w$]*)*\s*\(/.test(
-    statement.getText(sourceFile),
+function add(file, sourceFile, node, rule, message) {
+  const line =
+    sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile)).line + 1;
+  violations.push(
+    `${path.relative(root, file)}:${line} [${rule}] ${message}`,
   );
 }
 
-const violations = [];
+for (const file of e2e) {
+  const sourceFile = parse(file);
+  const relative = path.normalize(path.relative(root, file));
 
-function report(file, sourceFile, node, rule, message) {
-  violations.push({
-    file: relative(file),
-    line: lineOf(sourceFile, node),
-    rule,
-    message,
-  });
-}
+  const visit = (node) => {
+    if (ts.isCallExpression(node)) {
+      const callee = node.expression.getText(sourceFile);
 
-for (const file of listFiles(e2eDir, ".spec.ts")) {
-  const source = readFileSync(file, "utf8");
-  const sourceFile = ts.createSourceFile(
-    file,
-    source,
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TS,
-  );
-  const relativeFile = relative(file);
-
-  function visit(node) {
-    if (isTestCaseCall(node)) {
-      const block = callbackBlock(node);
-
-      if (block && !containsTestStep(block)) {
-        report(
-          file,
-          sourceFile,
-          node,
-          "CODEX-4",
-          "test case has no test.step",
-        );
-      }
-    }
-
-    if (isTestStepCall(node)) {
-      const block = callbackBlock(node);
-
-      if (block) {
-        const statements = [...block.statements];
-        const hasExpect = statements.some((statement) =>
-          statementHasExpect(statement, sourceFile),
-        );
-        const hasNonExpect = statements.some(
-          (statement) => !statementHasExpect(statement, sourceFile),
-        );
-
-        if (hasExpect && hasNonExpect) {
-          report(
-            file,
-            sourceFile,
-            node,
-            "CODEX-4",
-            "test.step mixes action/data statements with expect assertions",
-          );
+      if (callee === "test") {
+        const block = callbackBlock(node);
+        if (block && !hasStep(block, sourceFile)) {
+          add(file, sourceFile, node, "CODEX-4", "test case has no test.step");
         }
       }
-    }
 
-    if (ts.isCallExpression(node)) {
+      if (callee === "test.step") {
+        const block = callbackBlock(node);
+        if (block) {
+          const kinds = block.statements.map((statement) =>
+            expectPattern.test(statement.getText(sourceFile)),
+          );
+          if (kinds.some(Boolean) && kinds.some((value) => !value)) {
+            add(
+              file,
+              sourceFile,
+              node,
+              "CODEX-4",
+              "test.step mixes action/data statements with expect assertions",
+            );
+          }
+        }
+      }
+
       if (
-        ts.isIdentifier(node.expression) &&
-        node.expression.text === "registerUser" &&
-        !allowedUiRegistrationSpecs.has(relativeFile)
+        callee === "registerUser" &&
+        !relative.endsWith(path.normalize("tests/e2e/auth-registration.spec.ts"))
       ) {
-        report(
+        add(
           file,
           sourceFile,
           node,
           "CODEX-11",
-          "UI registration is only allowed when registration itself is under test; use registerUserViaApi for Arrange",
+          "use registerUserViaApi for Arrange outside registration coverage",
         );
       }
 
-      if (ts.isPropertyAccessExpression(node.expression)) {
-        const method = node.expression.name.text;
-
-        if (
-          new Set([
-            "getByRole",
-            "getByLabel",
-            "getByTestId",
-            "locator",
-          ]).has(method)
-        ) {
-          report(
-            file,
-            sourceFile,
-            node,
-            "CODEX-1",
-            `direct ${method} locator call in E2E spec; keep locators in Page Objects`,
-          );
-        }
-
-        if (method === "waitForTimeout") {
-          report(
-            file,
-            sourceFile,
-            node,
-            "CODEX-9",
-            "waitForTimeout is forbidden",
-          );
-        }
-
-        if (method === "pause") {
-          report(
-            file,
-            sourceFile,
-            node,
-            "CODEX-9",
-            "page.pause is forbidden",
-          );
-        }
-
-        if (method === "newContext") {
-          report(
-            file,
-            sourceFile,
-            node,
-            "CODEX-12",
-            "BrowserContext must be owned by project fixtures/helpers, not created directly in E2E specs",
-          );
-        }
-
-        if (
-          ts.isIdentifier(node.expression.expression) &&
-          node.expression.expression.text === "test" &&
-          (method === "only" || method === "skip")
-        ) {
-          report(
-            file,
-            sourceFile,
-            node,
-            "CODEX-9",
-            `test.${method} is forbidden`,
-          );
-        }
+      if (/\.(getByRole|getByLabel|getByTestId|locator)$/.test(callee)) {
+        add(file, sourceFile, node, "CODEX-1", "direct locator in E2E spec");
+      }
+      if (/\.waitForTimeout$/.test(callee)) {
+        add(file, sourceFile, node, "CODEX-9", "waitForTimeout is forbidden");
+      }
+      if (/\.pause$/.test(callee)) {
+        add(file, sourceFile, node, "CODEX-9", "page.pause is forbidden");
+      }
+      if (/\.newContext$/.test(callee)) {
+        add(file, sourceFile, node, "CODEX-12", "newContext belongs in fixtures/helpers");
+      }
+      if (callee === "test.only" || callee === "test.skip") {
+        add(file, sourceFile, node, "CODEX-9", `${callee} is forbidden`);
       }
     }
 
     if (
       ts.isPropertyAssignment(node) &&
-      ((ts.isIdentifier(node.name) && node.name.text === "force") ||
-        (ts.isStringLiteral(node.name) && node.name.text === "force")) &&
+      node.name.getText(sourceFile).replaceAll(/['"]/g, "") === "force" &&
       node.initializer.kind === ts.SyntaxKind.TrueKeyword
     ) {
-      report(
-        file,
-        sourceFile,
-        node,
-        "CODEX-9",
-        "force: true is forbidden",
-      );
+      add(file, sourceFile, node, "CODEX-9", "force: true is forbidden");
     }
 
     ts.forEachChild(node, visit);
-  }
+  };
 
   visit(sourceFile);
 }
 
-for (const file of listFiles(pagesDir, ".ts")) {
-  const source = readFileSync(file, "utf8");
-  const sourceFile = ts.createSourceFile(
-    file,
-    source,
-    ts.ScriptTarget.Latest,
-    true,
-    ts.ScriptKind.TS,
-  );
-
-  function visit(node) {
+for (const file of pages) {
+  const sourceFile = parse(file);
+  const visit = (node) => {
     if (
       ts.isCallExpression(node) &&
-      ts.isIdentifier(node.expression) &&
-      node.expression.text === "expect"
+      /^expect(?:\.[A-Za-z_$][\w$]*)*$/.test(
+        node.expression.getText(sourceFile),
+      )
     ) {
-      report(
-        file,
-        sourceFile,
-        node,
-        "CODEX-2",
-        "expect must stay in specs/helpers; Page Objects expose state and actions",
-      );
+      add(file, sourceFile, node, "CODEX-2", "expect must not live in Page Objects");
     }
-
     ts.forEachChild(node, visit);
-  }
-
+  };
   visit(sourceFile);
 }
 
-violations.sort(
-  (left, right) =>
-    left.file.localeCompare(right.file) ||
-    left.line - right.line ||
-    left.rule.localeCompare(right.rule),
-);
+violations.sort();
 
-if (violations.length > 0) {
+if (violations.length) {
   console.error(
-    `CODEX self-check failed with ${violations.length} violation(s):`,
+    `CODEX self-check failed with ${violations.length} violation(s):\n${violations
+      .map((item) => `- ${item}`)
+      .join("\n")}`,
   );
-
-  for (const violation of violations) {
-    console.error(
-      `- ${violation.file}:${violation.line} [${violation.rule}] ${violation.message}`,
-    );
-  }
-
   process.exit(1);
 }
 
 console.log(
-  `CODEX self-check passed: ${listFiles(e2eDir, ".spec.ts").length} E2E specs; mixed steps=0; forbidden constructs=0; UI registration scoped to registration coverage`,
+  `CODEX self-check passed: ${e2e.length} E2E specs; mixed steps=0; forbidden constructs=0; UI registration scoped to registration coverage`,
 );
