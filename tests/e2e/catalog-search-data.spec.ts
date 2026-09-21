@@ -192,7 +192,7 @@ test.describe("Каталог: данные и фильтрация", () => {
     },
   );
 
-  test.fail(
+  test(
     "поиск не должен находить участника только по навыку хочу разобрать",
     async ({ appFactory }) => {
       const runId = makeRunId("skill-type-known-defect");
@@ -266,11 +266,22 @@ test.describe("Каталог: данные и фильтрация", () => {
       );
 
       await test.step(
-        "Проверка: want_to_learn участник не попадает в стабильную выдачу",
+        "Контроль: can_help участник присутствует в стабильной выдаче",
         async () => {
           await expect(
             guestApp.bookingPage.personCard(control.name),
           ).toHaveCount(1);
+        },
+      );
+
+      test.fail(
+        true,
+        "R8.3: продукт ошибочно учитывает want_to_learn при поиске каталога",
+      );
+
+      await test.step(
+        "R8.3: want_to_learn участник не попадает в стабильную выдачу",
+        async () => {
           await expect(
             guestApp.bookingPage.personCard(host.name),
           ).toHaveCount(0);
