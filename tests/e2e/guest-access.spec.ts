@@ -50,11 +50,28 @@ test.describe("Гостевой доступ", () => {
       await guestApp.bookingPage.confirmBooking();
     });
 
-    await test.step("Сервис требует авторизацию и не создаёт бронь", async () => {
+    await test.step("Сервис требует авторизацию", async () => {
       await expect(guestApp.bookingPage.confirmError).toContainText(
         "Нужно войти в аккаунт PomidorQA",
       );
       await expect(guestApp.bookingPage.confirmSuccess).toHaveCount(0);
     });
+
+    await test.step(
+      "После отказа слот остаётся свободным и доступным для бронирования",
+      async () => {
+        await guestApp.page.reload();
+
+        await expect(
+          guestApp.bookingPage.availableDayButtons,
+        ).toHaveCount(1);
+
+        await guestApp.bookingPage.openFirstAvailableDay();
+
+        await expect(
+          guestApp.bookingPage.availableTimeButton("17:00"),
+        ).toBeVisible();
+      },
+    );
   });
 });

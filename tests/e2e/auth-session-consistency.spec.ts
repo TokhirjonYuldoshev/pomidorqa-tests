@@ -23,7 +23,6 @@ async function loginUser(
 
   await authPage.gotoLogin();
   await authPage.login(user.email, user.password);
-  await expect(app.page).toHaveURL(CATALOG_URL);
 }
 
 test.describe("Согласованность авторизованной сессии", () => {
@@ -43,6 +42,13 @@ test.describe("Согласованность авторизованной се�
             user,
           );
           await loginUser(sessionApp, user);
+        },
+      );
+
+      await test.step(
+        "Проверка: первая вкладка авторизована",
+        async () => {
+          await expect(sessionApp.page).toHaveURL(CATALOG_URL);
         },
       );
 
@@ -87,6 +93,13 @@ test.describe("Согласованность авторизованной се�
             user,
           );
           await loginUser(sessionApp, user);
+        },
+      );
+
+      await test.step(
+        "Проверка: первая вкладка авторизована перед logout",
+        async () => {
+          await expect(sessionApp.page).toHaveURL(CATALOG_URL);
         },
       );
 
@@ -168,16 +181,28 @@ test.describe("Согласованность авторизованной се�
       );
 
       await test.step(
-        "Первый пользователь входит и видит собственный профиль",
+        "Первый пользователь входит в аккаунт",
         async () => {
           await loginUser(sessionApp, userOne);
-          
+        },
+      );
+
+      await test.step(
+        "Проверка: первый пользователь авторизован",
+        async () => {
+          await expect(sessionApp.page).toHaveURL(CATALOG_URL);
+        },
+      );
+
+      await test.step(
+        "Первый пользователь открывает собственный профиль",
+        async () => {
           await sessionApp.profilePage.goto();
         },
       );
 
       await test.step(
-        "Проверка: Первый пользователь входит и видит собственный профиль",
+        "Проверка: профиль принадлежит первому пользователю",
         async () => {
           await expect(
             sessionApp.profilePage.nameInput,

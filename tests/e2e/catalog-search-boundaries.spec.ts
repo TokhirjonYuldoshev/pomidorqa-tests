@@ -42,7 +42,7 @@ async function catalogCount(
 test.describe("Каталог: дополнительные граничные сценарии", () => {
   test.describe.configure({ timeout: TEST_TIMEOUT });
 
-  test.fail(
+  test(
     "каталог учитывает общий тег только у can_help",
     async ({ appFactory }) => {
       const runId = makeRunId("mixed-skill-types-known-defect");
@@ -81,14 +81,29 @@ test.describe("Каталог: дополнительные граничные �
       });
 
       await test.step(
-        "В выдаче есть can_help и нет want_to_learn",
+        "Контроль: can_help участник присутствует в выдаче",
         async () => {
           await expect(
             guestApp.bookingPage.personCard(helper.name),
           ).toHaveCount(1);
-          await expect(
-            guestApp.bookingPage.personCard(learner.name),
-          ).toHaveCount(0);
+        },
+      );
+
+      const learnerCount = await test.step(
+        "Считываем стабильную выдачу want_to_learn участника",
+        async () =>
+          guestApp.bookingPage.personCard(learner.name).count(),
+      );
+
+      test.fail(
+        true,
+        "R8.3: продукт ошибочно учитывает want_to_learn при поиске каталога",
+      );
+
+      await test.step(
+        "R8.3: want_to_learn участник отсутствует в выдаче",
+        async () => {
+          expect(learnerCount).toBe(0);
         },
       );
     },
