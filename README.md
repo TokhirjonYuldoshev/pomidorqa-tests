@@ -11,7 +11,16 @@
 [![Registration Contract Smoke](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/registration-contract-smoke.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/registration-contract-smoke.yml)
 [![Telegram Notification Test](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/telegram-test.yml/badge.svg)](https://github.com/TokhirjonYuldoshev/pomidorqa-tests/actions/workflows/telegram-test.yml)
 
-Инженерный проект по автоматизации тестирования сервиса **PomidorQA** на **Playwright + TypeScript**. Основной фокус — качество тестового сигнала: проверяемые требования, изоляция данных, воспроизводимые ошибки, cross-browser регрессия, прозрачная диагностика и независимые quality gates.
+## О сервисе PomidorQA
+
+**PomidorQA** — веб-приложение для организации коротких встреч между QA/IT-специалистами.
+
+Пользователи могут создавать профиль, указывать навыки, которыми готовы поделиться (`can_help`), и темы, которые хотят изучить (`want_to_learn`), находить других участников, создавать доступные временные слоты и бронировать встречи.
+
+Этот репозиторий содержит автоматизированную проверку ключевых пользовательских и бизнес-сценариев сервиса: регистрации и авторизации, работы профиля, навыков, каталога, слотов, бронирований, отмены встреч и связанных правил доступа.
+
+Цель автоматизации — обеспечить воспроизводимый тестовый сигнал: связь требований с тестами, изоляцию данных, диагностику ошибок, cross-browser проверку и автоматические quality gates.
+
 
 ## Ключевые результаты
 
