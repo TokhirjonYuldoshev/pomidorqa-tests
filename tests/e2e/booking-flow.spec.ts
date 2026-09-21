@@ -126,7 +126,8 @@ test.describe("Бронирование встречи", () => {
           expect(
             [guestResult.status, guest2Result.status].sort(),
           ).toEqual(["error", "success"]);
-          expect(rejectedMessage).toMatch(/выбер|друг/i);
+          expect(rejectedMessage).toMatch(/выбер/i);
+          expect(rejectedMessage).toMatch(/друг/i);
         },
       );
 
