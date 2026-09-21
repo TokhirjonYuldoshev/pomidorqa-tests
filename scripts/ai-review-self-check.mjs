@@ -57,13 +57,17 @@ function checkDeterministicPolicy() {
         },
         {
           line: 13,
+          text: "test.skip('disabled', async () => {});",
+        },
+        {
+          line: 14,
           text: "await page.pause();",
         },
       ],
     },
   ]);
 
-  assert.equal(findings.length, 4);
+  assert.equal(findings.length, 5);
   assert.ok(
     findings.every(
       (finding) =>
