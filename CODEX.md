@@ -106,7 +106,7 @@ test.describe("Профиль")                    // страница / фич�
 
 ## 9. Ждать и проверять
 
-Нет `waitForTimeout`. Нет `{ force: true }`. Нет `.only` и `page.pause()`.
+Нет `waitForTimeout`. Нет `{ force: true }`. Нет `.only`, `.skip` и `page.pause()`.
 
 `fill("Новое имя")` и сразу `toHaveValue` — проверка самого fill. Имя с сервера видно после reload. До reload дождись POST.
 
