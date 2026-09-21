@@ -12,7 +12,7 @@ export type BookingResult =
 export class BookingPage {
   private readonly catalogFilterInput: Locator;
   private readonly catalogFilterButton: Locator;
-  private readonly bookingsSection: Locator;
+  readonly bookingsSection: Locator;
   private readonly upcomingBookings: Locator;
   private readonly pastMeetingsSection: Locator;
   private readonly pastBookings: Locator;
