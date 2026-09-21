@@ -113,29 +113,20 @@ test.describe("Бронирование встречи", () => {
           ]),
       );
 
+      const rejectedMessage =
+        guestResult.status === "error"
+          ? guestResult.message
+          : guest2Result.status === "error"
+            ? guest2Result.message
+            : "";
+
       await test.step(
         "Ровно одна бронь подтверждена, вторая отклонена с предложением выбрать другой слот",
         async () => {
           expect(
             [guestResult.status, guest2Result.status].sort(),
           ).toEqual(["error", "success"]);
-
-          const rejectedResult =
-            guestResult.status === "error"
-              ? guestResult
-              : guest2Result;
-
-          expect(rejectedResult.status).toBe("error");
-
-          if (rejectedResult.status !== "error") {
-            throw new Error(
-              "Конкурентное бронирование не вернуло ожидаемую ошибку проигравшему участнику",
-            );
-          }
-
-          expect(rejectedResult.message).toMatch(
-            /выбер|друг/i,
-          );
+          expect(rejectedMessage).toMatch(/выбер|друг/i);
         },
       );
 
@@ -175,8 +166,12 @@ test.describe("Бронирование встречи", () => {
       );
 
       await test.step(
-        "У проигравшего встреча с хостом не создана",
+        "У проигравшего страница встреч загрузилась без брони с хостом",
         async () => {
+          await expect(
+            loser.app.bookingPage.bookingsSection,
+          ).toBeVisible();
+
           await expect(
             loser.app.bookingPage.upcomingBookingByParticipant(
               host.name,
