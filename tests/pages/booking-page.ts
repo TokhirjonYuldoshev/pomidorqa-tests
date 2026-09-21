@@ -83,7 +83,7 @@ export class BookingPage {
     timeoutMs = 30_000,
   ): Promise<void> {
     const deadline = Date.now() + timeoutMs;
-    const personCard = this.personCard(name);
+    const personCard = this.personCard(name).filter({ hasText: skillTag });
     let reloadCount = 0;
 
     while (Date.now() < deadline) {
