@@ -22,6 +22,23 @@ export class AuthPage {
   async login(email: string, password: string): Promise<void> {
     await this.emailInput.fill(email);
     await this.passwordInput.fill(password);
-    await this.loginButton.click();
+
+    const loginResponse = this.page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === ROUTES.login &&
+        response.request().method() === "POST",
+      { timeout: 15_000 },
+    );
+
+    const [response] = await Promise.all([
+      loginResponse,
+      this.loginButton.click(),
+    ]);
+
+    if (response.status() >= 400) {
+      throw new Error(
+        `Вход завершился с HTTP ${response.status()} ${response.statusText()}`,
+      );
+    }
   }
 }
