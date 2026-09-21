@@ -230,7 +230,18 @@ export class BookingPage {
       timeout,
     });
 
-    if (await this.confirmSuccess.isVisible().catch(() => false)) {
+    const [successVisible, errorVisible] = await Promise.all([
+      this.confirmSuccess.isVisible().catch(() => false),
+      this.confirmError.isVisible().catch(() => false),
+    ]);
+
+    if (successVisible === errorVisible) {
+      throw new Error(
+        "Результат бронирования неоднозначен: success и error должны быть взаимоисключающими",
+      );
+    }
+
+    if (successVisible) {
       return { status: "success" };
     }
 
