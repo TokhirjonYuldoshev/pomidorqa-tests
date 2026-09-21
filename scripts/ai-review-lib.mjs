@@ -115,6 +115,14 @@ const DETERMINISTIC_RULES = [
       "Кодекс 9 запрещает .only: он исключает часть набора из обычного прогона и делает сигнал CI неполным.",
   },
   {
+    pattern: /\b(?:test|describe)\.skip\s*\(/,
+    rule: "9",
+    priority: "P2",
+    title: "Оставлен .skip",
+    body:
+      "Кодекс 9 запрещает .skip: готовый набор не должен скрывать сценарии от обычного прогона.",
+  },
+  {
     pattern: /\bpage\.pause\s*\(/,
     rule: "9",
     priority: "P2",
