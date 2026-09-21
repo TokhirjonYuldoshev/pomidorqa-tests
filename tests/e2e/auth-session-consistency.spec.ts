@@ -23,7 +23,6 @@ async function loginUser(
 
   await authPage.gotoLogin();
   await authPage.login(user.email, user.password);
-  await expect(app.page).toHaveURL(CATALOG_URL);
 }
 
 test.describe("Согласованность авторизованной сессии", () => {
@@ -43,6 +42,13 @@ test.describe("Согласованность авторизованной се�
             user,
           );
           await loginUser(sessionApp, user);
+        },
+      );
+
+      await test.step(
+        "Проверка: первая вкладка авторизована",
+        async () => {
+          await expect(sessionApp.page).toHaveURL(CATALOG_URL);
         },
       );
 
@@ -87,6 +93,13 @@ test.describe("Согласованность авторизованной се�
             user,
           );
           await loginUser(sessionApp, user);
+        },
+      );
+
+      await test.step(
+        "Проверка: первая вкладка авторизована перед logout",
+        async () => {
+          await expect(sessionApp.page).toHaveURL(CATALOG_URL);
         },
       );
 
