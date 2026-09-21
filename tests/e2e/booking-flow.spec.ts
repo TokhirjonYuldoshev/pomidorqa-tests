@@ -95,90 +95,117 @@ test.describe("Бронирование встречи", () => {
       );
 
       await test.step(
-        "Гость: подтверждает первым",
+        "Оба гостя одновременно подтверждают один слот",
         async () => {
-          await guestApp.bookingPage.confirmBooking();
+          await Promise.all([
+            guestApp.bookingPage.confirmBooking(),
+            guest2App.bookingPage.confirmBooking(),
+          ]);
+        },
+      );
+
+      const [guestResult, guest2Result] = await test.step(
+        "Получаем независимые результаты конкурентного бронирования",
+        async () =>
+          Promise.all([
+            guestApp.bookingPage.waitForBookingResult(),
+            guest2App.bookingPage.waitForBookingResult(),
+          ]),
+      );
+
+      await test.step(
+        "Ровно одна бронь подтверждена, вторая отклонена с предложением выбрать другой слот",
+        async () => {
+          expect(
+            [guestResult.status, guest2Result.status].sort(),
+          ).toEqual(["error", "success"]);
+
+          const rejectedResult =
+            guestResult.status === "error"
+              ? guestResult
+              : guest2Result;
+
+          expect(rejectedResult.status).toBe("error");
+
+          if (rejectedResult.status !== "error") {
+            throw new Error(
+              "Конкурентное бронирование не вернуло ожидаемую ошибку проигравшему участнику",
+            );
+          }
+
+          expect(rejectedResult.message).toMatch(
+            /выбер|друг/i,
+          );
+        },
+      );
+
+      const winner =
+        guestResult.status === "success"
+          ? { app: guestApp, user: guest }
+          : { app: guest2App, user: guest2 };
+
+      const loser =
+        guestResult.status === "error"
+          ? { app: guestApp, user: guest }
+          : { app: guest2App, user: guest2 };
+
+      await test.step(
+        "Победитель гонки открывает свои встречи",
+        async () => {
+          await winner.app.bookingPage.goToBookings();
         },
       );
 
       await test.step(
-        "Первое бронирование успешно",
+        "У победителя есть ровно одна встреча с хостом",
         async () => {
           await expect(
-            guestApp.bookingPage.confirmSuccess.or(
-              guestApp.bookingPage.confirmError,
-            ),
-          ).toBeVisible({
-            timeout: 15_000,
-          });
-
-          await expect(
-            guestApp.bookingPage.confirmSuccess,
-          ).toBeVisible();
-        },
-      );
-
-      await test.step(
-        "Гость2: подтверждает тот же слот вторым",
-        async () => {
-          await guest2App.bookingPage.confirmBooking();
-        },
-      );
-
-      await test.step(
-        "Второе бронирование отклонено",
-        async () => {
-          await expect(
-            guest2App.bookingPage.confirmSuccess.or(
-              guest2App.bookingPage.confirmError,
-            ),
-          ).toBeVisible({
-            timeout: 15_000,
-          });
-
-          await expect(
-            guest2App.bookingPage.confirmError,
-          ).toBeVisible();
-        },
-      );
-
-      await test.step(
-        "Гость: открывает свои встречи",
-        async () => {
-          await guestApp.bookingPage.goToBookings();
-        },
-      );
-
-      await test.step(
-        "Гость видит встречу с хостом",
-        async () => {
-          await expect(
-            guestApp.bookingPage.upcomingBookingByParticipant(
+            winner.app.bookingPage.upcomingBookingByParticipant(
               host.name,
             ),
-          ).toBeVisible({
-            timeout: 10_000,
-          });
+          ).toHaveCount(1);
         },
       );
 
       await test.step(
-        "Хост: открывает свои встречи",
+        "Проигравший гонку открывает свои встречи",
+        async () => {
+          await loser.app.bookingPage.goToBookings();
+        },
+      );
+
+      await test.step(
+        "У проигравшего встреча с хостом не создана",
+        async () => {
+          await expect(
+            loser.app.bookingPage.upcomingBookingByParticipant(
+              host.name,
+            ),
+          ).toHaveCount(0);
+        },
+      );
+
+      await test.step(
+        "Хост открывает свои встречи",
         async () => {
           await hostApp.bookingPage.goToBookings();
         },
       );
 
       await test.step(
-        "Хост видит встречу с первым гостем",
+        "У хоста есть встреча только с победителем гонки",
         async () => {
           await expect(
             hostApp.bookingPage.upcomingBookingByParticipant(
-              guest.name,
+              winner.user.name,
             ),
-          ).toBeVisible({
-            timeout: 10_000,
-          });
+          ).toHaveCount(1);
+
+          await expect(
+            hostApp.bookingPage.upcomingBookingByParticipant(
+              loser.user.name,
+            ),
+          ).toHaveCount(0);
         },
       );
     },
