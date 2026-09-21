@@ -89,6 +89,12 @@ test.describe("Каталог: дополнительные граничные �
         },
       );
 
+      const learnerCount = await test.step(
+        "Считываем стабильную выдачу want_to_learn участника",
+        async () =>
+          guestApp.bookingPage.personCard(learner.name).count(),
+      );
+
       test.fail(
         true,
         "R8.3: продукт ошибочно учитывает want_to_learn при поиске каталога",
@@ -97,9 +103,7 @@ test.describe("Каталог: дополнительные граничные �
       await test.step(
         "R8.3: want_to_learn участник отсутствует в выдаче",
         async () => {
-          await expect(
-            guestApp.bookingPage.personCard(learner.name),
-          ).toHaveCount(0);
+          expect(learnerCount).toBe(0);
         },
       );
     },
